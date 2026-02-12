@@ -1,0 +1,175 @@
+// This is your Prisma schema file
+// Learn more at: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String?
+  avatar        String?
+  bio           String?
+  verified      Boolean   @default(false)
+  role          Role      @default(USER)
+  level         Int       @default(1)
+  points        Int       @default(0)
+  interests     String[]
+
+  listings      Listing[]
+  bookings      Booking[]
+  reviews       Review[]
+  sentMessages  Message[]  @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  notifications Notification[]
+  badges        Badge[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([email])
+}
+
+model Listing {
+  id            String    @id @default(cuid())
+  title         String
+  description   String
+  price         Float
+  priceUnit     PriceUnit @default(DAY)
+  category      String
+  tags          String[]
+  images        String[]
+  location      String
+  latitude      Float?
+  longitude     Float?
+  available     Boolean   @default(true)
+  featured      Boolean   @default(false)
+  views         Int       @default(0)
+  rating        Float     @default(0)
+  reviewCount   Int       @default(0)
+  loveCount     Int       @default(0)
+
+  owner         User      @relation(fields: [ownerId], references: [id])
+  ownerId       String
+  bookings      Booking[]
+  reviews       Review[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([category])
+  @@index([ownerId])
+  @@index([price])
+  @@index([rating])
+  @@index([loveCount])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  startDate     DateTime
+  endDate       DateTime
+  totalPrice    Float
+  status        BookingStatus @default(PENDING)
+  paymentId     String?
+
+  listing       Listing       @relation(fields: [listingId], references: [id])
+  listingId     String
+  renter        User          @relation(fields: [renterId], references: [id])
+  renterId      String
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([listingId])
+  @@index([renterId])
+  @@index([status])
+}
+
+model Review {
+  id            String    @id @default(cuid())
+  rating        Int
+  text          String
+  images        String[]
+
+  listing       Listing   @relation(fields: [listingId], references: [id])
+  listingId     String
+  user          User      @relation(fields: [userId], references: [id])
+  userId        String
+
+  createdAt     DateTime  @default(now())
+
+  @@index([listingId])
+  @@index([userId])
+}
+
+model Message {
+  id            String    @id @default(cuid())
+  text          String
+  read          Boolean   @default(false)
+
+  sender        User      @relation("SentMessages", fields: [senderId], references: [id])
+  senderId      String
+  receiver      User      @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  receiverId    String
+
+  createdAt     DateTime  @default(now())
+
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model Notification {
+  id            String    @id @default(cuid())
+  type          String
+  title         String
+  message       String
+  read          Boolean   @default(false)
+
+  user          User      @relation(fields: [userId], references: [id])
+  userId        String
+
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Badge {
+  id            String    @id @default(cuid())
+  name          String
+  description   String
+  icon          String
+
+  users         User[]
+
+  @@unique([name])
+}
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum PriceUnit {
+  HOUR
+  DAY
+  WEEK
+  MONTH
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
