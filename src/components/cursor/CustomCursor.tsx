@@ -38,10 +38,13 @@ export default function CustomCursor() {
     }, [mouseX, mouseY]);
 
     const variants = {
-        default: { width: 50, height: 50, opacity: 0.5, borderStyle: 'solid' },
-        hover: { width: 100, height: 100, opacity: 0.8, borderStyle: 'dashed' },
-        click: { width: 40, height: 40, opacity: 1, scale: 0.8 },
-        text: { width: 140, height: 140, opacity: 0.9, borderStyle: 'dashed' },
+        default: { width: 50, height: 50, opacity: 0.5, borderStyle: 'solid', borderRadius: '50%' },
+        hover: { width: 100, height: 100, opacity: 0.8, borderStyle: 'dashed', borderRadius: '50%' },
+        click: { width: 40, height: 40, opacity: 1, scale: 0.8, borderRadius: '50%' },
+        text: { width: 140, height: 140, opacity: 0.9, borderStyle: 'dashed', borderRadius: '50%' },
+        drag: { width: 80, height: 80, opacity: 0.8, scale: 1, borderRadius: '20%' },
+        loading: { width: 60, height: 60, opacity: 1, borderRadius: '50%', borderStyle: 'dotted' },
+        video: { width: 100, height: 100, opacity: 0.9, borderRadius: '50%', scale: 1 },
         hidden: { width: 0, height: 0, opacity: 0 },
     };
 
@@ -50,7 +53,7 @@ export default function CustomCursor() {
             {/* Outer tech-ring with rotation and stretching */}
             <motion.div
                 ref={cursorRef}
-                className="fixed top-0 left-0 z-[9999] pointer-events-none rounded-full border border-white/30 mix-blend-difference hidden md:flex items-center justify-center p-2"
+                className="fixed top-0 left-0 z-[100001] pointer-events-none rounded-full border border-white/30 mix-blend-difference hidden md:flex items-center justify-center p-2"
                 style={{
                     x: springX,
                     y: springY,
@@ -69,8 +72,18 @@ export default function CustomCursor() {
                 <motion.div
                     className="absolute inset-x-[-10%] inset-y-[-10%] border-t border-b border-white/20 rounded-full"
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                    transition={{ duration: cursorVariant === 'loading' ? 1 : 4, repeat: Infinity, ease: "linear" }}
                 />
+
+                {cursorVariant === 'loading' && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="absolute inset-0 flex items-center justify-center"
+                    >
+                        <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                    </motion.div>
+                )}
 
                 {cursorText && (
                     <motion.span
@@ -86,7 +99,7 @@ export default function CustomCursor() {
 
             {/* Inner dot with subtle pulse */}
             <motion.div
-                className="fixed top-0 left-0 z-[9999] pointer-events-none w-3 h-3 rounded-full bg-white mix-blend-difference hidden md:block"
+                className="fixed top-0 left-0 z-[100001] pointer-events-none w-3 h-3 rounded-full bg-white mix-blend-difference hidden md:block"
                 style={{
                     x: dotX,
                     y: dotY,

@@ -4,6 +4,7 @@ import "./globals.css";
 import ClientProviders from "@/components/providers/ClientProviders";
 import PremiumBackground from "@/components/ui/PremiumBackground";
 import SearchOverlay from "@/components/ui/SearchOverlay";
+import SmoothScroll from "@/components/providers/SmoothScroll";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -24,22 +25,47 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RentVerse — Rent Anything, Anywhere, Anytime",
-  description:
-    "The world's most advanced rental marketplace. Rent tech, vehicles, equipment, spaces, fashion, and more from verified owners worldwide.",
-  keywords: [
-    "rent",
-    "rental marketplace",
-    "equipment rental",
-    "vehicle rental",
-    "peer-to-peer",
-    "sharing economy",
-  ],
+  metadataBase: new URL('https://rentverse.app'),
+  title: {
+    default: 'RentVerse — Rent Anything, Anywhere',
+    template: '%s | RentVerse'
+  },
+  description: "The world's most advanced peer-to-peer rental marketplace. Rent cameras, drones, studios, luxury cars, and more from verified owners.",
+  keywords: ["rent", "marketplace", "camera rental", "drone rental", "studio rental", "peer-to-peer", "sharing economy"],
+  authors: [{ name: 'RentVerse Team' }],
   openGraph: {
-    title: "RentVerse — Rent Anything, Anywhere, Anytime",
-    description:
-      "The world's most advanced rental marketplace. Discover, book, and rent anything you need.",
-    type: "website",
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://rentverse.app',
+    title: 'RentVerse — Rent Anything, Anywhere',
+    description: "The world's most advanced peer-to-peer rental marketplace. Rent cameras, drones, studios, luxury cars, and more from verified owners.",
+    siteName: 'RentVerse',
+    images: [
+      {
+        url: 'https://rentverse.app/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'RentVerse Marketplace',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'RentVerse — Rent Anything, Anywhere',
+    description: "The world's most advanced peer-to-peer rental marketplace.",
+    images: ['https://rentverse.app/og-image.jpg'],
+    creator: '@rentverse',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 };
 
@@ -55,7 +81,11 @@ export default function RootLayout({
       >
         <PremiumBackground />
         <SearchOverlay />
-        <ClientProviders>{children}</ClientProviders>
+        <ClientProviders>
+          <SmoothScroll>
+            {children}
+          </SmoothScroll>
+        </ClientProviders>
       </body>
     </html>
   );

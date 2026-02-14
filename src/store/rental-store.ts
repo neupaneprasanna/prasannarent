@@ -19,7 +19,6 @@ export interface RentalItem {
     available: boolean;
     featured: boolean;
     tags: string[];
-    loveCount: number;
 }
 
 interface RentalState {

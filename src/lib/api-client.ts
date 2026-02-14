@@ -44,7 +44,8 @@ export const apiClient = {
             return data as T;
         }
 
-        throw new Error(data?.error || `Request failed with status ${response.status}`);
+        const errorMessage = data?.details ? `${data.error}: ${data.details}` : (data?.error || `Request failed with status ${response.status}`);
+        throw new Error(errorMessage);
     },
 
     get<T>(endpoint: string, options: FetchOptions = {}) {

@@ -3,6 +3,11 @@
 import { motion } from 'framer-motion';
 import { fadeInUp } from '@/lib/animations/motion-config';
 import { useAppStore } from '@/store/app-store';
+import dynamic from 'next/dynamic';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
+
+const Globe = dynamic(() => import('@/components/ui/Globe'), { ssr: false });
 
 const hotspots: { city: string; x: number; y: number; count: string; size: 'lg' | 'md' | 'sm' }[] = [
     { city: 'New York', x: 28, y: 35, count: '5.2k', size: 'lg' },
@@ -47,80 +52,47 @@ export default function WorldMap() {
 
                 {/* Map */}
                 <motion.div
-                    className="relative glass-card rounded-3xl p-8 md:p-12 overflow-hidden"
+                    className="relative glass-card rounded-[3rem] p-4 md:p-8 overflow-hidden bg-black/40 backdrop-blur-3xl border border-white/5"
                     variants={fadeInUp}
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true }}
                 >
-                    {/* Stylized world map using dots */}
-                    <div className="relative w-full aspect-[2/1] min-h-[300px]">
-                        {/* Grid lines */}
-                        <div className="absolute inset-0" style={{
-                            backgroundImage: `
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)
-              `,
-                            backgroundSize: '50px 50px',
-                        }} />
+                    <div className="relative w-full aspect-square md:aspect-[2/1] min-h-[500px] cursor-grab active:cursor-grabbing">
+                        {/* Background subtle glow */}
+                        <div className="absolute inset-0 bg-[#6c5ce7]/5 rounded-full blur-[120px] scale-75 pointer-events-none" />
 
-                        {/* Connection lines */}
-                        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                            <defs>
-                                <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" stopColor="rgba(108,92,231,0.3)" />
-                                    <stop offset="50%" stopColor="rgba(162,155,254,0.1)" />
-                                    <stop offset="100%" stopColor="rgba(0,206,201,0.3)" />
-                                </linearGradient>
-                            </defs>
-                            {/* NY to London */}
-                            <path d="M28,35 Q38,20 47,28" fill="none" stroke="url(#lineGrad)" strokeWidth="0.15" />
-                            {/* London to Tokyo */}
-                            <path d="M47,28 Q65,20 82,35" fill="none" stroke="url(#lineGrad)" strokeWidth="0.15" />
-                            {/* NY to SF */}
-                            <path d="M28,35 Q22,32 15,38" fill="none" stroke="url(#lineGrad)" strokeWidth="0.1" />
-                            {/* London to Dubai */}
-                            <path d="M47,28 Q54,32 60,42" fill="none" stroke="url(#lineGrad)" strokeWidth="0.1" />
-                            {/* Tokyo to Sydney */}
-                            <path d="M82,35 Q84,52 85,72" fill="none" stroke="url(#lineGrad)" strokeWidth="0.1" />
-                        </svg>
+                        <Canvas>
+                            <PerspectiveCamera makeDefault position={[0, 0, 7]} fov={45} />
+                            <OrbitControls
+                                enableZoom={false}
+                                enablePan={false}
+                                minPolarAngle={Math.PI / 4}
+                                maxPolarAngle={Math.PI / 1.5}
+                                autoRotate
+                                autoRotateSpeed={0.5}
+                            />
+                            <Globe />
+                        </Canvas>
 
-                        {/* Hotspot dots */}
-                        {hotspots.map((spot, i) => (
-                            <motion.div
-                                key={spot.city}
-                                className="absolute group"
-                                style={{
-                                    left: `${spot.x}%`,
-                                    top: `${spot.y}%`,
-                                    transform: 'translate(-50%, -50%)',
-                                }}
-                                initial={{ opacity: 0, scale: 0 }}
-                                whileInView={{ opacity: 1, scale: 1 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: 0.5 + i * 0.1, duration: 0.5, type: 'spring' }}
-                                onMouseEnter={() => setCursorVariant('hover')}
-                                onMouseLeave={() => setCursorVariant('default')}
-                            >
-                                {/* Pulse ring */}
-                                <motion.div
-                                    className={`absolute ${pulseMap[spot.size]} rounded-full bg-[#6c5ce7]/20 -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2`}
-                                    animate={{ scale: [1, 2, 1], opacity: [0.3, 0, 0.3] }}
-                                    transition={{ duration: 3, repeat: Infinity, delay: i * 0.3 }}
-                                />
+                        {/* Overlay info */}
+                        <div className="absolute bottom-10 left-10 z-10 hidden md:block">
+                            <div className="glass-card rounded-2xl p-6 border border-white/10 max-w-[240px]">
+                                <div className="text-[#00cec9] text-[10px] font-black uppercase tracking-widest mb-2">Live Status</div>
+                                <div className="text-3xl font-bold text-white mb-1">Worldwide</div>
+                                <p className="text-white/40 text-[11px] leading-relaxed">
+                                    Our network spans across every timezone, offering 24/7 availability for all your rental needs.
+                                </p>
+                            </div>
+                        </div>
 
-                                {/* Dot */}
-                                <div className={`${sizeMap[spot.size]} rounded-full bg-[#6c5ce7] relative z-10 shadow-lg shadow-[#6c5ce7]/30`} />
-
-                                {/* Tooltip */}
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-20">
-                                    <div className="glass-strong rounded-lg px-3 py-2 text-center">
-                                        <div className="text-xs font-medium text-white/80">{spot.city}</div>
-                                        <div className="text-[10px] text-[#a29bfe]">{spot.count} listings</div>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ))}
+                        {/* Mobile interaction hint */}
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 md:hidden">
+                            <div className="px-4 py-2 rounded-full glass border border-white/10 text-[10px] text-white/40 uppercase tracking-widest flex items-center gap-2">
+                                <div className="w-1 h-1 rounded-full bg-[#6c5ce7] animate-pulse" />
+                                Drag to rotate Earth
+                            </div>
+                        </div>
                     </div>
                 </motion.div>
             </div>

@@ -5,7 +5,6 @@ import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import { useAppStore } from '@/store/app-store';
 import Link from 'next/link';
 import type { RentalItem } from '@/store/rental-store';
-import { apiClient } from '@/lib/api-client';
 
 interface RentalCardProps {
     item: RentalItem;
@@ -55,35 +54,6 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
         digital: 'from-cyan-500/20 to-blue-500/20',
     };
 
-    const [loveCount, setLoveCount] = useState(item.loveCount || 0);
-    const [isLoved, setIsLoved] = useState(false);
-
-    const handleLove = async (e: React.MouseEvent) => {
-        console.log('Love button clicked for item:', item.id);
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (isLoved) {
-            console.log('Already loved, skipping...');
-            return;
-        }
-
-        // Optimistic update
-        setIsLoved(true);
-        setLoveCount(prev => prev + 1);
-        console.log('Optimistically incremented loveCount to:', loveCount + 1);
-
-        try {
-            const res = await apiClient.post(`/listings/${item.id}/love`, {});
-            console.log('Successfully loved item on backend:', res);
-        } catch (error) {
-            console.error('Failed to love item on backend:', error);
-            // Revert on error
-            setIsLoved(false);
-            setLoveCount(prev => prev - 1);
-        }
-    };
-
     const gradient = categoryGradients[item.category] || 'from-[#6c5ce7]/20 to-[#a29bfe]/20';
 
     return (
@@ -125,18 +95,20 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
                     <div className={`relative h-48 md:h-56 bg-gradient-to-br ${gradient} overflow-hidden`}>
                         {/* Real Image with fallback */}
                         {item.images && item.images.length > 0 && !imgError && (
-                            <motion.img
-                                src={item.images[0]}
-                                alt={item.title}
-                                className="absolute inset-0 w-full h-full object-cover"
+                            <motion.div
+                                className="absolute inset-0"
                                 initial={{ opacity: 0, scale: 1.1 }}
-                                animate={{
-                                    opacity: 1,
-                                    scale: isHovered ? 1.05 : 1
-                                }}
+                                animate={{ opacity: 1, scale: isHovered ? 1.05 : 1 }}
                                 transition={{ duration: 0.6 }}
-                                onError={() => setImgError(true)}
-                            />
+                            >
+                                <img
+                                    src={item.images[0]}
+                                    alt={item.title}
+                                    className="w-full h-full object-cover"
+                                    loading={index < 3 ? "eager" : "lazy"}
+                                    onError={() => setImgError(true)}
+                                />
+                            </motion.div>
                         )}
 
                         {/* Placeholder image with gradient (Visible if no image or error) */}
@@ -181,35 +153,7 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
                             animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 10 }}
                             transition={{ duration: 0.3 }}
                         >
-                            <div
-                                onClick={handleLove}
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full glass backdrop-blur-md cursor-pointer hover:bg-white/10 transition-colors group/love"
-                            >
-                                <motion.div
-                                    whileTap={{ scale: 1.4 }}
-                                    className={`flex items-center justify-center transition-colors ${isLoved ? 'text-pink-500' : 'text-white/60 group-hover/love:text-white'
-                                        }`}
-                                >
-                                    <svg
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill={isLoved ? "currentColor" : "none"}
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                    >
-                                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                                    </svg>
-                                </motion.div>
-                                <motion.span
-                                    key={loveCount}
-                                    initial={{ scale: 0.8, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    className="text-[10px] font-bold text-white/80"
-                                >
-                                    {loveCount}
-                                </motion.span>
-                            </div>
+                            {/* Actions like compare or share can go here */}
                         </motion.div>
                     </div>
 

@@ -15,7 +15,7 @@ export default function HeroContent() {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 2.2 }}
+                transition={{ duration: 0.6, delay: 0.5 }}
                 className="mb-6"
             >
                 <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-xs text-white/50 tracking-widest uppercase">
@@ -62,7 +62,7 @@ export default function HeroContent() {
 
             {/* Search */}
             <motion.div
-                className="w-full max-w-2xl mb-8"
+                className="w-full max-w-2xl mb-8 relative z-[501]"
                 variants={fadeInUp}
                 initial="hidden"
                 animate="visible"
@@ -135,7 +135,7 @@ export default function HeroContent() {
                 className="absolute bottom-10 left-1/2 -translate-x-1/2"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 3.5, duration: 1 }}
+                transition={{ delay: 1.5, duration: 1 }}
             >
                 <motion.div
                     className="flex flex-col items-center gap-2"

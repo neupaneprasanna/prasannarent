@@ -10,84 +10,105 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- Core Models ---
+
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  firstName     String
-  lastName      String
-  phone         String?
-  avatar        String?
-  bio           String?
-  verified      Boolean   @default(false)
-  role          Role      @default(USER)
-  level         Int       @default(1)
-  points        Int       @default(0)
-  interests     String[]
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  avatar    String?
+  bio       String?
+  verified  Boolean  @default(false)
+  role      Role     @default(USER)
+  level     Int      @default(1)
+  points    Int      @default(0)
+  interests String[]
 
-  listings      Listing[]
-  bookings      Booking[]
-  reviews       Review[]
-  sentMessages  Message[]  @relation("SentMessages")
-  receivedMessages Message[] @relation("ReceivedMessages")
-  notifications Notification[]
-  badges        Badge[]
+  // Security and Auth
+  banned             Boolean   @default(false)
+  bannedAt           DateTime?
+  bannedReason       String?
+  lastLoginAt        DateTime?
+  loginCount         Int       @default(0)
+  failedLoginAttempts Int      @default(0)
+  lastPasswordChange DateTime?
+  twoFactorEnabled   Boolean   @default(false)
+  lastSeenAt         DateTime? @default(now())
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  // Relations
+  listings         Listing[]
+  bookings         Booking[]
+  reviews          Review[]
+  sentMessages     Message[]              @relation("SentMessages")
+  receivedMessages Message[]              @relation("ReceivedMessages")
+  notifications    Notification[]
+  badges           Badge[]
+
+  // Admin Relations
+  auditLogs   AuditLog[]             @relation("AdminAuditLogs")
+  moderations ModerationItem[]       @relation("ModeratorReviews")
+  campaigns   NotificationCampaign[] @relation("CampaignCreator")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([email])
+  @@index([role])
 }
 
 model Listing {
-  id            String    @id @default(cuid())
-  title         String
-  description   String
-  price         Float
-  priceUnit     PriceUnit @default(DAY)
-  category      String
-  tags          String[]
-  images        String[]
-  location      String
-  latitude      Float?
-  longitude     Float?
-  available     Boolean   @default(true)
-  featured      Boolean   @default(false)
-  views         Int       @default(0)
-  rating        Float     @default(0)
-  reviewCount   Int       @default(0)
-  loveCount     Int       @default(0)
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  price       Float
+  priceUnit   PriceUnit     @default(DAY)
+  category    String
+  tags        String[]
+  images      String[]
+  location    String
+  latitude    Float?
+  longitude   Float?
+  available   Boolean       @default(true)
+  featured    Boolean       @default(false)
+  views       Int           @default(0)
+  rating      Float         @default(0)
+  reviewCount Int           @default(0)
+  status      ListingStatus @default(ACTIVE)
 
-  owner         User      @relation(fields: [ownerId], references: [id])
-  ownerId       String
-  bookings      Booking[]
-  reviews       Review[]
+  owner   User   @relation(fields: [ownerId], references: [id])
+  ownerId String
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  bookings Booking[]
+  reviews  Review[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([category])
   @@index([ownerId])
   @@index([price])
   @@index([rating])
-  @@index([loveCount])
+  @@index([status])
 }
 
 model Booking {
-  id            String        @id @default(cuid())
-  startDate     DateTime
-  endDate       DateTime
-  totalPrice    Float
-  status        BookingStatus @default(PENDING)
-  paymentId     String?
+  id         String        @id @default(cuid())
+  startDate  DateTime
+  endDate    DateTime
+  totalPrice Float
+  status     BookingStatus @default(PENDING)
+  paymentId  String?
 
-  listing       Listing       @relation(fields: [listingId], references: [id])
-  listingId     String
-  renter        User          @relation(fields: [renterId], references: [id])
-  renterId      String
+  listing   Listing @relation(fields: [listingId], references: [id])
+  listingId String
+  renter    User    @relation(fields: [renterId], references: [id])
+  renterId  String
 
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([listingId])
   @@index([renterId])
@@ -95,68 +116,188 @@ model Booking {
 }
 
 model Review {
-  id            String    @id @default(cuid())
-  rating        Int
-  text          String
-  images        String[]
+  id     String   @id @default(cuid())
+  rating Int
+  text   String
+  images String[]
 
-  listing       Listing   @relation(fields: [listingId], references: [id])
-  listingId     String
-  user          User      @relation(fields: [userId], references: [id])
-  userId        String
+  listing   Listing @relation(fields: [listingId], references: [id])
+  listingId String
+  user      User    @relation(fields: [userId], references: [id])
+  userId    String
 
-  createdAt     DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([listingId])
   @@index([userId])
 }
 
 model Message {
-  id            String    @id @default(cuid())
-  text          String
-  read          Boolean   @default(false)
+  id   String  @id @default(cuid())
+  text String
+  read Boolean @default(false)
 
-  sender        User      @relation("SentMessages", fields: [senderId], references: [id])
-  senderId      String
-  receiver      User      @relation("ReceivedMessages", fields: [receiverId], references: [id])
-  receiverId    String
+  sender     User   @relation("SentMessages", fields: [senderId], references: [id])
+  senderId   String
+  receiver   User   @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  receiverId String
 
-  createdAt     DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([senderId])
   @@index([receiverId])
 }
 
 model Notification {
-  id            String    @id @default(cuid())
-  type          String
-  title         String
-  message       String
-  read          Boolean   @default(false)
+  id      String  @id @default(cuid())
+  type    String
+  title   String
+  message String
+  read    Boolean @default(false)
 
-  user          User      @relation(fields: [userId], references: [id])
-  userId        String
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
 
-  createdAt     DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }
 
 model Badge {
-  id            String    @id @default(cuid())
-  name          String
-  description   String
-  icon          String
+  id          String @id @default(cuid())
+  name        String
+  description String
+  icon        String
 
-  users         User[]
+  users User[]
 
   @@unique([name])
 }
 
+// --- Admin Models ---
+
+model AuditLog {
+  id         String  @id @default(cuid())
+  action     String
+  module     String
+  targetType String?
+  targetId   String?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+
+  admin   User   @relation("AdminAuditLogs", fields: [adminId], references: [id])
+  adminId String
+
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@index([module])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model FeatureFlag {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  name        String
+  description String?
+  enabled     Boolean @default(false)
+  rollout     Int     @default(0)
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ContentBlock {
+  id      String  @id @default(cuid())
+  section String
+  key     String
+  value   String
+  type    String  @default("text")
+  order   Int     @default(0)
+  active  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([section, key])
+  @@index([section])
+}
+
+model PlatformSetting {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       String
+  type        String  @default("string")
+  group       String  @default("general")
+  description String?
+
+  updatedAt DateTime @updatedAt
+}
+
+model ModerationItem {
+  id         String           @id @default(cuid())
+  type       String
+  targetType String
+  targetId   String
+  reason     String?
+  status     ModerationStatus @default(PENDING)
+  priority   Int              @default(0)
+
+  reviewer   User?    @relation("ModeratorReviews", fields: [reviewerId], references: [id])
+  reviewerId String?
+  reviewNote String?
+  reviewedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([status])
+  @@index([type])
+  @@index([priority])
+}
+
+model AIConfig {
+  id          String  @id @default(cuid())
+  system      String
+  parameter   String
+  value       String
+  description String?
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([system, parameter])
+}
+
+model NotificationCampaign {
+  id          String    @id @default(cuid())
+  name        String
+  type        String
+  subject     String?
+  body        String
+  targetRoles Role[]
+  status      String    @default("draft")
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  sentCount   Int       @default(0)
+
+  admin   User   @relation("CampaignCreator", fields: [adminId], references: [id])
+  adminId String
+
+  createdAt DateTime @default(now())
+}
+
+// --- Enums ---
+
 enum Role {
   USER
+  SUPER_ADMIN
   ADMIN
   MODERATOR
+  FINANCE
+  SUPPORT
+  ANALYST
 }
 
 enum PriceUnit {
@@ -172,4 +313,19 @@ enum BookingStatus {
   ACTIVE
   COMPLETED
   CANCELLED
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ESCALATED
 }

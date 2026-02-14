@@ -12,7 +12,8 @@ import { fadeInUp, staggerContainer } from '@/lib/animations/motion-config';
 import { useAppStore } from '@/store/app-store';
 import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
-import { Loader2, MapPin, Star, MessageSquare, ShieldCheck, ChevronLeft, Calendar, Info } from 'lucide-react';
+import { Loader2, MapPin, Star, MessageSquare, ShieldCheck, ChevronLeft, Calendar, Info, Sparkles } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 export default function ProductPage() {
     const { id } = useParams();
@@ -24,12 +25,27 @@ export default function ProductPage() {
     const [selectedImage, setSelectedImage] = useState(0);
     const [imgError, setImgError] = useState<Record<number, boolean>>({});
     const [bookingLoading, setBookingLoading] = useState(false);
+    const [bookingModalOpen, setBookingModalOpen] = useState(false);
+    const [bookingStartDate, setBookingStartDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split('T')[0];
+    });
+    const [bookingEndDate, setBookingEndDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 3);
+        return d.toISOString().split('T')[0];
+    });
+    const [bookingRating, setBookingRating] = useState(5);
+    const [bookingReview, setBookingReview] = useState('');
     const [reviews, setReviews] = useState<any[]>([]);
     const [newReview, setNewReview] = useState({ rating: 5, text: '' });
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
     const { isAuthenticated } = useAuthStore();
     const setCursorVariant = useAppStore((s) => s.setCursorVariant);
+    const isCinemaMode = useAppStore((s) => s.isCinemaMode);
+    const setCinemaMode = useAppStore((s) => s.setCinemaMode);
 
     useEffect(() => {
         if (id) {
@@ -76,26 +92,43 @@ export default function ProductPage() {
             router.push('/login');
             return;
         }
+        setBookingModalOpen(true);
+    };
 
+    const executeBooking = async () => {
         setBookingLoading(true);
         setError('');
-        console.log('[Booking] Starting booking for item:', id);
         try {
-            const startDate = new Date();
-            const endDate = new Date();
-            endDate.setDate(startDate.getDate() + 1);
+            const start = new Date(bookingStartDate);
+            const end = new Date(bookingEndDate);
+            const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+            const totalPrice = item.price * days;
 
             const payload = {
                 listingId: id,
-                startDate: startDate.toISOString(),
-                endDate: endDate.toISOString(),
-                totalPrice: item.price
+                startDate: start.toISOString(),
+                endDate: end.toISOString(),
+                totalPrice,
+                rating: bookingRating,
+                reviewText: bookingReview
             };
-            console.log('[Booking] Sending payload:', payload);
 
             await apiClient.post('/bookings', payload);
-            console.log('[Booking] Success!');
 
+            // If user provided a review text, we also trigger the reviews endpoint
+            if (bookingReview.trim()) {
+                try {
+                    await apiClient.post('/reviews', {
+                        listingId: id,
+                        rating: bookingRating,
+                        text: bookingReview
+                    });
+                } catch (revErr) {
+                    console.error('Secondary review creation failed:', revErr);
+                }
+            }
+
+            setBookingModalOpen(false);
             router.push('/dashboard');
         } catch (err: any) {
             console.error('[Booking] Error:', err);
@@ -150,13 +183,109 @@ export default function ProductPage() {
             <Navbar />
 
             <div className="pt-28 pb-16 px-6 max-w-7xl mx-auto">
-                {/* Back Link */}
-                <button
-                    onClick={() => router.back()}
-                    className="flex items-center gap-2 text-xs text-white/40 hover:text-white mb-8 transition-colors"
-                >
-                    <ChevronLeft size={14} /> Back to results
-                </button>
+                <div className="flex justify-between items-center mb-8">
+                    <button
+                        onClick={() => router.back()}
+                        className="flex items-center gap-2 text-xs text-white/40 hover:text-white transition-colors"
+                    >
+                        <ChevronLeft size={14} /> Back to results
+                    </button>
+                    <button
+                        onClick={() => setCinemaMode(!isCinemaMode)}
+                        className="flex items-center gap-2 text-xs text-[#a29bfe] hover:text-white transition-colors uppercase tracking-widest font-bold"
+                    >
+                        <Sparkles size={14} /> Cinema Mode
+                    </button>
+                </div>
+
+                {typeof document !== 'undefined' && isCinemaMode && createPortal(
+                    <AnimatePresence>
+                        {isCinemaMode && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[1000] flex items-center justify-center p-6 md:p-12 overflow-hidden"
+                            >
+                                {/* Immersive Background */}
+                                <motion.div
+                                    className="absolute inset-0 bg-black"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                />
+
+                                <motion.img
+                                    key={`backdrop-${selectedImage}`}
+                                    src={images[selectedImage]}
+                                    className="absolute inset-0 w-full h-full object-cover opacity-30 blur-3xl scale-110"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ duration: 1 }}
+                                />
+
+                                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60" />
+
+                                {/* Controls */}
+                                <button
+                                    onClick={() => setCinemaMode(false)}
+                                    className="absolute top-10 right-10 z-[1001] w-12 h-12 rounded-full glass border border-white/10 flex items-center justify-center text-white/50 hover:text-white hover:scale-110 transition-all"
+                                >
+                                    <ChevronLeft size={24} className="rotate-180" />
+                                </button>
+
+                                {/* Image Container */}
+                                <motion.div
+                                    className="relative z-10 w-full h-full flex flex-col items-center justify-center gap-8"
+                                    initial={{ y: 40, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.2, type: 'spring', damping: 20 }}
+                                >
+                                    <div className="relative group max-w-5xl w-full h-full flex items-center justify-center">
+                                        <motion.img
+                                            key={`cinema-${selectedImage}`}
+                                            src={images[selectedImage]}
+                                            className="max-h-full max-w-full object-contain rounded-2xl shadow-[0_0_100px_rgba(108,92,231,0.2)]"
+                                            layoutId={`item-image-${selectedImage}`}
+                                        />
+
+                                        {/* Navigation arrows */}
+                                        {images.length > 1 && (
+                                            <>
+                                                <button
+                                                    className="absolute left-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full glass border border-white/5 flex items-center justify-center text-white/20 hover:text-white hover:bg-white/10 transition-all"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedImage((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+                                                    }}
+                                                >
+                                                    <ChevronLeft size={32} />
+                                                </button>
+                                                <button
+                                                    className="absolute right-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full glass border border-white/5 flex items-center justify-center text-white/20 hover:text-white hover:bg-white/10 transition-all"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedImage((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+                                                    }}
+                                                >
+                                                    <ChevronLeft size={32} className="rotate-180" />
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {/* Info */}
+                                    <div className="text-center">
+                                        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">{item.title}</h2>
+                                        <p className="text-white/40 uppercase tracking-[0.3em] text-xs font-bold">
+                                            Image {selectedImage + 1} of {images.length}
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>,
+                    document.body
+                )}
 
                 <div className="flex flex-col lg:flex-row gap-12">
                     {/* Left: Gallery */}
@@ -447,6 +576,115 @@ export default function ProductPage() {
             </div>
 
             <Footer />
+
+            {/* Booking Modal */}
+            <AnimatePresence>
+                {bookingModalOpen && (
+                    <div className="fixed inset-0 z-[300] flex items-center justify-center p-6">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                            onClick={() => setBookingModalOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg glass-card rounded-[2.5rem] p-8 md:p-12 overflow-hidden border border-white/10 shadow-2xl"
+                        >
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-[#6c5ce7]/10 rounded-full -mr-32 -mt-32 blur-[80px]" />
+
+                            <h2 className="text-3xl font-bold mb-2">Book Your <span className="gradient-text">Rental</span></h2>
+                            <p className="text-white/40 text-sm mb-8">Select your dates and provide a quick rating to continue.</p>
+
+                            <div className="space-y-6 relative z-10">
+                                {/* Date Selection */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase tracking-widest font-bold text-white/30">Start Date</label>
+                                        <input
+                                            type="date"
+                                            value={bookingStartDate}
+                                            onChange={(e) => setBookingStartDate(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-[#6c5ce7] outline-none"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase tracking-widest font-bold text-white/30">End Date</label>
+                                        <input
+                                            type="date"
+                                            value={bookingEndDate}
+                                            onChange={(e) => setBookingEndDate(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-[#6c5ce7] outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Rating Section */}
+                                <div className="space-y-4 pt-2">
+                                    <label className="text-[10px] uppercase tracking-widest font-bold text-white/30">Initial Rating & Experience</label>
+                                    <div className="flex gap-2 mb-4">
+                                        {[1, 2, 3, 4, 5].map((s) => (
+                                            <button
+                                                key={s}
+                                                type="button"
+                                                onClick={() => setBookingRating(s)}
+                                                className={`transition-all duration-300 hover:scale-110 ${bookingRating >= s ? 'text-[#fdcb6e]' : 'text-white/10'}`}
+                                            >
+                                                <Star size={24} fill={bookingRating >= s ? 'currentColor' : 'none'} />
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <textarea
+                                        value={bookingReview}
+                                        onChange={(e) => setBookingReview(e.target.value)}
+                                        placeholder="Any special requests or initial thoughts? (Optional)"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-[#6c5ce7] outline-none resize-none"
+                                        rows={3}
+                                    />
+                                </div>
+
+                                {/* Price Breakdown */}
+                                <div className="pt-6 border-t border-white/5">
+                                    <div className="flex justify-between items-end mb-6">
+                                        <div>
+                                            <p className="text-xs text-white/30 mb-1">Total for {Math.max(1, Math.ceil((new Date(bookingEndDate).getTime() - new Date(bookingStartDate).getTime()) / (1000 * 86400)))} days</p>
+                                            <p className="text-4xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+                                                ${(item.price * Math.max(1, Math.ceil((new Date(bookingEndDate).getTime() - new Date(bookingStartDate).getTime()) / (1000 * 86400)))).toLocaleString()}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] text-[#00cec9] font-bold uppercase tracking-widest">Instant Booking</p>
+                                            <p className="text-[10px] text-white/20">Secure with RentVerse</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                        <Button
+                                            variant="outline"
+                                            className="flex-1 py-4 rounded-2xl"
+                                            onClick={() => setBookingModalOpen(false)}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            variant="primary"
+                                            className="flex-[2] py-4 rounded-2xl"
+                                            onClick={executeBooking}
+                                            disabled={bookingLoading}
+                                        >
+                                            {bookingLoading ? <Loader2 className="animate-spin mr-2" /> : null}
+                                            Confirm & Rent
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </main>
     );
 }

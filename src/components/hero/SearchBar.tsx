@@ -2,13 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/app-store';
 
 // Types for Web Speech API
 interface SpeechRecognitionEvent extends Event {
+    resultIndex: number;
     results: {
+        length: number;
         [index: number]: {
+            isFinal: boolean;
             [index: number]: {
                 transcript: string;
             };
@@ -45,7 +49,7 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
     const [focused, setFocused] = useState(false);
     const [query, setQuery] = useState('');
     const [isListening, setIsListening] = useState(false);
-    const recognitionRef = useRef<any>(null);
+    const recognitionRef = useRef<SpeechRecognition | null>(null);
 
     // Sync local focused state with global search state
     useEffect(() => {
@@ -67,21 +71,19 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
 
     // Initialize Speech Recognition
     useEffect(() => {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = false;
-            recognitionRef.current.interimResults = true;
-            recognitionRef.current.lang = 'en-US';
+        const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognitionClass) {
+            const recognition = new SpeechRecognitionClass() as SpeechRecognition;
+            recognitionRef.current = recognition;
+            recognition.continuous = false;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
 
-            recognitionRef.current.onstart = () => {
-                console.log('Voice recognition started');
-            };
-
-            recognitionRef.current.onresult = (event: any) => {
+            recognition.onresult = (event: SpeechRecognitionEvent) => {
                 let interimTranscript = '';
                 let finalTranscript = '';
 
+                // Correctly iterate through results
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
                         finalTranscript += event.results[i][0].transcript;
@@ -93,24 +95,23 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                 if (finalTranscript) {
                     setQuery(finalTranscript);
                     setIsListening(false);
-                    recognitionRef.current.stop();
+                    recognition.stop();
                     inputRef.current?.focus();
                 } else if (interimTranscript) {
                     setQuery(interimTranscript);
                 }
             };
 
-            recognitionRef.current.onend = () => {
+            recognition.onend = () => {
                 setIsListening(false);
             };
 
-            recognitionRef.current.onerror = (event: any) => {
+            recognition.onerror = (event: any) => {
                 const error = event?.error;
                 if (error === 'no-speech' || error === 'audio-capture' || error === 'not-allowed') {
                     setIsListening(false);
                     return;
                 }
-                // Use warn instead of error to avoid Next.js crash overlay in development
                 console.warn('Speech recognition status:', error);
                 setIsListening(false);
             };
@@ -138,37 +139,58 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
         }
     };
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setFocused(false);
+                setSearchActive(false);
+            }
+        };
+        if (focused) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [focused, setSearchActive]);
+
     const handleFocus = () => {
         setFocused(true);
         setSearchActive(true);
     };
 
-    const handleBlur = () => {
-        // We no longer close search on blur to allow interacting with suggestions/overlay
-        setFocused(false);
+    const handleBlur = (e: React.FocusEvent) => {
+        // If clicking on suggestions or search results, don't blur immediately
+        // Wait for the next tick to see if focus moved to a related element
+        if (e.relatedTarget instanceof HTMLElement && e.relatedTarget.closest('.search-element')) {
+            return;
+        }
+        // setFocused(false);
     };
 
     const handleSearch = (e?: React.FormEvent) => {
         e?.preventDefault();
         setSearchActive(false);
-        router.push(`/explore?q=${encodeURIComponent(query)}`);
+        router.push(`/explore?search=${encodeURIComponent(query)}`);
     };
 
     const filteredSuggestions = query
         ? suggestions.filter((s) => s.toLowerCase().includes(query.toLowerCase()))
         : suggestions.slice(0, 5);
 
-    return (
-        <div className={`relative w-full ${focused ? 'z-[50]' : 'z-[1]'}`}>
+    const searchUI = (
+        <div className={`relative w-full ${focused ? 'z-[1000]' : 'z-[1]'} search-element`}>
             <form
                 onSubmit={handleSearch}
-                className={`relative flex items-center rounded-2xl overflow-hidden transition-all duration-500 ${focused ? 'glass-strong shadow-2xl shadow-[#6c5ce7]/20 border-[#6c5ce7]/30' : 'glass border-white/5'
-                    }`}
+                className={`relative flex items-center rounded-2xl overflow-hidden transition-all duration-500 ${focused
+                    ? 'glass-strong shadow-[0_0_50px_rgba(108,92,231,0.3)] border-[#6c5ce7]/50 scale-[1.02] bg-[#0a0a14]/90'
+                    : 'glass border-white/5'
+                    } z-10`}
             >
                 <motion.div
                     className="absolute inset-0 pointer-events-none"
-                    animate={focused ? { scale: 1.02 } : { scale: 1 }}
-                    transition={{ duration: 0.3 }}
+                    animate={focused ? {
+                        boxShadow: ['0 0 20px rgba(108,92,231,0.2)', '0 0 40px rgba(108,92,231,0.4)', '0 0 20px rgba(108,92,231,0.2)']
+                    } : { boxShadow: '0 0 0px rgba(108,92,231,0)' }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 />
                 {/* Search icon */}
                 <div className="pl-5 pr-2 text-white/30">
@@ -255,22 +277,22 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
             <AnimatePresence>
                 {focused && (
                     <motion.div
-                        className="absolute top-full left-0 right-0 mt-2 glass-strong rounded-2xl overflow-hidden z-50"
-                        initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                        className="absolute top-full left-0 right-0 mt-4 glass-strong rounded-2xl overflow-hidden z-[50] shadow-2xl border border-white/10"
+                        initial={{ opacity: 0, y: 10, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                        transition={{ duration: 0.2 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
                     >
                         <div className="py-2">
-                            <div className="px-4 py-2">
-                                <span className="text-[10px] text-white/30 tracking-widest uppercase">
-                                    {query ? 'Results' : 'Popular Searches'}
+                            <div className="px-4 py-2 border-b border-white/5 mb-2">
+                                <span className="text-[10px] text-white/30 tracking-[0.2em] uppercase font-bold">
+                                    {query ? 'Search Results' : 'Trending Now'}
                                 </span>
                             </div>
                             {filteredSuggestions.map((suggestion, i) => (
                                 <motion.button
                                     key={suggestion}
-                                    className="w-full px-4 py-3 flex items-center gap-3 text-sm text-white/60 hover:text-white hover:bg-white/5 transition-all"
+                                    className="w-full px-4 py-3 flex items-center gap-3 text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all text-left group"
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: i * 0.05 }}
@@ -280,27 +302,56 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                                         inputRef.current?.focus();
                                     }}
                                 >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/20">
-                                        <circle cx="11" cy="11" r="8" />
-                                        <path d="m21 21-4.35-4.35" />
-                                    </svg>
-                                    {suggestion}
+                                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/30 group-hover:bg-[#6c5ce7]/20 group-hover:text-[#a29bfe] transition-colors">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <circle cx="11" cy="11" r="8" />
+                                            <path d="m21 21-4.35-4.35" />
+                                        </svg>
+                                    </div>
+                                    <span className="flex-1">{suggestion}</span>
+                                    <span className="text-[10px] text-white/20 opacity-0 group-hover:opacity-100 transition-opacity">Press Enter</span>
                                 </motion.button>
                             ))}
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            {/* Glow under search when focused */}
-            <motion.div
-                className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-3/4 h-8 rounded-full pointer-events-none"
-                style={{
-                    background: 'radial-gradient(ellipse, rgba(108,92,231,0.15) 0%, transparent 70%)',
-                }}
-                animate={{ opacity: focused ? 1 : 0 }}
-                transition={{ duration: 0.3 }}
-            />
         </div>
     );
+
+    // If focused, we portal the entire experience to body to keep it sharp above the blurred content
+    if (focused && typeof document !== 'undefined') {
+        return createPortal(
+            <div className="fixed inset-0 z-[10000] flex items-start justify-center pt-[15vh] px-6">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="absolute inset-0 bg-[#050508]/60 cursor-pointer pointer-events-auto"
+                    style={{
+                        background: 'radial-gradient(circle at center, transparent 0%, rgba(5,5,8,0.9) 100%)'
+                    }}
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setFocused(false);
+                        setSearchActive(false);
+                    }}
+                />
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                    className="w-full max-w-2xl relative"
+                >
+                    {searchUI}
+                </motion.div>
+            </div>,
+            document.body
+        );
+    }
+
+    return searchUI;
 }

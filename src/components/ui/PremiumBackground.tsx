@@ -1,13 +1,20 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useAppStore } from '@/store/app-store';
 
 export default function PremiumBackground() {
+    const isSearchActive = useAppStore((s) => s.isSearchActive);
+
     return (
         <div className="fixed inset-0 z-[-1] overflow-hidden bg-[#050508] pointer-events-none">
             {/* Mesh Grid */}
-            <div
+            <motion.div
                 className="absolute inset-0 opacity-[0.03]"
+                animate={{
+                    opacity: isSearchActive ? 0.01 : 0.03,
+                    scale: isSearchActive ? 1.1 : 1,
+                }}
                 style={{
                     backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
                     backgroundSize: '40px 40px'
@@ -15,7 +22,13 @@ export default function PremiumBackground() {
             />
 
             {/* Animated Blobs */}
-            <div className="absolute inset-0 filter blur-[120px] opacity-20">
+            <motion.div
+                className="absolute inset-0 filter opacity-20"
+                animate={{
+                    filter: isSearchActive ? 'blur(180px)' : 'blur(120px)',
+                    opacity: isSearchActive ? 0.1 : 0.2
+                }}
+            >
                 <motion.div
                     animate={{
                         x: [0, 100, 0],
@@ -55,9 +68,9 @@ export default function PremiumBackground() {
                     }}
                     className="absolute top-[20%] right-[10%] w-[35%] h-[35%] rounded-full bg-[#00cec9]"
                 />
-            </div>
+            </motion.div>
 
-            {/* Noise Texture (if grain-overlay is not enough) */}
+            {/* Noise Texture */}
             <div className="absolute inset-0 opacity-[0.02] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
         </div>
     );

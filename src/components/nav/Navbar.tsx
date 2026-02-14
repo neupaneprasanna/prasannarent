@@ -246,7 +246,7 @@ export default function Navbar() {
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
-                        className="absolute top-full left-0 right-0 px-6 py-4 pointer-events-none z-[50]"
+                        className="absolute top-full left-0 right-0 px-6 py-4 pointer-events-none z-[501]"
                     >
                         <div className="max-w-2xl mx-auto pointer-events-auto">
                             <SearchBar autoFocus={showSearch} />
