@@ -14,12 +14,21 @@ import {
     RotateCcw
 } from 'lucide-react';
 import { useAdminSettingsStore } from '@/store/admin/admin-settings-store';
+import { useAdminAuthStore } from '@/store/admin/admin-auth-store';
+import { useEffect } from 'react';
 
 export default function SettingsPage() {
+    const { token } = useAdminAuthStore();
     const {
         general, registration, fees, notifications,
-        updateGeneral, updateRegistration, updateFees, updateNotifications
+        fetchSettings, updateGeneral, updateRegistration, updateFees, updateNotifications
     } = useAdminSettingsStore();
+
+    useEffect(() => {
+        if (token) {
+            fetchSettings(token);
+        }
+    }, [token, fetchSettings]);
 
     const [activeTab, setActiveTab] = useState('general');
     const [isSaving, setIsSaving] = useState(false);
@@ -66,8 +75,8 @@ export default function SettingsPage() {
                         onClick={handleSave}
                         disabled={isSaving}
                         className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold text-white transition-all ${isSaving
-                                ? 'bg-[var(--admin-surface-active)] cursor-wait'
-                                : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:shadow-lg hover:shadow-cyan-500/20 hover:scale-105 active:scale-95'
+                            ? 'bg-[var(--admin-surface-active)] cursor-wait'
+                            : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:shadow-lg hover:shadow-cyan-500/20 hover:scale-105 active:scale-95'
                             }`}
                     >
                         {isSaving ? (
@@ -88,8 +97,8 @@ export default function SettingsPage() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id
-                                    ? 'bg-[var(--admin-surface-active)] text-[var(--admin-text-primary)] border border-[var(--admin-border-hover)]'
-                                    : 'text-[var(--admin-text-secondary)] hover:text-[var(--admin-text-primary)] hover:bg-[var(--admin-surface)]'
+                                ? 'bg-[var(--admin-surface-active)] text-[var(--admin-text-primary)] border border-[var(--admin-border-hover)]'
+                                : 'text-[var(--admin-text-secondary)] hover:text-[var(--admin-text-primary)] hover:bg-[var(--admin-surface)]'
                                 }`}
                         >
                             <tab.icon size={18} className={activeTab === tab.id ? 'text-[var(--admin-accent)]' : 'opacity-70'} />
@@ -116,7 +125,7 @@ export default function SettingsPage() {
                                         <input
                                             type="text"
                                             value={general.siteName}
-                                            onChange={(e) => updateGeneral({ siteName: e.target.value })}
+                                            onChange={(e) => updateGeneral(token!, { siteName: e.target.value })}
                                             className="w-full bg-[var(--admin-bg)] border border-[var(--admin-border)] rounded-xl px-4 py-2 text-sm text-[var(--admin-text-primary)] focus:outline-none focus:border-[var(--admin-accent)]"
                                         />
                                     </div>
@@ -126,7 +135,7 @@ export default function SettingsPage() {
                                         <input
                                             type="email"
                                             value={general.supportEmail}
-                                            onChange={(e) => updateGeneral({ supportEmail: e.target.value })}
+                                            onChange={(e) => updateGeneral(token!, { supportEmail: e.target.value })}
                                             className="w-full bg-[var(--admin-bg)] border border-[var(--admin-border)] rounded-xl px-4 py-2 text-sm text-[var(--admin-text-primary)] focus:outline-none focus:border-[var(--admin-accent)]"
                                         />
                                     </div>
@@ -141,7 +150,7 @@ export default function SettingsPage() {
                                                 <input
                                                     type="checkbox"
                                                     checked={general.maintenanceMode}
-                                                    onChange={(e) => updateGeneral({ maintenanceMode: e.target.checked })}
+                                                    onChange={(e) => updateGeneral(token!, { maintenanceMode: e.target.checked })}
                                                     className="sr-only peer"
                                                 />
                                                 <div className="w-11 h-6 bg-[var(--admin-surface-active)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--admin-accent)]"></div>

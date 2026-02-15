@@ -34,36 +34,38 @@ export default function ExplorePage() {
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get('search') || '';
 
-    useEffect(() => {
-        fetchListings();
-    }, [activeCategory]);
-
-    // Debounced fetch for filters
+    // Unified debounced fetch for all filters and search
     useEffect(() => {
         const timer = setTimeout(() => {
             fetchListings();
-        }, 500);
+        }, 400);
         return () => clearTimeout(timer);
-    }, [priceRange[1], minRating, availableOnly, searchQuery]);
+    }, [activeCategory, priceRange[1], minRating, availableOnly, searchQuery, searchParams.get('id')]);
 
     const fetchListings = async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
-            if (activeCategory !== 'All') {
-                params.append('category', activeCategory.toLowerCase());
-            }
-            if (priceRange[1] < 500) {
-                params.append('maxPrice', priceRange[1].toString());
-            }
-            if (minRating > 0) {
-                params.append('minRating', minRating.toString());
-            }
-            if (availableOnly) {
-                params.append('availableOnly', 'true');
-            }
-            if (searchQuery) {
-                params.append('search', searchQuery);
+            const itemId = searchParams.get('id');
+
+            if (itemId) {
+                params.append('id', itemId);
+            } else {
+                if (activeCategory !== 'All') {
+                    params.append('category', activeCategory.toLowerCase());
+                }
+                if (priceRange[1] < 500) {
+                    params.append('maxPrice', priceRange[1].toString());
+                }
+                if (minRating > 0) {
+                    params.append('minRating', minRating.toString());
+                }
+                if (availableOnly) {
+                    params.append('availableOnly', 'true');
+                }
+                if (searchQuery) {
+                    params.append('search', searchQuery);
+                }
             }
 
             const data = await apiClient.get<{ listings: any[] }>(`/listings?${params.toString()}`);

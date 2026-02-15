@@ -16,6 +16,8 @@ async function main() {
     const adminAccounts = [
         { email: 'prasanna@gmail.com', password: 'prasanna', role: 'SUPER_ADMIN', firstName: 'Prasanna' },
         { email: 'neupane@gmail.com', password: 'neupane', role: 'ADMIN', firstName: 'Neupane' },
+        { email: 'ashutosh@gmail.com', password: 'ashutosh', role: 'MODERATOR', firstName: 'Ashutosh' },
+        { email: 'manish@gmail.com', password: 'manish', role: 'FINANCE', firstName: 'Manish' },
     ];
 
     for (const admin of adminAccounts) {

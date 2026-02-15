@@ -63,7 +63,7 @@ export default function CreateListingPage() {
             const payload = {
                 ...formData,
                 price: parseFloat(formData.price),
-                tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+                tags: Array.from(new Set(formData.tags.split(',').map(tag => tag.trim()).filter(Boolean))),
                 images: formData.images.split('\n').map(img => img.trim()).filter(Boolean),
             };
 

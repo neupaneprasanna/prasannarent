@@ -5,6 +5,7 @@ import ClientProviders from "@/components/providers/ClientProviders";
 import PremiumBackground from "@/components/ui/PremiumBackground";
 import SearchOverlay from "@/components/ui/SearchOverlay";
 import SmoothScroll from "@/components/providers/SmoothScroll";
+import MaintenanceGuard from "@/components/guards/MaintenanceGuard";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -82,9 +83,11 @@ export default function RootLayout({
         <PremiumBackground />
         <SearchOverlay />
         <ClientProviders>
-          <SmoothScroll>
-            {children}
-          </SmoothScroll>
+          <MaintenanceGuard>
+            <SmoothScroll>
+              {children}
+            </SmoothScroll>
+          </MaintenanceGuard>
         </ClientProviders>
       </body>
     </html>

@@ -22,7 +22,8 @@ interface AdminSettingsState {
     };
 
     // Actions
-    updateGeneral: (settings: Partial<AdminSettingsState['general']>) => void;
+    fetchSettings: (token: string) => Promise<void>;
+    updateGeneral: (token: string, settings: Partial<AdminSettingsState['general']>) => Promise<void>;
     updateRegistration: (settings: Partial<AdminSettingsState['registration']>) => void;
     updateFees: (settings: Partial<AdminSettingsState['fees']>) => void;
     updateNotifications: (settings: Partial<AdminSettingsState['notifications']>) => void;
@@ -50,9 +51,44 @@ export const useAdminSettingsStore = create<AdminSettingsState>()(
                 slackIntegration: false,
             },
 
-            updateGeneral: (settings) => set((state) => ({
-                general: { ...state.general, ...settings }
-            })),
+            fetchSettings: async (token) => {
+                try {
+                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/settings?group=general`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const { settings } = await res.json();
+                        const maintenance = settings.find((s: any) => s.key === 'maintenance_mode');
+                        if (maintenance) {
+                            set((state) => ({
+                                general: { ...state.general, maintenanceMode: maintenance.value === 'true' }
+                            }));
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch settings:', error);
+                }
+            },
+            updateGeneral: async (token, settings) => {
+                if (settings.maintenanceMode !== undefined) {
+                    try {
+                        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/settings/maintenance_mode`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ value: String(settings.maintenanceMode) })
+                        });
+                    } catch (error) {
+                        console.error('Failed to update maintenance mode:', error);
+                    }
+                }
+
+                set((state) => ({
+                    general: { ...state.general, ...settings }
+                }));
+            },
             updateRegistration: (settings) => set((state) => ({
                 registration: { ...state.registration, ...settings }
             })),

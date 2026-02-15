@@ -463,7 +463,7 @@ export default function ProductPage() {
                                         <p className="whitespace-pre-wrap">{item.description}</p>
                                     </div>
                                     <div className="flex flex-wrap gap-2 pt-2">
-                                        {item.tags?.map((tag: string) => (
+                                        {Array.from(new Set(item.tags || [])).map((tag: any) => (
                                             <span key={tag} className="px-4 py-1.5 rounded-full glass text-[10px] font-bold text-white/30 uppercase tracking-widest">
                                                 #{tag}
                                             </span>

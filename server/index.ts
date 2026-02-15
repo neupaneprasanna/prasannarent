@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
@@ -7,11 +10,9 @@ import next from 'next';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
 import { createAdminRouter } from './admin/routes';
 import { setupAdminWebSocket } from './admin/websocket';
-
-dotenv.config();
+import { detectSearchIntent, rankResults } from './lib/groq';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
@@ -68,31 +69,104 @@ nextApp.prepare().then(() => {
         jwt.verify(token, JWT_SECRET, async (err, user) => {
             if (err) return res.status(403).json({ error: 'Invalid token' });
             const decoded = user as { userId: string; email: string };
-            (req as AuthRequest).user = decoded;
 
-            // Periodically update lastSeenAt (only if more than 5 minutes ago)
             try {
+                // Fetch user to check status (active/banned)
                 const dbUser = await prisma.user.findUnique({
                     where: { id: decoded.userId },
-                    select: { lastSeenAt: true }
+                    select: { id: true, banned: true, lastSeenAt: true } as any
                 });
 
+                if (!dbUser) {
+                    return res.status(401).json({ error: 'User not found' });
+                }
+
+                if ((dbUser as any).banned) {
+                    return res.status(403).json({ error: 'Account suspended. Please contact support.' });
+                }
+
+                (req as AuthRequest).user = decoded;
+
+                // Periodically update lastSeenAt (only if more than 5 minutes ago)
                 const now = new Date();
                 const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
 
-                if (!dbUser?.lastSeenAt || dbUser.lastSeenAt < fiveMinutesAgo) {
+                if (!(dbUser as any).lastSeenAt || (dbUser as any).lastSeenAt < fiveMinutesAgo) {
                     await prisma.user.update({
                         where: { id: decoded.userId },
-                        data: { lastSeenAt: now }
+                        data: { lastSeenAt: now } as any
                     });
                 }
             } catch (error) {
-                console.error('Failed to update lastSeenAt:', error);
+                console.error('Auth middleware error:', error);
+                return res.status(500).json({ error: 'Authentication failed' });
             }
 
             next();
         });
     };
+
+    // ─── Maintenance Middleware ───
+    const checkMaintenance = async (req: Request, res: Response, next: NextFunction) => {
+        const path = req.path.toLowerCase();
+
+        // Skip for critical public routes, admin paths, and static assets
+        const isPublicSetting = path === '/api/settings/public';
+        const isHealth = path === '/api/health' || path === '/health';
+        const isAdminPath = path.startsWith('/admin') || path.startsWith('/api/admin');
+        const isAuth = path.startsWith('/api/auth');
+        const isAsset = path.startsWith('/_next') ||
+            path.startsWith('/static') ||
+            path.startsWith('/images') ||
+            path.startsWith('/assets') ||
+            path === '/favicon.ico';
+
+        if (isPublicSetting || isHealth || isAdminPath || isAuth || isAsset) {
+            return next();
+        }
+
+        try {
+            const maintenanceSetting = await prisma.platformSetting.findUnique({
+                where: { key: 'maintenance_mode' }
+            });
+
+            if (maintenanceSetting?.value === 'true') {
+                // Check if requester is an admin
+                const authHeader = req.headers['authorization'];
+                const token = authHeader && authHeader.split(' ')[1];
+
+                if (token) {
+                    try {
+                        const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+                        const user = await prisma.user.findUnique({
+                            where: { id: decoded.userId },
+                            select: { role: true }
+                        });
+
+                        // Allow Admins to bypass maintenance
+                        if (user && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN')) {
+                            return next();
+                        }
+                    } catch (e) {
+                        // Token invalid/expired - follow through to block
+                    }
+                }
+
+                // If not an admin or no token, block non-GET requests or sensitive routes
+                // Actually, block everything except the explicit skips above for public users
+                return res.status(503).json({
+                    error: 'System Maintenance',
+                    message: 'RentVerse is currently undergoing scheduled maintenance. Please try again later.'
+                });
+            }
+        } catch (error) {
+            console.error('Maintenance check error:', error);
+        }
+
+        next();
+    };
+
+    app.use(checkMaintenance);
 
     // ─── Admin Routes ───
     app.use('/api/admin', createAdminRouter());
@@ -103,6 +177,20 @@ nextApp.prepare().then(() => {
     // ─── Health check ───
     app.get('/api/health', (_req, res) => {
         res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
+
+    // ─── Public System Settings ───
+    app.get('/api/settings/public', async (_req, res) => {
+        try {
+            const maintenanceMode = await prisma.platformSetting.findUnique({
+                where: { key: 'maintenance_mode' }
+            });
+            res.json({
+                maintenanceMode: maintenanceMode?.value === 'true'
+            });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch public settings' });
+        }
     });
 
     // ─── Auth Routes ───
@@ -180,38 +268,57 @@ nextApp.prepare().then(() => {
 
     app.get('/api/listings', async (req, res) => {
         try {
-            const { category, search, minPrice, maxPrice, sort, minRating, availableOnly } = req.query;
-            const where: import('@prisma/client').Prisma.ListingWhereInput = {};
+            const { category, search, minPrice, maxPrice, sort, minRating, availableOnly, id } = req.query;
+            const where: import('@prisma/client').Prisma.ListingWhereInput = {
+                status: 'ACTIVE' // Only show active listings by default
+            };
 
-            if (category && category !== 'all' && category !== 'All') {
-                where.category = { equals: category as string, mode: 'insensitive' };
+            const conditions: any[] = [];
+
+            // Targeted fetch by ID (for redirects from AI search)
+            if (id && typeof id === 'string') {
+                where.id = id;
+            } else {
+                if (category && category !== 'all' && category !== 'All') {
+                    conditions.push({ category: { equals: category as string, mode: 'insensitive' } });
+                }
+
+                if (search) {
+                    const searchStr = search as string;
+                    const searchWords = searchStr.split(' ').filter(w => w.length > 1);
+
+                    if (searchWords.length > 0) {
+                        const searchConditions = searchWords.map(word => ({
+                            OR: [
+                                { title: { contains: word, mode: 'insensitive' } },
+                                { description: { contains: word, mode: 'insensitive' } },
+                                { tags: { hasSome: [word] } }
+                            ]
+                        }));
+                        conditions.push({ AND: searchConditions });
+                    }
+                }
+
+                if (minPrice || maxPrice) {
+                    where.price = {
+                        gte: minPrice ? parseFloat(minPrice as string) : undefined,
+                        lte: maxPrice ? parseFloat(maxPrice as string) : undefined,
+                    };
+                }
+
+                if (minRating) {
+                    where.rating = {
+                        gte: parseFloat(minRating as string)
+                    };
+                }
+
+                if (availableOnly === 'true') {
+                    where.available = true;
+                }
             }
 
-            if (search) {
-                const searchStr = search as string;
-                where.OR = [
-                    { title: { contains: searchStr, mode: 'insensitive' } },
-                    { description: { contains: searchStr, mode: 'insensitive' } },
-                    { location: { contains: searchStr, mode: 'insensitive' } },
-                    { tags: { hasSome: [searchStr] } }
-                ];
-            }
-
-            if (minPrice || maxPrice) {
-                where.price = {
-                    gte: minPrice ? parseFloat(minPrice as string) : undefined,
-                    lte: maxPrice ? parseFloat(maxPrice as string) : undefined,
-                };
-            }
-
-            if (minRating) {
-                where.rating = {
-                    gte: parseFloat(minRating as string)
-                };
-            }
-
-            if (availableOnly === 'true') {
-                where.available = true;
+            if (conditions.length > 0) {
+                where.AND = conditions;
             }
 
             let orderBy: import('@prisma/client').Prisma.ListingOrderByWithRelationInput = { createdAt: 'desc' };
@@ -240,41 +347,84 @@ nextApp.prepare().then(() => {
     app.get('/api/search', async (req, res) => {
         try {
             const { q } = req.query;
-            if (!q) return res.json({ results: [], intent: null });
+            if (!q || typeof q !== 'string') {
+                return res.json({ results: [], query: q, intent: null });
+            }
 
-            const query = (q as string).toLowerCase();
+            console.log(`[Groq Search] Processing query: "${q}"`);
 
-            // Simple heuristic-based "AI" intent detection
-            let detectedCategory = null;
-            if (query.includes('car') || query.includes('vehicle') || query.includes('drive') || query.includes('tesla')) detectedCategory = 'vehicles';
-            if (query.includes('camera') || query.includes('tech') || query.includes('sony') || query.includes('photo')) detectedCategory = 'tech';
-            if (query.includes('room') || query.includes('stay') || query.includes('apartment')) detectedCategory = 'rooms';
-            if (query.includes('tool') || query.includes('drill') || query.includes('fix')) detectedCategory = 'tools';
+            // 1. Detect Intent using Groq
+            const categories = ['Tech', 'Vehicles', 'Rooms', 'Equipment', 'Fashion', 'Studios', 'Tools', 'Digital'];
+            const intent = await detectSearchIntent(q, categories);
 
-            const results = await prisma.listing.findMany({
-                where: {
-                    OR: [
-                        { title: { contains: query, mode: 'insensitive' } },
-                        { description: { contains: query, mode: 'insensitive' } },
-                        { category: detectedCategory ? { equals: detectedCategory, mode: 'insensitive' } : undefined },
-                        { tags: { hasSome: [query] } }
-                    ].filter(Boolean) as any[]
-                },
-                include: { owner: { select: { firstName: true } } },
-                take: 5
+            console.log(`[Groq Search] Detected Intent:`, intent);
+
+            // 2. Build Prisma Query
+            // Collect all potential search terms
+            const searchTerms = new Set<string>();
+            if (intent.keywords && intent.keywords.length > 0) {
+                intent.keywords.forEach(k => {
+                    k.split(' ').forEach(word => {
+                        if (word.length > 1) searchTerms.add(word.toLowerCase());
+                    });
+                    if (k.length > 1) searchTerms.add(k.toLowerCase());
+                });
+            }
+            // Also add original query words
+            q.split(' ').forEach(word => {
+                if (word.length > 1) searchTerms.add(word.toLowerCase());
             });
 
+            const termArray = Array.from(searchTerms);
+
+            // Build a broad OR condition for these terms
+            const wordConditions = termArray.map(term => ({
+                OR: [
+                    { title: { contains: term, mode: 'insensitive' as any } },
+                    { description: { contains: term, mode: 'insensitive' as any } },
+                    { tags: { hasSome: [term] } }
+                ]
+            }));
+
+            const where: import('@prisma/client').Prisma.ListingWhereInput = {
+                status: 'ACTIVE',
+                OR: [
+                    ...wordConditions,
+                    ...(intent.category ? [{ category: { equals: intent.category, mode: 'insensitive' as any } }] : [])
+                ]
+            };
+
+            // Price filters
+            if (intent.minPrice !== null || intent.maxPrice !== null) {
+                where.price = {
+                    gte: intent.minPrice ?? undefined,
+                    lte: intent.maxPrice ?? undefined,
+                };
+            }
+
+            // 3. Fetch initial results
+            let listings = await prisma.listing.findMany({
+                where,
+                include: { owner: { select: { firstName: true, verified: true } } },
+                take: 30
+            });
+
+            // 4. Rank results using AI
+            if (listings.length > 0) {
+                listings = await rankResults(q, listings);
+            }
+
             res.json({
-                results,
+                results: listings,
                 query: q,
                 intent: {
-                    category: detectedCategory,
-                    confidence: detectedCategory ? 0.8 : 0.4,
-                    message: detectedCategory ? `I found some ${detectedCategory} for you.` : "Searching across all categories."
+                    category: intent.category,
+                    explanation: intent.explanation,
+                    confidence: 0.95
                 }
             });
         } catch (error) {
-            console.error('Search error:', error);
+            console.error('AI Search error:', error);
             res.status(500).json({ error: 'Search failed' });
         }
     });
@@ -294,7 +444,7 @@ nextApp.prepare().then(() => {
                     description,
                     price: parseFloat(price),
                     category,
-                    tags: tags || [],
+                    tags: Array.from(new Set((tags || []).map((t: string) => t.trim()).filter(Boolean))),
                     images: images || [],
                     location,
                     priceUnit: (priceUnit?.toUpperCase() as any) || 'DAY',
@@ -567,16 +717,6 @@ nextApp.prepare().then(() => {
         }
     });
 
-    // ─── Search Routes ───
-    app.get('/api/search', async (req, res) => {
-        try {
-            const { q, category, lat, lng, radius } = req.query;
-            // TODO: Full-text search with filters, optional AI-powered
-            res.json({ results: [], query: q });
-        } catch (error) {
-            res.status(500).json({ error: 'Search failed' });
-        }
-    });
 
     // ─── Reviews Routes ───
     app.post('/api/reviews', authenticateToken, async (req: AuthRequest, res) => {

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAppStore } from '@/store/app-store';
+import { Loader2 } from 'lucide-react';
 
 // Types for Web Speech API
 interface SpeechRecognitionEvent extends Event {
@@ -49,6 +51,9 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
     const [focused, setFocused] = useState(false);
     const [query, setQuery] = useState('');
     const [isListening, setIsListening] = useState(false);
+    const [aiResults, setAiResults] = useState<any[]>([]);
+    const [isAiLoading, setIsAiLoading] = useState(false);
+    const [aiIntent, setAiIntent] = useState<{ category: string | null; explanation: string } | null>(null);
     const recognitionRef = useRef<SpeechRecognition | null>(null);
 
     // Sync local focused state with global search state
@@ -125,7 +130,10 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
         }
     }, []);
 
-    const toggleVoiceSearch = () => {
+    const toggleVoiceSearch = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
         if (!recognitionRef.current) {
             alert('Speech recognition is not supported in your browser.');
             return;
@@ -135,9 +143,39 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
             recognitionRef.current.stop();
         } else {
             setIsListening(true);
-            recognitionRef.current.start();
+            try {
+                recognitionRef.current.start();
+            } catch (err) {
+                console.error('Speech recognition start error:', err);
+                setIsListening(false);
+            }
         }
     };
+
+    useEffect(() => {
+        if (!query || query.length < 2) {
+            setAiResults([]);
+            setAiIntent(null);
+            return;
+        }
+
+        const fetchSearchResults = async () => {
+            setIsAiLoading(true);
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                setAiResults(data.results || []);
+                setAiIntent(data.intent || null);
+            } catch (error) {
+                console.error('AI search fetch error:', error);
+            } finally {
+                setIsAiLoading(false);
+            }
+        };
+
+        const timer = setTimeout(fetchSearchResults, 800);
+        return () => clearTimeout(timer);
+    }, [query]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -223,6 +261,7 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                 {/* Voice */}
                 <div className="relative flex items-center">
                     <button
+                        type="button"
                         onClick={toggleVoiceSearch}
                         className={`px-4 transition-all duration-300 relative z-10 ${isListening ? 'text-[#ff4757]' : 'text-white/30 hover:text-white/60'
                             }`}
@@ -284,34 +323,101 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                         transition={{ duration: 0.3, ease: "easeOut" }}
                     >
                         <div className="py-2">
-                            <div className="px-4 py-2 border-b border-white/5 mb-2">
+                            <div className="px-4 py-2 border-b border-white/5 mb-2 flex items-center justify-between">
                                 <span className="text-[10px] text-white/30 tracking-[0.2em] uppercase font-bold">
-                                    {query ? 'Search Results' : 'Trending Now'}
+                                    {isAiLoading ? 'AI is thinking...' : (query ? 'AI Recommendations' : 'Trending Now')}
                                 </span>
+                                {isAiLoading && <Loader2 className="w-3 h-3 animate-spin text-[#6c5ce7]" />}
                             </div>
-                            {filteredSuggestions.map((suggestion, i) => (
-                                <motion.button
-                                    key={suggestion}
-                                    className="w-full px-4 py-3 flex items-center gap-3 text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all text-left group"
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: i * 0.05 }}
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => {
-                                        setQuery(suggestion);
-                                        inputRef.current?.focus();
-                                    }}
+
+                            {aiIntent && !isAiLoading && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className="px-4 py-2 mb-2 mx-4 rounded-xl bg-[#6c5ce7]/5 border border-[#6c5ce7]/10"
                                 >
-                                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/30 group-hover:bg-[#6c5ce7]/20 group-hover:text-[#a29bfe] transition-colors">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <circle cx="11" cy="11" r="8" />
-                                            <path d="m21 21-4.35-4.35" />
-                                        </svg>
+                                    <p className="text-[11px] text-[#a29bfe] italic">
+                                        "{aiIntent.explanation}"
+                                    </p>
+                                </motion.div>
+                            )}
+
+                            {query ? (
+                                aiResults.length > 0 ? (
+                                    aiResults.map((result, i) => (
+                                        <Link
+                                            key={result.id}
+                                            href={`/item/${result.id}`}
+                                            className="w-full px-4 py-3 flex items-center gap-3 text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all text-left group search-element"
+                                            onMouseDown={(e: React.MouseEvent) => {
+                                                // Prevent input blur before the link can be clicked
+                                                e.preventDefault();
+                                            }}
+                                            onClick={() => {
+                                                setSearchActive(false);
+                                                setFocused(false);
+                                            }}
+                                        >
+                                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/5 flex-shrink-0">
+                                                {result.images?.[0] ? (
+                                                    <img src={result.images[0]} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-white/20">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <circle cx="11" cy="11" r="8" />
+                                                            <path d="m21 21-4.35-4.35" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex-1 overflow-hidden">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium truncate">{result.title}</span>
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/40 uppercase tracking-wider">{result.category}</span>
+                                                </div>
+                                                <p className="text-[10px] text-white/30 truncate mt-0.5">${result.price}/{result.priceUnit?.toLowerCase()}</p>
+                                            </div>
+                                            <span className="text-[10px] text-[#6c5ce7] opacity-0 group-hover:opacity-100 transition-opacity font-bold uppercase">VIEW ITEM</span>
+                                        </Link>
+                                    ))
+                                ) : !isAiLoading && (
+                                    <div className="px-4 py-8 text-center">
+                                        <p className="text-sm text-white/20 italic">No matches found for your query.</p>
                                     </div>
-                                    <span className="flex-1">{suggestion}</span>
-                                    <span className="text-[10px] text-white/20 opacity-0 group-hover:opacity-100 transition-opacity">Press Enter</span>
-                                </motion.button>
-                            ))}
+                                )
+                            ) : (
+                                suggestions.slice(0, 5).map((suggestion, i) => (
+                                    <motion.button
+                                        key={suggestion}
+                                        type="button"
+                                        className="w-full px-4 py-3 flex items-center gap-3 text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all text-left group search-element"
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: i * 0.05 }}
+                                        onMouseDown={(e: React.MouseEvent) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                        }}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            console.log('Regular Suggestion clicked:', suggestion);
+                                            setQuery(suggestion);
+                                            setSearchActive(false);
+                                            setFocused(false);
+                                            router.push(`/explore?search=${encodeURIComponent(suggestion)}`);
+                                        }}
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/30 group-hover:bg-[#6c5ce7]/20 group-hover:text-[#a29bfe] transition-colors">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <circle cx="11" cy="11" r="8" />
+                                                <path d="m21 21-4.35-4.35" />
+                                            </svg>
+                                        </div>
+                                        <span className="flex-1">{suggestion}</span>
+                                    </motion.button>
+                                ))
+                            )}
                         </div>
                     </motion.div>
                 )}
