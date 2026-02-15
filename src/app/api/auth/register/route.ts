@@ -7,7 +7,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
 
 export async function POST(req: Request) {
     try {
+        console.log('🟢 [Register API] Route hit');
+        console.log('🟢 [Register API] DATABASE_URL Check:', process.env.DATABASE_URL ? `Defined (${process.env.DATABASE_URL.length} chars)` : 'MISSING');
+
         const body = await req.json();
+        console.log('🟢 [Register API] Body received:', JSON.stringify({ ...body, password: '[REDACTED]' }));
+
         const { email, password, firstName, lastName, phone, address, city, dateOfBirth, governmentIdType, governmentIdNumber, interests } = body;
 
         const existingUser = await prisma.user.findUnique({ where: { email } });
