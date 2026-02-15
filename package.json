@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "NODE_ENV=production node --loader ts-node/esm server/index.ts",
     "lint": "eslint",
-    "server": "node --loader ts-node/esm server/index.ts"
+    "server": "node --loader ts-node/esm server/index.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
