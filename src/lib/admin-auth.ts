@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { prisma } from './prisma';
+import { ROLE_PERMISSIONS } from '@/types/admin';
+import type { AdminRole, PermissionModule, PermissionAction } from '@/types/admin';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
 
@@ -21,8 +22,17 @@ export async function authenticateAdmin(req: Request) {
             return null;
         }
 
-        return user;
+        return {
+            userId: user.id,
+            role: user.role as AdminRole,
+            banned: (user as any).banned
+        };
     } catch (error) {
         return null;
     }
+}
+
+export async function requirePermission(role: AdminRole, module: PermissionModule, action: PermissionAction): Promise<boolean> {
+    const permissions = ROLE_PERMISSIONS[role] || [];
+    return permissions.some(p => p.module === module && p.action === action);
 }

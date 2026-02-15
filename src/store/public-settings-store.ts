@@ -11,8 +11,7 @@ export const usePublicSettingsStore = create<PublicSettingsState>((set) => ({
     loading: true,
     fetchPublicSettings: async () => {
         try {
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-            const res = await fetch(`${baseUrl}/settings/public`);
+            const res = await fetch('/api/settings/public');
             if (res.ok) {
                 const data = await res.json();
                 set({ maintenanceMode: data.maintenanceMode, loading: false });

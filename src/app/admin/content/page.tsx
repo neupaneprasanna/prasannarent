@@ -26,7 +26,7 @@ export default function ContentPage() {
         if (!token) return;
         setLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/content/blocks`, {
+            const res = await fetch(`/api/admin/content/blocks`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -42,7 +42,7 @@ export default function ContentPage() {
 
     const handleSave = async (id: string) => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/content/blocks/${id}`, {
+            const res = await fetch(`/api/admin/content/blocks/${id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,

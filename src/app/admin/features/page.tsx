@@ -23,7 +23,7 @@ export default function FeaturesPage() {
         if (!token) return;
         setLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/features/flags`, {
+            const res = await fetch(`/api/admin/features/flags`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -39,7 +39,7 @@ export default function FeaturesPage() {
 
     const toggleFlag = async (id: string, currentState: boolean) => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/features/flags/${id}`, {
+            const res = await fetch(`/api/admin/features/flags/${id}`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -90,8 +90,8 @@ export default function FeaturesPage() {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             className={`p-6 rounded-xl border transition-all ${flag.enabled
-                                    ? 'bg-[var(--admin-surface)] border-[var(--admin-success)]/30 shadow-[0_0_20px_-10px_var(--admin-success)]'
-                                    : 'bg-[var(--admin-surface)] border-[var(--admin-border)] opacity-80'
+                                ? 'bg-[var(--admin-surface)] border-[var(--admin-success)]/30 shadow-[0_0_20px_-10px_var(--admin-success)]'
+                                : 'bg-[var(--admin-surface)] border-[var(--admin-border)] opacity-80'
                                 }`}
                         >
                             <div className="flex justify-between items-start mb-4">

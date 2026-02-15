@@ -6,7 +6,7 @@ import { useAdminAuthStore } from '@/store/admin/admin-auth-store';
 import { Loader2, MessageSquare, Search, User, Calendar, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = '/api';
 
 export default function AdminMessagesPage() {
     const { token, user: adminUser } = useAdminAuthStore();
@@ -119,8 +119,8 @@ export default function AdminMessagesPage() {
                                     key={conv.id}
                                     onClick={() => setSelectedId(conv.id)}
                                     className={`w-full group p-3 rounded-xl transition-all relative overflow-hidden ${selectedId === conv.id
-                                            ? 'bg-gradient-to-r from-cyan-500/10 to-transparent border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.05)]'
-                                            : 'hover:bg-white/[0.03] border border-transparent'
+                                        ? 'bg-gradient-to-r from-cyan-500/10 to-transparent border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.05)]'
+                                        : 'hover:bg-white/[0.03] border border-transparent'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between mb-2">

@@ -53,7 +53,7 @@ export const useAdminSettingsStore = create<AdminSettingsState>()(
 
             fetchSettings: async (token) => {
                 try {
-                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/settings?group=general`, {
+                    const res = await fetch(`/api/admin/settings?group=general`, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     if (res.ok) {
@@ -72,7 +72,7 @@ export const useAdminSettingsStore = create<AdminSettingsState>()(
             updateGeneral: async (token, settings) => {
                 if (settings.maintenanceMode !== undefined) {
                     try {
-                        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/settings/maintenance_mode`, {
+                        await fetch(`/api/admin/settings/maintenance_mode`, {
                             method: 'PATCH',
                             headers: {
                                 'Content-Type': 'application/json',

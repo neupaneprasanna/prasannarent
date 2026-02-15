@@ -29,7 +29,7 @@ export default function ModerationPage() {
         if (!token) return;
         setLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/moderation/queue?status=PENDING`, {
+            const res = await fetch(`/api/admin/moderation/queue?status=PENDING`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -45,7 +45,7 @@ export default function ModerationPage() {
 
     const handleAction = async (id: string, action: 'approve' | 'reject') => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/moderation/queue/${id}/${action}`, {
+            const res = await fetch(`/api/admin/moderation/queue/${id}/${action}`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

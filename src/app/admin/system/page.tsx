@@ -34,7 +34,7 @@ export default function SystemPage() {
         if (!token) return;
         setLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/system/health`, {
+            const res = await fetch(`/api/admin/system/health`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
