@@ -17,7 +17,7 @@ function MessagesContent() {
     const {
         conversations, activeConversation, messages,
         loading, messagesLoading,
-        fetchConversations, fetchMessages, setActiveConversation, sendMessage, initSocket, disconnectSocket, startConversation
+        fetchConversations, fetchMessages, setActiveConversation, sendMessage, startConversation
     } = useMessageStore();
     const searchParams = useSearchParams();
     const startWith = searchParams.get('startWith');
@@ -81,9 +81,7 @@ function MessagesContent() {
         };
 
         init();
-        if (user) initSocket(user.id);
         return () => {
-            disconnectSocket();
             initializingRef.current = false;
         };
     }, [isAuthenticated, startWith, listingId, initialMessage]);

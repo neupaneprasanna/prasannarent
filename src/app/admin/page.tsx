@@ -91,7 +91,6 @@ export default function AdminDashboardPage() {
     const {
         stats, revenueData, activityFeed, systemHealth,
         fetchStats, fetchRevenue, fetchActivity, fetchHealth,
-        initSocket, disconnectSocket,
         loading: dashboardLoading
     } = useAdminDashboardStore();
     const { items: pendingListings, fetch: fetchListings } = useAdminListingsStore();
@@ -103,10 +102,8 @@ export default function AdminDashboardPage() {
             fetchActivity(token);
             fetchListings(token);
             fetchHealth(token);
-            initSocket(token);
         }
-        return () => disconnectSocket();
-    }, [token, fetchStats, fetchRevenue, fetchActivity, fetchListings, fetchHealth, initSocket, disconnectSocket]);
+    }, [token, fetchStats, fetchRevenue, fetchActivity, fetchListings, fetchHealth]);
 
     // Refresh telemetry and stats intermittently
     useEffect(() => {

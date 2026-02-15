@@ -1,8 +1,5 @@
 import { create } from 'zustand';
 import type { AdminDashboardStats, AdminActivityEvent, AdminRevenueDataPoint } from '@/types/admin';
-import { io, Socket } from 'socket.io-client';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 interface AdminDashboardState {
     stats: AdminDashboardStats | null;
@@ -11,14 +8,11 @@ interface AdminDashboardState {
     systemHealth: any | null;
     loading: boolean;
     error: string | null;
-    socket: Socket | null;
 
     fetchStats: (token: string) => Promise<void>;
     fetchRevenue: (token: string, days?: number) => Promise<void>;
     fetchActivity: (token: string, limit?: number) => Promise<void>;
     fetchHealth: (token: string) => Promise<void>;
-    initSocket: (token: string) => void;
-    disconnectSocket: () => void;
     updateStats: (stats: Partial<AdminDashboardStats>) => void;
     addActivity: (event: AdminActivityEvent) => void;
 }
@@ -30,12 +24,11 @@ export const useAdminDashboardStore = create<AdminDashboardState>()((set, get) =
     systemHealth: null,
     loading: false,
     error: null,
-    socket: null,
 
     fetchStats: async (token: string) => {
         set({ loading: true });
         try {
-            const res = await fetch(`${API_URL}/admin/dashboard/stats`, {
+            const res = await fetch(`/api/admin/dashboard/stats`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
@@ -49,7 +42,7 @@ export const useAdminDashboardStore = create<AdminDashboardState>()((set, get) =
 
     fetchRevenue: async (token: string, days = 30) => {
         try {
-            const res = await fetch(`${API_URL}/admin/dashboard/revenue?days=${days}`, {
+            const res = await fetch(`/api/admin/dashboard/revenue?days=${days}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
@@ -63,7 +56,7 @@ export const useAdminDashboardStore = create<AdminDashboardState>()((set, get) =
 
     fetchActivity: async (token: string, limit = 20) => {
         try {
-            const res = await fetch(`${API_URL}/admin/dashboard/activity?limit=${limit}`, {
+            const res = await fetch(`/api/admin/dashboard/activity?limit=${limit}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
@@ -77,7 +70,7 @@ export const useAdminDashboardStore = create<AdminDashboardState>()((set, get) =
 
     fetchHealth: async (token: string) => {
         try {
-            const res = await fetch(`${API_URL}/admin/system/health`, {
+            const res = await fetch(`/api/admin/system/health`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
@@ -86,37 +79,6 @@ export const useAdminDashboardStore = create<AdminDashboardState>()((set, get) =
             }
         } catch {
             // silent fail
-        }
-    },
-
-    initSocket: (token: string) => {
-        const { socket } = get();
-        if (socket?.connected) return;
-
-        const newSocket = io(API_URL.replace('/api', ''), {
-            auth: { token },
-        });
-
-        newSocket.on('connect', () => {
-            console.log('Admin Socket connected');
-        });
-
-        newSocket.on('admin:activity', (event) => {
-            get().addActivity(event);
-        });
-
-        newSocket.on('admin:stats:update', (stats) => {
-            get().updateStats(stats);
-        });
-
-        set({ socket: newSocket });
-    },
-
-    disconnectSocket: () => {
-        const { socket } = get();
-        if (socket) {
-            socket.disconnect();
-            set({ socket: null });
         }
     },
 

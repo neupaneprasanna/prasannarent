@@ -2,9 +2,6 @@
 
 import { create } from 'zustand';
 import { apiClient } from '@/lib/api-client';
-import { io, Socket } from 'socket.io-client';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export interface ConversationParticipant {
     id: string;
@@ -49,15 +46,13 @@ interface MessageState {
     messages: ConversationMessage[];
     loading: boolean;
     messagesLoading: boolean;
-    socket: Socket | null;
 
     fetchConversations: () => Promise<void>;
     fetchMessages: (conversationId: string) => Promise<void>;
     setActiveConversation: (conv: Conversation | null) => void;
     sendMessage: (conversationId: string, text: string) => Promise<void>;
     startConversation: (receiverId: string, listingId?: string, message?: string) => Promise<Conversation | null>;
-    initSocket: (userId: string) => void;
-    disconnectSocket: () => void;
+    addMessage: (conversationId: string, message: ConversationMessage) => void;
     totalUnread: () => number;
 }
 
@@ -67,7 +62,6 @@ export const useMessageStore = create<MessageState>()((set, get) => ({
     messages: [],
     loading: false,
     messagesLoading: false,
-    socket: null,
 
     fetchConversations: async () => {
         set({ loading: true });
@@ -119,32 +113,13 @@ export const useMessageStore = create<MessageState>()((set, get) => ({
         }
     },
 
-    initSocket: (userId: string) => {
-        const { socket } = get();
-        if (socket?.connected) return;
-
-        const newSocket = io(API_URL.replace('/api', ''));
-
-        newSocket.on(`message:${userId}`, (data: { conversationId: string; message: ConversationMessage }) => {
-            const { activeConversation, messages } = get();
-
-            // If we're viewing this conversation, add the message
-            if (activeConversation?.id === data.conversationId) {
-                set({ messages: [...messages, data.message] });
+    addMessage: (conversationId: string, message: ConversationMessage) => {
+        const { activeConversation, messages } = get();
+        if (activeConversation?.id === conversationId) {
+            // Check for duplicates to prevent issues with multiple update paths
+            if (!messages.find(m => m.id === message.id)) {
+                set({ messages: [...messages, message] });
             }
-
-            // Refresh conversations list for updated previews & unread counts
-            get().fetchConversations();
-        });
-
-        set({ socket: newSocket });
-    },
-
-    disconnectSocket: () => {
-        const { socket } = get();
-        if (socket) {
-            socket.disconnect();
-            set({ socket: null });
         }
     },
 

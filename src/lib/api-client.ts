@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/store/auth-store';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 type FetchOptions = RequestInit & {
     params?: Record<string, string>;
