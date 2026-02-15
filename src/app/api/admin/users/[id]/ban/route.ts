@@ -18,7 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         // Add to audit log
         await (prisma as any).auditLog.create({
             data: {
-                adminId: admin.id,
+                adminId: admin.userId,
                 action: 'BAN_USER',
                 module: 'USERS',
                 targetType: 'USER',
@@ -48,7 +48,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         // Add to audit log
         await (prisma as any).auditLog.create({
             data: {
-                adminId: admin.id,
+                adminId: admin.userId,
                 action: 'UNBAN_USER',
                 module: 'USERS',
                 targetType: 'USER',

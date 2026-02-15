@@ -24,7 +24,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         // Add to audit log
         await (prisma as any).auditLog.create({
             data: {
-                adminId: admin.id,
+                adminId: admin.userId,
                 action: 'UPDATE_LISTING',
                 module: 'LISTINGS',
                 targetType: 'LISTING',
@@ -50,7 +50,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         // Add to audit log
         await (prisma as any).auditLog.create({
             data: {
-                adminId: admin.id,
+                adminId: admin.userId,
                 action: 'DELETE_LISTING',
                 module: 'LISTINGS',
                 targetType: 'LISTING',
