@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateAdmin, requirePermission } from '@/lib/admin-auth';
 
-export async function POST(req: Request, { params }: { params: { id: string, action: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string, action: string }> }) {
     const admin = await authenticateAdmin(req);
     if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
