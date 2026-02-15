@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/nav/Navbar';
@@ -21,7 +21,7 @@ const allCategories = ['All', 'Tech', 'Vehicles', 'Rooms', 'Equipment', 'Fashion
 
 import { Listing } from '@/types/rental';
 
-export default function ExplorePage() {
+function ExploreContent() {
     const [listings, setListings] = useState<Listing[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeCategory, setActiveCategory] = useState('All');
@@ -322,5 +322,17 @@ export default function ExplorePage() {
 
             <Footer />
         </main >
+    );
+}
+
+export default function ExplorePage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+            </div>
+        }>
+            <ExploreContent />
+        </Suspense>
     );
 }

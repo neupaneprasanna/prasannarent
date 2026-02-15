@@ -9,7 +9,7 @@ import {
     LayoutDashboard, Users, Building2, Calendar, CreditCard,
     FileText, Brain, Bell, ToggleRight, Shield, BarChart3,
     ScrollText, Server, Settings, ChevronLeft, ChevronRight,
-    Search, LogOut, Menu, Command, Zap, AlertTriangle
+    Search, LogOut, Menu, Command, Zap, AlertTriangle, MessageSquare
 } from 'lucide-react';
 import { AdminBreadcrumbs } from '@/components/admin/layout/AdminBreadcrumbs';
 import { AdminNotifications } from '@/components/admin/layout/AdminNotifications';
@@ -19,7 +19,7 @@ import { AdminQuickActions } from '@/components/admin/layout/AdminQuickActions';
 const iconMap: Record<string, React.ElementType> = {
     LayoutDashboard, Users, Building2, Calendar, CreditCard,
     FileText, Brain, Bell, ToggleRight, Shield, BarChart3,
-    ScrollText, Server, Settings,
+    ScrollText, Server, Settings, MessageSquare,
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -127,7 +127,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 scrollbar-thin">
                     {sidebarItems.map((item) => {
-                        const Icon = iconMap[item.icon] || LayoutDashboard;
+                        const Icon = (iconMap[item.icon] || LayoutDashboard) as any;
                         const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
 
                         return (

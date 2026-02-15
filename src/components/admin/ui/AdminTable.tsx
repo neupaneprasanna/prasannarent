@@ -22,6 +22,7 @@ interface AdminTableProps<T> {
     searchPlaceholder?: string;
     actions?: (item: T) => React.ReactNode;
     density?: 'comfortable' | 'compact';
+    hideSearch?: boolean;
 }
 
 export const AdminTable = <T extends { id?: string | number }>({
@@ -36,7 +37,8 @@ export const AdminTable = <T extends { id?: string | number }>({
     onRowClick,
     searchPlaceholder = 'Search...',
     actions,
-    density = 'comfortable'
+    density = 'comfortable',
+    hideSearch = false
 }: AdminTableProps<T>) => {
     // Search handler
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,25 +50,27 @@ export const AdminTable = <T extends { id?: string | number }>({
     return (
         <div className="space-y-4" data-density={density}>
             {/* Toolbar */}
-            <div className="flex items-center justify-between gap-4 bg-white/[0.02] p-2 rounded-2xl border border-white/[0.04]">
-                <div className="relative flex-1 max-w-md group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--admin-text-tertiary)] group-focus-within:text-[var(--admin-accent)] transition-colors" size={18} />
-                    <input
-                        type="text"
-                        placeholder={searchPlaceholder}
-                        onChange={handleSearch}
-                        className="w-full bg-transparent border-0 text-sm text-[var(--admin-text-primary)] pl-10 pr-4 py-2 focus:ring-0 placeholder:text-[var(--admin-text-muted)] h-10"
-                    />
+            {!hideSearch && (
+                <div className="flex items-center justify-between gap-4 bg-white/[0.02] p-2 rounded-2xl border border-white/[0.04]">
+                    <div className="relative flex-1 max-w-md group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--admin-text-tertiary)] group-focus-within:text-[var(--admin-accent)] transition-colors" size={18} />
+                        <input
+                            type="text"
+                            placeholder={searchPlaceholder}
+                            onChange={handleSearch}
+                            className="w-full bg-transparent border-0 text-sm text-[var(--admin-text-primary)] pl-10 pr-4 py-2 focus:ring-0 placeholder:text-[var(--admin-text-muted)] h-10"
+                        />
+                    </div>
+                    <div className="flex items-center gap-2 pr-2">
+                        <button className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-all admin-focus-ring">
+                            <Filter size={18} />
+                        </button>
+                        <button className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-all admin-focus-ring">
+                            <Download size={18} />
+                        </button>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 pr-2">
-                    <button className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-all admin-focus-ring">
-                        <Filter size={18} />
-                    </button>
-                    <button className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-all admin-focus-ring">
-                        <Download size={18} />
-                    </button>
-                </div>
-            </div>
+            )}
 
             {/* Table Container */}
             <div className="admin-glass-panel rounded-2xl overflow-hidden shadow-2xl relative">

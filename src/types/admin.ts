@@ -28,7 +28,8 @@ export type PermissionModule =
     | 'analytics'
     | 'audit'
     | 'system'
-    | 'settings';
+    | 'settings'
+    | 'messages';
 
 export type PermissionAction = 'read' | 'write' | 'delete' | 'approve' | 'manage';
 
@@ -178,6 +179,7 @@ export const ADMIN_SIDEBAR_ITEMS: SidebarItem[] = [
     { id: 'users', label: 'Users', icon: 'Users', href: '/admin/users', module: 'users' },
     { id: 'listings', label: 'Listings', icon: 'Building2', href: '/admin/listings', module: 'listings' },
     { id: 'bookings', label: 'Bookings', icon: 'Calendar', href: '/admin/bookings', module: 'bookings' },
+    { id: 'messages', label: 'Messages', icon: 'MessageSquare', href: '/admin/messages', module: 'dashboard' },
     { id: 'payments', label: 'Payments', icon: 'CreditCard', href: '/admin/payments', module: 'payments' },
     { id: 'content', label: 'Content', icon: 'FileText', href: '/admin/content', module: 'content' },
     { id: 'ai', label: 'AI Control', icon: 'Brain', href: '/admin/ai', module: 'ai' },

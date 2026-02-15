@@ -13,7 +13,6 @@ import jwt from 'jsonwebtoken';
 import { createAdminRouter } from './admin/routes';
 import { setupAdminWebSocket } from './admin/websocket';
 import { detectSearchIntent, rankResults } from './lib/groq';
-
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
 
@@ -196,7 +195,7 @@ nextApp.prepare().then(() => {
     // ─── Auth Routes ───
     app.post('/api/auth/register', async (req, res) => {
         try {
-            const { email, password, firstName, lastName } = req.body;
+            const { email, password, firstName, lastName, phone, address, city, dateOfBirth, governmentIdType, governmentIdNumber, interests } = req.body;
 
             const existingUser = await prisma.user.findUnique({ where: { email } });
             if (existingUser) {
@@ -211,7 +210,14 @@ nextApp.prepare().then(() => {
                     password: hashedPassword,
                     firstName,
                     lastName,
-                },
+                    phone: phone || null,
+                    address: address || null,
+                    city: city || null,
+                    dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+                    governmentIdType: governmentIdType || null,
+                    governmentIdNumber: governmentIdNumber || null,
+                    interests: interests || [],
+                } as any,
             });
 
             const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
@@ -659,6 +665,16 @@ nextApp.prepare().then(() => {
                     },
                 });
 
+                // Notify the listing owner about this booking request
+                const notification = await tx.notification.create({
+                    data: {
+                        userId: listing.ownerId,
+                        type: 'BOOKING_REQUEST',
+                        title: 'New Booking Request',
+                        message: `${user.firstName} wants to rent "${listing.title}" from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}.`,
+                    }
+                });
+
                 let review = null;
                 if (rating) {
                     review = await tx.review.create({
@@ -683,8 +699,11 @@ nextApp.prepare().then(() => {
                     });
                 }
 
-                return { booking, review };
+                return { booking, review, notification };
             });
+
+            // Emit real-time notification to owner via WebSocket
+            io.emit(`notification:${listing.ownerId}`, result.notification);
 
             console.log(`[API] Booking created successfully: ${result.booking.id}`);
             res.status(201).json({
@@ -706,12 +725,90 @@ nextApp.prepare().then(() => {
         }
     });
 
-    app.patch('/api/bookings/:id/status', async (req, res) => {
+    // ─── Owner Booking Approval Routes ───
+    app.get('/api/bookings/owner', authenticateToken, async (req: AuthRequest, res) => {
         try {
-            const { id } = req.params;
+            const userId = req.user!.userId;
+            const userListings = await prisma.listing.findMany({
+                where: { ownerId: userId },
+                select: { id: true }
+            });
+            const listingIds = userListings.map(l => l.id);
+
+            const bookings = await prisma.booking.findMany({
+                where: { listingId: { in: listingIds } },
+                include: {
+                    listing: { select: { id: true, title: true, images: true, price: true, priceUnit: true } },
+                    renter: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true, phone: true } }
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            res.json({ bookings });
+        } catch (error) {
+            console.error('Owner bookings error:', error);
+            res.status(500).json({ error: 'Failed to fetch owner bookings' });
+        }
+    });
+
+    app.patch('/api/bookings/:id/owner-action', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const userId = req.user!.userId;
+            const id = req.params.id as string;
+            const { action, ownerNote } = req.body; // action: 'approve' | 'reject'
+
+            // Fetch booking with listing to verify ownership
+            const booking = await (prisma.booking as any).findUnique({
+                where: { id },
+                include: { listing: { select: { ownerId: true, title: true } }, renter: { select: { id: true, firstName: true } } }
+            });
+
+            if (!booking) return res.status(404).json({ error: 'Booking not found' });
+            if (booking.listing.ownerId !== userId) return res.status(403).json({ error: 'Not your listing' });
+            if (booking.status !== 'PENDING') return res.status(400).json({ error: 'Booking is not pending' });
+
+            const newStatus = action === 'approve' ? 'CONFIRMED' : 'CANCELLED';
+
+            const updated = await prisma.$transaction(async (tx) => {
+                const updatedBooking = await tx.booking.update({
+                    where: { id },
+                    data: { status: newStatus, ownerNote: ownerNote || null } as any,
+                });
+
+                // Notify the renter
+                const notification = await tx.notification.create({
+                    data: {
+                        userId: booking.renterId,
+                        type: action === 'approve' ? 'BOOKING_APPROVED' : 'BOOKING_REJECTED',
+                        title: action === 'approve' ? 'Booking Approved!' : 'Booking Declined',
+                        message: action === 'approve'
+                            ? `Your booking for "${booking.listing.title}" has been approved! ${ownerNote ? 'Note: ' + ownerNote : ''}`
+                            : `Your booking for "${booking.listing.title}" was declined. ${ownerNote ? 'Reason: ' + ownerNote : ''}`,
+                    }
+                });
+
+                return { updatedBooking, notification };
+            });
+
+            // Real-time notification to renter
+            io.emit(`notification:${booking.renterId}`, updated.notification);
+
+            res.json({ message: `Booking ${action}d`, booking: updated.updatedBooking });
+        } catch (error) {
+            console.error('Owner action error:', error);
+            res.status(500).json({ error: 'Failed to process booking action' });
+        }
+    });
+
+    app.patch('/api/bookings/:id/status', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const id = req.params.id as string;
             const { status } = req.body;
-            // TODO: Update booking status
-            res.json({ message: 'Booking status updated', id, status });
+            const booking = await prisma.booking.update({
+                where: { id },
+                data: { status },
+            });
+            res.json({ message: 'Booking status updated', booking });
         } catch (error) {
             res.status(500).json({ error: 'Failed to update booking' });
         }
@@ -728,31 +825,18 @@ nextApp.prepare().then(() => {
                 return res.status(400).json({ error: 'Missing review details' });
             }
 
-            // Create review and update listing stats in a transaction
             const result = await prisma.$transaction(async (tx) => {
                 const review = await tx.review.create({
-                    data: {
-                        listingId,
-                        userId,
-                        rating: parseInt(rating),
-                        text,
-                    }
+                    data: { listingId, userId, rating: parseInt(rating), text }
                 });
 
-                // Get all reviews for this listing to calculate new average
-                const reviews = await tx.review.findMany({
-                    where: { listingId }
-                });
-
+                const reviews = await tx.review.findMany({ where: { listingId } });
                 const totalRating = reviews.reduce((acc, rev) => acc + rev.rating, 0);
                 const averageRating = totalRating / reviews.length;
 
                 await tx.listing.update({
                     where: { id: listingId },
-                    data: {
-                        rating: averageRating,
-                        reviewCount: reviews.length
-                    }
+                    data: { rating: averageRating, reviewCount: reviews.length }
                 });
 
                 return review;
@@ -779,14 +863,441 @@ nextApp.prepare().then(() => {
         }
     });
 
-    // ─── Users Routes ───
+    // ─── Notifications Routes ───
+    app.get('/api/notifications', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const userId = req.user!.userId;
+            const notifications = await prisma.notification.findMany({
+                where: { userId },
+                orderBy: { createdAt: 'desc' },
+                take: 50,
+            });
+            const unreadCount = await prisma.notification.count({
+                where: { userId, read: false },
+            });
+            res.json({ notifications, unreadCount });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch notifications' });
+        }
+    });
+
+    app.patch('/api/notifications/:id/read', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const notification = await prisma.notification.update({
+                where: { id: req.params.id as string },
+                data: { read: true },
+            });
+            res.json({ notification });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to mark notification as read' });
+        }
+    });
+
+    app.patch('/api/notifications/read-all', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            await prisma.notification.updateMany({
+                where: { userId: req.user!.userId, read: false },
+                data: { read: true },
+            });
+            res.json({ message: 'All notifications marked as read' });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to mark all as read' });
+        }
+    });
+
+    // ─── Messaging / Conversations Routes ───
+    app.get('/api/conversations', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const userId = req.user!.userId;
+
+            // Fetch all conversations involving this user
+            const allConversations = await (prisma as any).conversation.findMany({
+                where: {
+                    participants: { some: { userId } }
+                },
+                include: {
+                    participants: {
+                        include: { user: { select: { id: true, firstName: true, lastName: true, avatar: true } } }
+                    },
+                    listing: { select: { id: true, title: true, images: true } },
+                    messages: {
+                        orderBy: { createdAt: 'desc' },
+                        take: 1,
+                        include: { sender: { select: { id: true, firstName: true } } }
+                    },
+                },
+                orderBy: { updatedAt: 'desc' },
+            });
+
+            // Group and deduplicate by the OTHER participant's user ID
+            // This ensures only one conversation per person shows up in the list
+            const uniqueMap = new Map();
+
+            for (const conv of allConversations) {
+                // Find the first participant that is NOT the current requester
+                const otherParticipant = conv.participants.find((p: any) => p.userId !== userId);
+
+                if (otherParticipant) {
+                    const otherId = otherParticipant.userId;
+                    // Since they are ordered by updatedAt desc, the first one we see is the latest
+                    if (!uniqueMap.has(otherId)) {
+                        uniqueMap.set(otherId, conv);
+                    }
+                }
+            }
+
+            const uniqueConversations = Array.from(uniqueMap.values());
+
+            // Supplement with unread counts
+            const conversationsWithMetadata = await Promise.all(uniqueConversations.map(async (conv: any) => {
+                const unreadCount = await (prisma as any).conversationMessage.count({
+                    where: {
+                        conversationId: conv.id,
+                        senderId: { not: userId },
+                        read: false
+                    }
+                });
+                return { ...conv, unreadCount };
+            }));
+
+            res.json({ conversations: conversationsWithMetadata });
+        } catch (error) {
+            console.error('Conversations fetch error:', error);
+            res.status(500).json({ error: 'Failed to fetch conversations' });
+        }
+    });
+
+    app.get('/api/conversations/:id/messages', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const userId = req.user!.userId;
+            const { id } = req.params;
+
+            // Verify user is participant
+            const participant = await (prisma as any).conversationParticipant.findUnique({
+                where: { userId_conversationId: { userId, conversationId: id } }
+            });
+            if (!participant) return res.status(403).json({ error: 'Not a participant' });
+
+            const messages = await (prisma as any).conversationMessage.findMany({
+                where: { conversationId: id },
+                include: { sender: { select: { id: true, firstName: true, lastName: true, avatar: true } } },
+                orderBy: { createdAt: 'asc' },
+            });
+
+            // Mark unread messages as read
+            await (prisma as any).conversationMessage.updateMany({
+                where: { conversationId: id, senderId: { not: userId }, read: false },
+                data: { read: true },
+            });
+
+            res.json({ messages });
+        } catch (error) {
+            console.error('Messages fetch error:', error);
+            res.status(500).json({ error: 'Failed to fetch messages' });
+        }
+    });
+
+    app.post('/api/conversations', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const userId = req.user!.userId;
+            const { receiverId, listingId, message } = req.body;
+
+            if (!receiverId) return res.status(400).json({ error: 'receiverId is required' });
+            if (receiverId === userId) return res.status(400).json({ error: 'Cannot message yourself' });
+
+            // Find ANY existing conversation between these exact people
+            const existing = await (prisma as any).conversation.findFirst({
+                where: {
+                    AND: [
+                        { participants: { some: { userId } } },
+                        { participants: { some: { userId: receiverId } } }
+                    ]
+                },
+                orderBy: { updatedAt: 'desc' }
+            });
+
+            if (existing) {
+                // Update listing association if missing or different, and always bump updatedAt
+                const updateData: any = { updatedAt: new Date() };
+                if (listingId && existing.listingId !== listingId) {
+                    updateData.listingId = listingId;
+                }
+
+                await (prisma as any).conversation.update({
+                    where: { id: existing.id },
+                    data: updateData
+                });
+
+                if (message) {
+                    const msg = await (prisma as any).conversationMessage.create({
+                        data: {
+                            conversationId: existing.id,
+                            senderId: userId,
+                            text: message
+                        },
+                        include: { sender: { select: { firstName: true } } }
+                    });
+
+                    // Determine correct receiver
+                    const otherParticipant = existing.participants?.find((p: any) => p.userId !== userId)
+                        || await (prisma as any).conversationParticipant.findFirst({
+                            where: { conversationId: existing.id, userId: { not: userId } }
+                        });
+                    const receiverIdToNotify = otherParticipant?.userId || receiverId;
+
+                    // Create DB Notification
+                    const dbNotif = await prisma.notification.create({
+                        data: {
+                            userId: receiverIdToNotify,
+                            type: 'NEW_MESSAGE',
+                            title: `New Message from ${msg.sender.firstName}`,
+                            message: message.length > 50 ? message.substring(0, 47) + '...' : message,
+                        }
+                    });
+
+                    // Emit real-time stuff only to receiver
+                    io.emit(`message:${receiverIdToNotify}`, { conversationId: existing.id, message: msg });
+                    io.emit(`notification:${receiverIdToNotify}`, dbNotif);
+                }
+
+                const returnConv = await (prisma as any).conversation.findUnique({
+                    where: { id: existing.id },
+                    include: {
+                        participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatar: true } } } },
+                        listing: { select: { id: true, title: true, images: true } },
+                        messages: {
+                            orderBy: { createdAt: 'desc' },
+                            take: 1,
+                            include: { sender: { select: { id: true, firstName: true } } }
+                        },
+                    }
+                });
+                return res.json({ conversation: returnConv });
+            }
+
+            // Create new conversation
+            const conversation = await (prisma as any).conversation.create({
+                data: {
+                    listingId: listingId || null,
+                    participants: {
+                        create: [
+                            { userId },
+                            { userId: receiverId },
+                        ]
+                    },
+                    ...(message ? {
+                        messages: {
+                            create: { senderId: userId, text: message }
+                        }
+                    } : {})
+                },
+                include: {
+                    participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatar: true } } } },
+                    listing: { select: { id: true, title: true, images: true } },
+                    messages: { include: { sender: { select: { id: true, firstName: true } } } },
+                }
+            });
+
+            // Create DB Notification for the receiver if a message was sent
+            if (message) {
+                // Determine receiverId (the one who is NOT the current userId)
+                const realReceiver = conversation.participants.find((p: any) => p.userId !== userId);
+                const receiverIdToNotify = realReceiver?.userId || receiverId;
+
+                const dbNotif = await prisma.notification.create({
+                    data: {
+                        userId: receiverIdToNotify,
+                        type: 'NEW_MESSAGE',
+                        title: `New Message from ${conversation.participants.find((p: any) => p.userId === userId)?.user.firstName || 'User'}`,
+                        message: message.length > 50 ? message.substring(0, 47) + '...' : message,
+                    }
+                });
+
+                // ONLY emit to the receiver, NEVER the sender
+                io.emit(`notification:${receiverIdToNotify}`, dbNotif);
+                io.emit(`message:${receiverIdToNotify}`, {
+                    conversationId: conversation.id,
+                    message: conversation.messages[0]
+                });
+            }
+
+            res.status(201).json({ conversation });
+        } catch (error) {
+            console.error('Create conversation error:', error);
+            res.status(500).json({ error: 'Failed to create conversation' });
+        }
+    });
+
+    app.post('/api/conversations/:id/messages', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const userId = req.user!.userId;
+            const { id } = req.params;
+            const { text } = req.body;
+
+            if (!text) return res.status(400).json({ error: 'Message text is required' });
+
+            // Verify user is participant
+            const participant = await (prisma as any).conversationParticipant.findUnique({
+                where: { userId_conversationId: { userId, conversationId: id } }
+            });
+            if (!participant) return res.status(403).json({ error: 'Not a participant' });
+
+            const message = await (prisma as any).conversationMessage.create({
+                data: { conversationId: id, senderId: userId, text },
+                include: { sender: { select: { id: true, firstName: true, lastName: true, avatar: true } } }
+            });
+
+            // Update conversation timestamp
+            await (prisma as any).conversation.update({ where: { id }, data: { updatedAt: new Date() } });
+
+            // Real-time: emit to all participants except sender
+            const participants = await (prisma as any).conversationParticipant.findMany({
+                where: { conversationId: id, userId: { not: userId } }
+            });
+
+            for (const p of participants) {
+                // SAFETY: Skip the sender entirely for both message and notification emissions
+                if (p.userId === userId) continue;
+
+                // Create DB Notification for persistence
+                const dbNotif = await prisma.notification.create({
+                    data: {
+                        userId: p.userId,
+                        type: 'NEW_MESSAGE',
+                        title: `New Message from ${message.sender.firstName}`,
+                        message: message.text.length > 50 ? message.text.substring(0, 47) + '...' : message.text,
+                    }
+                });
+
+                // Real-time: emit ONLY to the intended recipient
+                io.emit(`message:${p.userId}`, { conversationId: id, message });
+                io.emit(`notification:${p.userId}`, dbNotif);
+            }
+
+            res.status(201).json({ message });
+        } catch (error) {
+            console.error('Send message error:', error);
+            res.status(500).json({ error: 'Failed to send message' });
+        }
+    });
+
+    // ─── Users / Profile Routes ───
+    app.get('/api/users/search', async (req, res) => {
+        try {
+            const { q } = req.query;
+            if (!q || typeof q !== 'string') {
+                return res.json({ users: [] });
+            }
+
+            const users = await prisma.user.findMany({
+                where: {
+                    OR: [
+                        { firstName: { contains: q, mode: 'insensitive' as any } },
+                        { lastName: { contains: q, mode: 'insensitive' as any } },
+                        // Optional: search by email if desired, but maybe keep privacy in mind?
+                        // { email: { contains: q, mode: 'insensitive' as any } }
+                    ],
+                    // Only show verified users or something? Or all users?
+                    // banned: false 
+                },
+                select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    avatar: true,
+                    verified: true,
+                    city: true
+                },
+                take: 10
+            });
+
+            res.json({ users });
+        } catch (error) {
+            console.error('User search error:', error);
+            res.status(500).json({ error: 'Search failed' });
+        }
+    });
+
+    app.get('/api/users/me', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const user = await prisma.user.findUnique({
+                where: { id: req.user!.userId },
+                select: {
+                    id: true, email: true, firstName: true, lastName: true,
+                    phone: true, avatar: true, bio: true, verified: true,
+                    address: true, city: true, dateOfBirth: true,
+                    governmentIdType: true, interests: true,
+                    createdAt: true,
+                } as any,
+            });
+            if (!user) return res.status(404).json({ error: 'User not found' });
+            res.json({ user });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch profile' });
+        }
+    });
+
+    app.patch('/api/users/me', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const { firstName, lastName, phone, bio, avatar, address, city } = req.body;
+            const updateData: any = {};
+            if (firstName !== undefined) updateData.firstName = firstName;
+            if (lastName !== undefined) updateData.lastName = lastName;
+            if (phone !== undefined) updateData.phone = phone;
+            if (bio !== undefined) updateData.bio = bio;
+            if (avatar !== undefined) updateData.avatar = avatar;
+            if (address !== undefined) updateData.address = address;
+            if (city !== undefined) updateData.city = city;
+
+            const user = await prisma.user.update({
+                where: { id: req.user!.userId },
+                data: updateData,
+                select: {
+                    id: true, email: true, firstName: true, lastName: true,
+                    phone: true, avatar: true, bio: true, verified: true,
+                    address: true, city: true,
+                    createdAt: true,
+                } as any,
+            });
+            res.json({ user });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to update profile' });
+        }
+    });
+
     app.get('/api/users/:id', async (req, res) => {
         try {
             const { id } = req.params;
-            // TODO: Get user profile
-            res.json({ user: null });
+            const user = await prisma.user.findUnique({
+                where: { id },
+                select: {
+                    id: true, firstName: true, lastName: true,
+                    avatar: true, bio: true, verified: true,
+                    city: true, interests: true,
+                    createdAt: true,
+                } as any,
+            });
+            if (!user) return res.status(404).json({ error: 'User not found' });
+
+            const listings = await prisma.listing.findMany({
+                where: { ownerId: id, status: 'ACTIVE' },
+                take: 12,
+                orderBy: { createdAt: 'desc' },
+            });
+
+            const reviews = await prisma.review.findMany({
+                where: { userId: id },
+                take: 10,
+                orderBy: { createdAt: 'desc' },
+                include: { listing: { select: { title: true } } },
+            });
+
+            const listingCount = await prisma.listing.count({ where: { ownerId: id, status: 'ACTIVE' } });
+            const reviewCount = await prisma.review.count({ where: { userId: id } });
+
+            res.json({ user, listings, reviews, stats: { listingCount, reviewCount } });
         } catch (error) {
-            res.status(500).json({ error: 'Failed to fetch user' });
+            res.status(500).json({ error: 'Failed to fetch user profile' });
         }
     });
 

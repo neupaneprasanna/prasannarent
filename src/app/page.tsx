@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import Navbar from '@/components/nav/Navbar';
 import HeroContent from '@/components/hero/HeroContent';
 import Categories from '@/components/sections/Categories';
@@ -12,14 +11,6 @@ import WorldMap from '@/components/sections/WorldMap';
 import CTASection from '@/components/sections/CTASection';
 import Footer from '@/components/sections/Footer';
 
-// Dynamically load 3D scene (heavy)
-const HeroScene = dynamic(() => import('@/components/hero/HeroScene'), {
-  ssr: false,
-  loading: () => (
-    <div className="absolute inset-0 bg-transparent" />
-  ),
-});
-
 export default function HomePage() {
   return (
     <main className="relative">
@@ -27,7 +18,6 @@ export default function HomePage() {
 
       {/* Hero Section */}
       <section className="relative min-h-screen overflow-hidden">
-        <HeroScene />
         <HeroContent />
         {/* Bottom fade */}
         <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#050508] to-transparent pointer-events-none z-10" />

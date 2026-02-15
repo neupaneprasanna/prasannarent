@@ -10,7 +10,7 @@ const words = ['Rent', 'Anything.', 'Anywhere.', 'Anytime.'];
 
 export default function HeroContent() {
     return (
-        <div className="relative flex flex-col items-center justify-center min-h-screen px-6 text-center">
+        <div className="relative flex flex-col items-center justify-center min-h-screen px-6 pt-32 text-center">
             {/* Tiny label */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}

@@ -94,7 +94,6 @@ export const useAdminDashboardStore = create<AdminDashboardState>()((set, get) =
         if (socket?.connected) return;
 
         const newSocket = io(API_URL.replace('/api', ''), {
-            path: '/admin/socket.io', // Adjust if necessary based on server config
             auth: { token },
         });
 

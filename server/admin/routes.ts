@@ -804,6 +804,81 @@ export function createAdminRouter(): Router {
     });
 
     // ═══════════════════════════════════════════════════════════════════════════════
+    // MESSAGES (Admin oversight)
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    router.get('/messages', authenticateAdmin, requirePermission('dashboard', 'read'), async (req: AdminRequest, res) => {
+        try {
+            const page = parseInt(typeof req.query.page === 'string' ? req.query.page : '1') || 1;
+            const pageSize = parseInt(typeof req.query.pageSize === 'string' ? req.query.pageSize : '20') || 20;
+            const search = typeof req.query.search === 'string' ? req.query.search : '';
+
+            const where: any = {};
+            if (search) {
+                where.OR = [
+                    { messages: { some: { text: { contains: search, mode: 'insensitive' } } } },
+                    { participants: { some: { user: { firstName: { contains: search, mode: 'insensitive' } } } } },
+                    { participants: { some: { user: { lastName: { contains: search, mode: 'insensitive' } } } } },
+                ];
+            }
+
+            const [conversations, total] = await Promise.all([
+                (prisma as any).conversation.findMany({
+                    where,
+                    skip: (page - 1) * pageSize,
+                    take: pageSize,
+                    orderBy: { updatedAt: 'desc' },
+                    include: {
+                        participants: {
+                            include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } }
+                        },
+                        listing: { select: { id: true, title: true } },
+                        messages: {
+                            orderBy: { createdAt: 'desc' },
+                            take: 1,
+                            include: { sender: { select: { id: true, firstName: true } } }
+                        },
+                        _count: { select: { messages: true } },
+                    }
+                }),
+                (prisma as any).conversation.count({ where }),
+            ]);
+
+            res.json({
+                items: conversations,
+                total,
+                page,
+                pageSize,
+                totalPages: Math.ceil(total / pageSize),
+            });
+        } catch (error) {
+            console.error('[Admin Messages] Error:', error);
+            res.status(500).json({ error: 'Failed to fetch messages' });
+        }
+    });
+
+    router.get('/messages/:conversationId', authenticateAdmin, requirePermission('dashboard', 'read'), async (req: AdminRequest, res) => {
+        try {
+            const { conversationId } = req.params;
+            const messages = await (prisma as any).conversationMessage.findMany({
+                where: { conversationId },
+                include: { sender: { select: { id: true, firstName: true, lastName: true, avatar: true } } },
+                orderBy: { createdAt: 'asc' },
+            });
+            const conversation = await (prisma as any).conversation.findUnique({
+                where: { id: conversationId },
+                include: {
+                    participants: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
+                    listing: { select: { id: true, title: true } },
+                },
+            });
+            res.json({ conversation, messages });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch conversation messages' });
+        }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════════
     // AUDIT LOGS
     // ═══════════════════════════════════════════════════════════════════════════════
 

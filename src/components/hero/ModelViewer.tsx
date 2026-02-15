@@ -1,54 +1,34 @@
 'use client';
 
-import { Float, MeshTransmissionMaterial, Stage } from '@react-three/drei';
+import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useRef } from 'react';
+import { Float } from '@react-three/drei';
 import * as THREE from 'three';
 
 export default function ModelViewer() {
     const meshRef = useRef<THREE.Mesh>(null);
 
-    useFrame((state, delta) => {
+    useFrame((state) => {
         if (meshRef.current) {
-            meshRef.current.rotation.y += delta * 0.2;
+            meshRef.current.rotation.y += 0.005;
             meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
         }
     });
 
     return (
-        <Float
-            speed={2}
-            rotationIntensity={0.5}
-            floatIntensity={0.5}
-            floatingRange={[-0.1, 0.1]}
-        >
-            {/* Placeholder Premium Object until GLB is loaded */}
-            <mesh ref={meshRef} scale={1.2}>
-                <torusKnotGeometry args={[1, 0.3, 128, 32]} />
-                <MeshTransmissionMaterial
-                    backside
-                    backsideThickness={5}
-                    thickness={0.5}
-                    roughness={0}
-                    chromaticAberration={0.06}
-                    anisotropy={0.5}
-                    color="#ececf3"
-                    resolution={1024}
-                    distortion={0.5}
-                    distortionScale={1}
-                    temporalDistortion={0.2}
-                />
-            </mesh>
-
-            {/* Inner glowing core for "Energy" feel */}
-            <mesh scale={0.5}>
-                <sphereGeometry args={[1, 32, 32]} />
+        <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
+            <mesh ref={meshRef} position={[0, 0, 0]}>
+                <icosahedronGeometry args={[2, 0]} />
                 <meshStandardMaterial
                     color="#6c5ce7"
+                    wireframe
                     emissive="#6c5ce7"
-                    emissiveIntensity={2}
-                    toneMapped={false}
+                    emissiveIntensity={0.5}
                 />
+            </mesh>
+            <mesh scale={[1.9, 1.9, 1.9]}>
+                <icosahedronGeometry args={[2, 0]} />
+                <meshBasicMaterial color="#000000" />
             </mesh>
         </Float>
     );

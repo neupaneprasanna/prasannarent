@@ -8,7 +8,7 @@ import { fadeInUp } from '@/lib/animations/motion-config';
 import { useAuthStore, type User } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
 
-const steps = ['Account', 'Profile', 'Preferences'];
+const steps = ['Account', 'Profile', 'Security', 'Preferences'];
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -20,6 +20,8 @@ export default function RegisterPage() {
     const [formData, setFormData] = useState({
         email: '', password: '', confirmPassword: '',
         firstName: '', lastName: '', phone: '',
+        address: '', city: '', dateOfBirth: '',
+        governmentIdType: '', governmentIdNumber: '',
         interests: [] as string[],
     });
 
@@ -41,6 +43,10 @@ export default function RegisterPage() {
             if (formData.password.length < 8) return 'Password must be at least 8 characters';
         } else if (currentStep === 1) {
             if (!formData.firstName || !formData.lastName) return 'Name is required';
+            if (!formData.phone) return 'Phone number is required for security';
+        } else if (currentStep === 2) {
+            if (!formData.address || !formData.city) return 'Address and city are required';
+            if (!formData.dateOfBirth) return 'Date of birth is required';
         }
         return null;
     };
@@ -54,7 +60,7 @@ export default function RegisterPage() {
 
         setError('');
 
-        if (currentStep < 2) {
+        if (currentStep < 3) {
             setCurrentStep((s) => s + 1);
         } else {
             // Final submission
@@ -69,7 +75,13 @@ export default function RegisterPage() {
                     password: formData.password,
                     firstName: formData.firstName,
                     lastName: formData.lastName,
-                    interests: formData.interests
+                    phone: formData.phone,
+                    address: formData.address,
+                    city: formData.city,
+                    dateOfBirth: formData.dateOfBirth,
+                    governmentIdType: formData.governmentIdType,
+                    governmentIdNumber: formData.governmentIdNumber,
+                    interests: formData.interests,
                 });
 
                 setAuth(data.user, data.token);
@@ -189,6 +201,48 @@ export default function RegisterPage() {
                             <motion.div
                                 key="step2"
                                 initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
+                                className="space-y-4"
+                            >
+                                <p className="text-sm text-white/50 mb-2">For your security and identity verification</p>
+                                <div>
+                                    <label className="text-xs text-white/40 mb-1.5 block">Address *</label>
+                                    <input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                        placeholder="123 Main St" className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 placeholder:text-white/20 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50" required />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-white/40 mb-1.5 block">City *</label>
+                                    <input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                        placeholder="San Francisco" className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 placeholder:text-white/20 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50" required />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-white/40 mb-1.5 block">Date of Birth *</label>
+                                    <input type="date" value={formData.dateOfBirth} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50" required />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs text-white/40 mb-1.5 block">ID Type</label>
+                                        <select value={formData.governmentIdType} onChange={(e) => setFormData({ ...formData, governmentIdType: e.target.value })}
+                                            className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50">
+                                            <option value="" style={{ background: '#1a1a2e' }}>Select...</option>
+                                            <option value="drivers_license" style={{ background: '#1a1a2e' }}>Driver&apos;s License</option>
+                                            <option value="passport" style={{ background: '#1a1a2e' }}>Passport</option>
+                                            <option value="national_id" style={{ background: '#1a1a2e' }}>National ID</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-white/40 mb-1.5 block">ID Number</label>
+                                        <input value={formData.governmentIdNumber} onChange={(e) => setFormData({ ...formData, governmentIdNumber: e.target.value })}
+                                            placeholder="ID Number" className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 placeholder:text-white/20 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50" />
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {currentStep === 3 && (
+                            <motion.div
+                                key="step3"
+                                initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
                             >
                                 <p className="text-sm text-white/50 mb-4">What are you interested in renting?</p>
                                 <div className="grid grid-cols-2 gap-2">
@@ -230,7 +284,7 @@ export default function RegisterPage() {
                                 disabled={loading}
                                 suppressHydrationWarning
                             >
-                                {loading ? 'Creating...' : currentStep === 2 ? 'Create Account' : 'Continue'}
+                                {loading ? 'Creating...' : currentStep === 3 ? 'Create Account' : 'Continue'}
                             </button>
                         </MagneticButton>
                     </div>

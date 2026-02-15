@@ -178,6 +178,17 @@ export default function ProductPage() {
     const images = item.images && item.images.length > 0 ? item.images : [];
     const hasImages = images.length > 0;
 
+    const handleStartConversation = () => {
+        if (!isAuthenticated) {
+            router.push('/login');
+            return;
+        }
+        if (item.owner?.id) {
+            const initialMsg = encodeURIComponent(`Hi, I'm interested in renting "${item.title}". Is it still available?`);
+            router.push(`/messages?startWith=${item.owner.id}&listing=${id}&message=${initialMsg}`);
+        }
+    };
+
     return (
         <main className="relative min-h-screen">
             <Navbar />
@@ -427,7 +438,10 @@ export default function ProductPage() {
                                     </div>
                                     <p className="text-[10px] text-white/30">Verified Property Owner</p>
                                 </div>
-                                <button className="p-3 rounded-xl glass hover:bg-[#6c5ce7]/20 transition-all text-white/40 hover:text-white">
+                                <button
+                                    onClick={handleStartConversation}
+                                    className="p-3 rounded-xl glass hover:bg-[#6c5ce7]/20 transition-all text-white/40 hover:text-white"
+                                >
                                     <MessageSquare size={16} />
                                 </button>
                             </div>

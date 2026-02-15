@@ -88,8 +88,8 @@ export default function ListingDetailPage() {
                         <div className="flex items-center gap-3">
                             <h1 className="text-2xl font-bold text-[var(--admin-text-primary)]">Listing Details</h1>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${listing.status === 'ACTIVE' ? 'bg-[var(--admin-success)]/20 text-[var(--admin-success)]' :
-                                    listing.status === 'PENDING' ? 'bg-[var(--admin-warning)]/20 text-[var(--admin-warning)]' :
-                                        'bg-[var(--admin-danger)]/20 text-[var(--admin-danger)]'
+                                listing.status === 'PENDING' ? 'bg-[var(--admin-warning)]/20 text-[var(--admin-warning)]' :
+                                    'bg-[var(--admin-danger)]/20 text-[var(--admin-danger)]'
                                 }`}>
                                 {listing.status}
                             </span>
@@ -204,7 +204,10 @@ export default function ListingDetailPage() {
                                 <p className="text-[var(--admin-text-primary)] font-mono text-sm">3</p>
                             </div>
                         </div>
-                        <button className="w-full py-2.5 rounded-xl border border-[var(--admin-border)] hover:bg-[var(--admin-surface-hover)] text-xs font-bold text-[var(--admin-text-secondary)] transition-all flex items-center justify-center gap-2">
+                        <button
+                            onClick={() => router.push(`/messages?startWith=${listing.ownerId}&listing=${listingId}`)}
+                            className="w-full py-2.5 rounded-xl border border-[var(--admin-border)] hover:bg-[var(--admin-surface-hover)] text-xs font-bold text-[var(--admin-text-secondary)] transition-all flex items-center justify-center gap-2"
+                        >
                             <MessageSquare size={14} />
                             Contact Host
                         </button>
