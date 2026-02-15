@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/nav/Navbar';
 import { useAuthStore } from '@/store/auth-store';
@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 
-export default function MessagesPage() {
+function MessagesContent() {
     const router = useRouter();
     const { user, isAuthenticated } = useAuthStore();
     const {
@@ -674,5 +674,17 @@ export default function MessagesPage() {
                 `}</style>
             </div>
         </>
+    );
+}
+
+export default function MessagesPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-[#818cf8]" />
+            </div>
+        }>
+            <MessagesContent />
+        </Suspense>
     );
 }
