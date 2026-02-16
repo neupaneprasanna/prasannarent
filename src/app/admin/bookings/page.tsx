@@ -63,11 +63,11 @@ export default function BookingsPage() {
         },
         {
             header: 'Customer',
-            accessorKey: 'user',
+            accessorKey: 'renter',
             cell: (booking: any) => (
                 <div className="flex flex-col">
-                    <span className="text-sm text-white/80">{booking.user?.firstName} {booking.user?.lastName}</span>
-                    <span className="text-[10px] text-white/20">{booking.user?.email}</span>
+                    <span className="text-sm text-white/80">{booking.renter?.firstName} {booking.renter?.lastName}</span>
+                    <span className="text-[10px] text-white/20">{booking.renter?.email}</span>
                 </div>
             )
         },
@@ -83,11 +83,11 @@ export default function BookingsPage() {
         },
         {
             header: 'Amount',
-            accessorKey: 'totalAmount',
+            accessorKey: 'totalPrice',
             cell: (booking: any) => (
                 <div className="font-bold text-white flex items-center">
                     <DollarSign size={12} className="text-emerald-400" />
-                    {booking.totalAmount}
+                    {booking.totalPrice}
                 </div>
             )
         },
@@ -108,7 +108,7 @@ export default function BookingsPage() {
 
     const stats = [
         { label: 'All Bookings', value: total, icon: Calendar },
-        { label: 'Revenue', value: `$${items.reduce((acc, b) => acc + (b.totalAmount || 0), 0).toLocaleString()}`, icon: DollarSign, color: 'text-emerald-400' },
+        { label: 'Revenue', value: `$${items.reduce((acc, b) => acc + (b.totalPrice || 0), 0).toLocaleString()}`, icon: DollarSign, color: 'text-emerald-400' },
         { label: 'Confirmed', value: items.filter(b => b.status === 'CONFIRMED').length, icon: CheckCircle2, color: 'text-emerald-400' },
         { label: 'Disputed', value: items.filter(b => b.status === 'CANCELLED').length, icon: AlertCircle, color: 'text-red-400' },
     ];

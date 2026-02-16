@@ -58,8 +58,11 @@ export const useAdminUsersStore = create<AdminUsersState>()((set, get) => ({
             if (res.ok) {
                 const data = await res.json();
                 set({ items: data.items, total: data.total, totalPages: data.totalPages, loading: false });
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                set({ error: errorData.error || 'Failed to fetch users', loading: false });
             }
-        } catch {
+        } catch (error) {
             set({ error: 'Failed to fetch users', loading: false });
         }
     },
@@ -73,8 +76,11 @@ export const useAdminUsersStore = create<AdminUsersState>()((set, get) => ({
             if (res.ok) {
                 const data = await res.json();
                 set({ selectedItem: data.user, loading: false });
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                set({ error: errorData.error || 'Failed to fetch user', loading: false });
             }
-        } catch {
+        } catch (error) {
             set({ error: 'Failed to fetch user', loading: false });
         }
     },
@@ -168,8 +174,11 @@ export const useAdminListingsStore = create<AdminListingsState>()((set, get) => 
             if (res.ok) {
                 const data = await res.json();
                 set({ items: data.items, total: data.total, totalPages: data.totalPages, loading: false });
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                set({ error: errorData.error || 'Failed to fetch listings', loading: false });
             }
-        } catch {
+        } catch (error) {
             set({ error: 'Failed to fetch listings', loading: false });
         }
     },
@@ -183,8 +192,11 @@ export const useAdminListingsStore = create<AdminListingsState>()((set, get) => 
             if (res.ok) {
                 const data = await res.json();
                 set({ selectedItem: data.listing, loading: false });
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                set({ error: errorData.error || 'Failed to fetch listing', loading: false });
             }
-        } catch {
+        } catch (error) {
             set({ error: 'Failed to fetch listing', loading: false });
         }
     },
@@ -281,8 +293,11 @@ export const useAdminBookingsStore = create<AdminBookingsState>()((set, get) => 
             if (res.ok) {
                 const data = await res.json();
                 set({ items: data.items, total: data.total, totalPages: data.totalPages, loading: false });
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                set({ error: errorData.error || 'Failed to fetch bookings', loading: false });
             }
-        } catch {
+        } catch (error) {
             set({ error: 'Failed to fetch bookings', loading: false });
         }
     },

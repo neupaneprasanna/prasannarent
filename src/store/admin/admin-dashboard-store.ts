@@ -34,6 +34,8 @@ export const useAdminDashboardStore = create<AdminDashboardState>()((set, get) =
             if (res.ok) {
                 const stats = await res.json();
                 set({ stats, loading: false });
+            } else {
+                set({ error: 'Failed to fetch stats', loading: false });
             }
         } catch {
             set({ error: 'Failed to fetch stats', loading: false });
