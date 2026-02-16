@@ -100,16 +100,18 @@ function ExploreContent() {
                         </p>
                     </div>
 
-                    <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+                    <div className="flex bg-white/5 p-1 rounded-xl border border-white/5" suppressHydrationWarning>
                         <button
                             onClick={() => setViewMode('grid')}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'grid' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/60'}`}
+                            suppressHydrationWarning
                         >
                             <LayoutGrid size={16} /> Grid
                         </button>
                         <button
                             onClick={() => setViewMode('map')}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'map' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/60'}`}
+                            suppressHydrationWarning
                         >
                             <MapIcon size={16} /> Map
                         </button>
