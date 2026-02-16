@@ -47,7 +47,7 @@ function MessagesContent() {
             await fetchConversations();
 
             // Handle startWith if present
-            if (startWith) {
+            if (startWith && startWith !== user?.id) {
                 // Check if we already have a conversation with this user (ANY conversation)
                 const existing = useMessageStore.getState().conversations.find(conv =>
                     conv.participants.some(p => p.user.id === startWith)
@@ -76,6 +76,10 @@ function MessagesContent() {
                         }
                     }
                 }
+            } else if (startWith === user?.id) {
+                // Remove startWith from URL if it's the current user
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, '', newUrl);
             }
             initializingRef.current = false;
         };
@@ -84,7 +88,7 @@ function MessagesContent() {
         return () => {
             initializingRef.current = false;
         };
-    }, [isAuthenticated, startWith, listingId, initialMessage]);
+    }, [isAuthenticated, startWith, listingId, initialMessage, user?.id]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -103,6 +107,8 @@ function MessagesContent() {
     };
 
     const handleStartConversationWithUser = async (userToMessage: any) => {
+        if (userToMessage.id === user?.id) return;
+
         // If we already have a conversation with this user, just select it
         const existing = conversations.find(conv =>
             conv.participants.some(p => p.user.id === userToMessage.id)
@@ -151,7 +157,8 @@ function MessagesContent() {
             setIsSearchingUsers(true);
             try {
                 const res = await apiClient.get<{ users: any[] }>(`/users/search?q=${encodeURIComponent(userSearchTerm)}`);
-                setUserSearchResults(res.users);
+                // Filter out current user from results
+                setUserSearchResults(res.users.filter(u => u.id !== user?.id));
             } catch (err) {
                 console.error('Failed to search users:', err);
             } finally {
@@ -160,7 +167,7 @@ function MessagesContent() {
         }, 500);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [userSearchTerm]);
+    }, [userSearchTerm, user?.id]);
 
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr);

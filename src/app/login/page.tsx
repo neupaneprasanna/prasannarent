@@ -103,6 +103,7 @@ export default function LoginPage() {
                                 className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 placeholder:text-white/20 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50 transition-all"
                                 required
                                 disabled={loading}
+                                suppressHydrationWarning
                             />
                         </div>
                         <div>
@@ -115,6 +116,7 @@ export default function LoginPage() {
                                 className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 placeholder:text-white/20 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50 transition-all"
                                 required
                                 disabled={loading}
+                                suppressHydrationWarning
                             />
                         </div>
 

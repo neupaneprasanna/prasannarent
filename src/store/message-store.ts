@@ -102,6 +102,13 @@ export const useMessageStore = create<MessageState>()((set, get) => ({
     },
 
     startConversation: async (receiverId: string, listingId?: string, message?: string) => {
+        // Guard: Cannot message yourself
+        const { user } = (await import('@/store/auth-store')).useAuthStore.getState();
+        if (user?.id === receiverId) {
+            console.error('Cannot message yourself');
+            return null;
+        }
+
         try {
             const res = await apiClient.post<{ conversation: Conversation }>('/conversations', { receiverId, listingId, message });
             const conv = res.conversation;

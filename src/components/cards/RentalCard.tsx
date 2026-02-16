@@ -194,8 +194,12 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
                                         </svg>
                                     </div>
                                 )}
-                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#6c5ce7]/30 to-[#a29bfe]/30 flex items-center justify-center text-[10px] font-medium text-white/60">
-                                    {item.owner.name[0]}
+                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#6c5ce7]/30 to-[#a29bfe]/30 flex items-center justify-center text-[10px] font-medium text-white/60 overflow-hidden border border-white/5">
+                                    {item.owner.avatar ? (
+                                        <img src={item.owner.avatar} alt={item.owner.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        item.owner.name[0]
+                                    )}
                                 </div>
                             </div>
                         </div>

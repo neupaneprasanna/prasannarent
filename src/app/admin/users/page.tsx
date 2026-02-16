@@ -43,8 +43,12 @@ export default function UsersPage() {
                 return (
                     <div className="flex items-center gap-3">
                         <div className="relative">
-                            <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-[10px] font-bold text-cyan-400">
-                                {user.firstName?.[0]}{user.lastName?.[0]}
+                            <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-[10px] font-bold text-cyan-400 overflow-hidden">
+                                {user.avatar ? (
+                                    <img src={user.avatar} alt={user.firstName} className="w-full h-full object-cover" />
+                                ) : (
+                                    <span>{user.firstName?.[0]}{user.lastName?.[0]}</span>
+                                )}
                             </div>
                             {isOnline && (
                                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-[#0a0a0f] rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />

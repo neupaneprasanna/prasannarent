@@ -195,7 +195,7 @@ nextApp.prepare().then(() => {
     // ─── Auth Routes ───
     app.post('/api/auth/register', async (req, res) => {
         try {
-            const { email, password, firstName, lastName, phone, address, city, dateOfBirth, governmentIdType, governmentIdNumber, interests } = req.body;
+            const { email, password, firstName, lastName, phone, address, city, dateOfBirth, governmentIdType, governmentIdNumber, interests, avatar } = req.body;
 
             const existingUser = await prisma.user.findUnique({ where: { email } });
             if (existingUser) {
@@ -217,6 +217,7 @@ nextApp.prepare().then(() => {
                     governmentIdType: governmentIdType || null,
                     governmentIdNumber: governmentIdNumber || null,
                     interests: interests || [],
+                    avatar: avatar || null,
                 } as any,
             });
 
@@ -229,7 +230,8 @@ nextApp.prepare().then(() => {
                     email: user.email,
                     firstName: user.firstName,
                     lastName: user.lastName,
-                    verified: user.verified
+                    verified: user.verified,
+                    avatar: user.avatar
                 },
                 token
             });
@@ -262,7 +264,8 @@ nextApp.prepare().then(() => {
                     email: user.email,
                     firstName: user.firstName,
                     lastName: user.lastName,
-                    verified: user.verified
+                    verified: user.verified,
+                    avatar: user.avatar
                 },
                 token
             });
@@ -339,7 +342,7 @@ nextApp.prepare().then(() => {
             const listings = await prisma.listing.findMany({
                 where,
                 orderBy,
-                include: { owner: { select: { firstName: true, verified: true } } }
+                include: { owner: { select: { firstName: true, verified: true, avatar: true } } }
             });
 
             res.json({ listings });
@@ -411,7 +414,7 @@ nextApp.prepare().then(() => {
             // 3. Fetch initial results
             let listings = await prisma.listing.findMany({
                 where,
-                include: { owner: { select: { firstName: true, verified: true } } },
+                include: { owner: { select: { firstName: true, verified: true, avatar: true } } },
                 take: 30
             });
 

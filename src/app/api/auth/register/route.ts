@@ -7,13 +7,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
 
 export async function POST(req: Request) {
     try {
-        console.log('🟢 [Register API] Route hit');
-        console.log('🟢 [Register API] DATABASE_URL Check:', process.env.DATABASE_URL ? `Defined (${process.env.DATABASE_URL.length} chars)` : 'MISSING');
-
         const body = await req.json();
-        console.log('🟢 [Register API] Body received:', JSON.stringify({ ...body, password: '[REDACTED]' }));
 
-        const { email, password, firstName, lastName, phone, address, city, dateOfBirth, governmentIdType, governmentIdNumber, interests } = body;
+        const { email, password, firstName, lastName, phone, address, city, dateOfBirth, governmentIdType, governmentIdNumber, interests, avatar } = body;
+        console.log('🟢 [Register API] Destructured avatar:', avatar);
 
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
@@ -22,21 +19,31 @@ export async function POST(req: Request) {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        console.log('-------------------------------------------');
+        console.log('🟢 [REGISTER API DEBUG]');
+        console.log('Body Avatar Type:', typeof body.avatar);
+        console.log('Body Avatar Value:', body.avatar);
+        console.log('-------------------------------------------');
+
         const user = await prisma.user.create({
             data: {
-                email,
+                email: body.email,
                 password: hashedPassword,
-                firstName,
-                lastName,
-                phone: phone || null,
-                address: address || null,
-                city: city || null,
-                dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-                governmentIdType: governmentIdType || null,
-                governmentIdNumber: governmentIdNumber || null,
-                interests: interests || [],
+                firstName: body.firstName,
+                lastName: body.lastName,
+                phone: body.phone || null,
+                avatar: body.avatar || null,
+                address: body.address || null,
+                city: body.city || null,
+                dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
+                governmentIdType: body.governmentIdType || null,
+                governmentIdNumber: body.governmentIdNumber || null,
+                interests: body.interests || [],
             } as any,
         });
+
+        console.log('🟢 [REGISTER API] Created User Avatar in JSON:', user.avatar);
+        console.log('-------------------------------------------');
 
         const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
@@ -47,7 +54,8 @@ export async function POST(req: Request) {
                 email: user.email,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                verified: user.verified
+                verified: user.verified,
+                avatar: user.avatar
             },
             token
         }, { status: 201 });

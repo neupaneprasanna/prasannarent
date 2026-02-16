@@ -8,6 +8,8 @@ import { fadeInUp } from '@/lib/animations/motion-config';
 import { useAuthStore, type User } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
 
+import { supabase } from '@/lib/supabase';
+
 const steps = ['Account', 'Profile', 'Security', 'Preferences'];
 
 export default function RegisterPage() {
@@ -16,10 +18,11 @@ export default function RegisterPage() {
 
     const [currentStep, setCurrentStep] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
     const [formData, setFormData] = useState({
         email: '', password: '', confirmPassword: '',
-        firstName: '', lastName: '', phone: '',
+        firstName: '', lastName: '', phone: '', avatar: '',
         address: '', city: '', dateOfBirth: '',
         governmentIdType: '', governmentIdNumber: '',
         interests: [] as string[],
@@ -34,6 +37,38 @@ export default function RegisterPage() {
                 ? prev.interests.filter((i) => i !== cat)
                 : [...prev.interests, cat],
         }));
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            setUploading(true);
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            // 1. Upload to Supabase Storage
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `public/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // 2. Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+
+            console.log('🟢 [Register] Image uploaded. URL:', publicUrl);
+            setFormData(prev => ({ ...prev, avatar: publicUrl }));
+        } catch (error: any) {
+            console.error('Upload failed:', error);
+            setError('Failed to upload image. Please try again.');
+        } finally {
+            setUploading(false);
+        }
     };
 
     const validateStep = () => {
@@ -66,23 +101,26 @@ export default function RegisterPage() {
             // Final submission
             setLoading(true);
             try {
-                const data = await apiClient.post<{
-                    token: string,
-                    user: User,
-                    message: string
-                }>('/auth/register', {
+                const submissionData = {
                     email: formData.email,
                     password: formData.password,
                     firstName: formData.firstName,
                     lastName: formData.lastName,
                     phone: formData.phone,
+                    avatar: formData.avatar,
                     address: formData.address,
                     city: formData.city,
                     dateOfBirth: formData.dateOfBirth,
                     governmentIdType: formData.governmentIdType,
                     governmentIdNumber: formData.governmentIdNumber,
                     interests: formData.interests,
-                });
+                };
+
+                const data = await apiClient.post<{
+                    token: string,
+                    user: User,
+                    message: string
+                }>('/auth/register', submissionData);
 
                 setAuth(data.user, data.token);
                 router.push('/');
@@ -156,17 +194,17 @@ export default function RegisterPage() {
                                 <div>
                                     <label className="text-xs text-white/40 mb-1.5 block">Email</label>
                                     <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        placeholder="you@example.com" className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 placeholder:text-white/20 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50" required />
+                                        placeholder="you@example.com" className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 placeholder:text-white/20 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50" required suppressHydrationWarning />
                                 </div>
                                 <div>
                                     <label className="text-xs text-white/40 mb-1.5 block">Password</label>
                                     <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        placeholder="Min 8 characters" className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 placeholder:text-white/20 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50" required />
+                                        placeholder="Min 8 characters" className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 placeholder:text-white/20 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50" required suppressHydrationWarning />
                                 </div>
                                 <div>
                                     <label className="text-xs text-white/40 mb-1.5 block">Confirm Password</label>
                                     <input type="password" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                        placeholder="Re-enter password" className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 placeholder:text-white/20 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50" required />
+                                        placeholder="Re-enter password" className="w-full px-4 py-3 rounded-xl glass bg-white/[0.02] text-sm text-white/90 placeholder:text-white/20 outline-none focus:ring-1 focus:ring-[#6c5ce7]/50" required suppressHydrationWarning />
                                 </div>
                             </motion.div>
                         )}
@@ -177,6 +215,52 @@ export default function RegisterPage() {
                                 initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
                                 className="space-y-4"
                             >
+                                {/* Photo Upload */}
+                                <div className="flex flex-col items-center mb-6">
+                                    <div className="relative w-24 h-24 mb-3">
+                                        <div className="w-full h-full rounded-full overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center group">
+                                            {formData.avatar ? (
+                                                <img src={formData.avatar} alt="Profile" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="text-white/20">
+                                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                                        <circle cx="12" cy="7" r="4" />
+                                                    </svg>
+                                                </div>
+                                            )}
+
+                                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onClick={() => document.getElementById('avatar-upload')?.click()}>
+                                                <span className="text-[10px] uppercase font-bold text-white tracking-wider">Change</span>
+                                            </div>
+                                        </div>
+                                        {formData.avatar && (
+                                            <div className="text-[8px] text-white/20 mt-1 max-w-[200px] truncate">
+                                                {formData.avatar}
+                                            </div>
+                                        )}
+                                        {uploading && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full">
+                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <input
+                                        type="file"
+                                        id="avatar-upload"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleImageUpload}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => document.getElementById('avatar-upload')?.click()}
+                                        className="text-xs text-[#a29bfe] hover:text-[#6c5ce7] transition-colors font-medium"
+                                    >
+                                        Upload Photo
+                                    </button>
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-xs text-white/40 mb-1.5 block">First Name</label>

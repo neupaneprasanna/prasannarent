@@ -29,7 +29,8 @@ export async function POST(req: Request) {
                 email: user.email,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                verified: user.verified
+                verified: user.verified,
+                avatar: user.avatar
             },
             token
         }, { status: 200 });
