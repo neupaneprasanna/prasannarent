@@ -3,8 +3,10 @@
 import { useEffect, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useVelocity, useTransform } from 'framer-motion';
 import { useAppStore } from '@/store/app-store';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 
 export default function CustomCursor() {
+    const isMobile = useIsMobile();
     const cursorVariant = useAppStore((s) => s.cursorVariant);
     const cursorText = useAppStore((s) => s.cursorText);
     const cursorRef = useRef<HTMLDivElement>(null);
@@ -36,6 +38,8 @@ export default function CustomCursor() {
         window.addEventListener('mousemove', handleMouseMove);
         return () => window.removeEventListener('mousemove', handleMouseMove);
     }, [mouseX, mouseY]);
+
+    if (isMobile) return null;
 
     const variants = {
         default: { width: 50, height: 50, opacity: 0.5, borderStyle: 'solid', borderRadius: '50%' },

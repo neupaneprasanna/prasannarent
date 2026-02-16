@@ -1,32 +1,30 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import { fadeInUp } from '@/lib/animations/motion-config';
 import { useAppStore } from '@/store/app-store';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 import dynamic from 'next/dynamic';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
+import StaticGlobe from '../ui/StaticGlobe';
 
-const Globe = dynamic(() => import('@/components/ui/Globe'), { ssr: false });
-
-const hotspots: { city: string; x: number; y: number; count: string; size: 'lg' | 'md' | 'sm' }[] = [
-    { city: 'New York', x: 28, y: 35, count: '5.2k', size: 'lg' },
-    { city: 'London', x: 47, y: 28, count: '4.1k', size: 'lg' },
-    { city: 'Tokyo', x: 82, y: 35, count: '3.8k', size: 'lg' },
-    { city: 'San Francisco', x: 15, y: 38, count: '2.9k', size: 'md' },
-    { city: 'Dubai', x: 60, y: 42, count: '2.1k', size: 'md' },
-    { city: 'Sydney', x: 85, y: 72, count: '1.8k', size: 'md' },
-    { city: 'Berlin', x: 51, y: 27, count: '1.5k', size: 'sm' },
-    { city: 'Singapore', x: 76, y: 55, count: '1.3k', size: 'sm' },
-    { city: 'São Paulo', x: 32, y: 65, count: '1.1k', size: 'sm' },
-    { city: 'Mumbai', x: 68, y: 45, count: '900', size: 'sm' },
-];
-
-const sizeMap: Record<'lg' | 'md' | 'sm', string> = { lg: 'w-4 h-4', md: 'w-3 h-3', sm: 'w-2 h-2' };
-const pulseMap: Record<'lg' | 'md' | 'sm', string> = { lg: 'w-8 h-8', md: 'w-6 h-6', sm: 'w-4 h-4' };
+const Globe = dynamic(() => import('@/components/ui/Globe'), {
+    ssr: false,
+    loading: () => null // Avoid rendering text placeholders inside Canvas
+});
 
 export default function WorldMap() {
+    const isMobile = useIsMobile();
+    const [mounted, setMounted] = useState(false);
     const setCursorVariant = useAppStore((s) => s.setCursorVariant);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) return null;
 
     return (
         <section className="section-padding relative overflow-hidden">
@@ -60,20 +58,24 @@ export default function WorldMap() {
                 >
                     <div className="relative w-full aspect-square md:aspect-[2/1] min-h-[500px] cursor-grab active:cursor-grabbing">
                         {/* Background subtle glow */}
-                        <div className="absolute inset-0 bg-[#6c5ce7]/5 rounded-full blur-[120px] scale-75 pointer-events-none" />
+                        {!isMobile && <div className="absolute inset-0 bg-[#6c5ce7]/5 rounded-full blur-[120px] scale-75 pointer-events-none" />}
 
-                        <Canvas>
-                            <PerspectiveCamera makeDefault position={[0, 0, 7]} fov={45} />
-                            <OrbitControls
-                                enableZoom={false}
-                                enablePan={false}
-                                minPolarAngle={Math.PI / 4}
-                                maxPolarAngle={Math.PI / 1.5}
-                                autoRotate
-                                autoRotateSpeed={0.5}
-                            />
-                            <Globe />
-                        </Canvas>
+                        {isMobile ? (
+                            <StaticGlobe />
+                        ) : (
+                            <Canvas>
+                                <PerspectiveCamera makeDefault position={[0, 0, 7]} fov={45} />
+                                <OrbitControls
+                                    enableZoom={false}
+                                    enablePan={false}
+                                    minPolarAngle={Math.PI / 4}
+                                    maxPolarAngle={Math.PI / 1.5}
+                                    autoRotate
+                                    autoRotateSpeed={0.5}
+                                />
+                                <Globe />
+                            </Canvas>
+                        )}
 
                         {/* Overlay info */}
                         <div className="absolute bottom-10 left-10 z-10 hidden md:block">

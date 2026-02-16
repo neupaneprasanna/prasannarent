@@ -4,9 +4,11 @@ import { fadeInUp } from '@/lib/animations/motion-config';
 import RentalCard from '@/components/cards/RentalCard';
 import type { RentalItem } from '@/store/rental-store';
 import { apiClient } from '@/lib/api-client';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 import { Loader2 } from 'lucide-react';
 
 export default function TrendingCarousel() {
+    const isMobile = useIsMobile();
     const [items, setItems] = useState<RentalItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -79,7 +81,7 @@ export default function TrendingCarousel() {
                         <Loader2 className="w-8 h-8 text-[#6c5ce7] animate-spin" />
                     </div>
                 ) : (
-                    <motion.div style={{ x }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <motion.div style={isMobile ? {} : { x }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {items.slice(0, 8).map((item, i) => (
                             <RentalCard key={item.id} item={item} index={i} />
                         ))}

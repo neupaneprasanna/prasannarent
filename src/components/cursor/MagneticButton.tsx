@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/store/app-store';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 
 interface MagneticButtonProps {
     children: React.ReactNode;
@@ -12,12 +13,14 @@ interface MagneticButtonProps {
 }
 
 export default function MagneticButton({ children, strength = 0.5, cursorText, className = "" }: MagneticButtonProps) {
+    const isMobile = useIsMobile();
     const ref = useRef<HTMLDivElement>(null);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const setCursorVariant = useAppStore((state) => state.setCursorVariant);
     const setCursorText = useAppStore((state) => state.setCursorText);
 
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (isMobile) return;
         const { clientX, clientY } = e;
         const { left, top, width, height } = ref.current!.getBoundingClientRect();
 

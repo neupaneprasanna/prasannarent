@@ -5,6 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useState } from 'react';
 import L from 'leaflet';
 
+import { useIsMobile } from '@/hooks/use-is-mobile';
+
 import { Listing } from '@/types/rental';
 
 // Custom 3D-style Marker Icon
@@ -30,6 +32,7 @@ interface MapboxMapProps {
 }
 
 export default function MapboxMap({ listings = [] }: MapboxMapProps) {
+    const isMobile = useIsMobile();
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -49,14 +52,14 @@ export default function MapboxMap({ listings = [] }: MapboxMapProps) {
             <div className="absolute inset-0 z-10 pointer-events-none bg-gradient-to-t from-black/40 via-transparent to-black/20" />
 
             {/* 3D Perspective Wrapper */}
-            <div className="w-full h-full" style={{ perspective: '1000px' }}>
+            <div className="w-full h-full" style={!isMobile ? { perspective: '1000px' } : {}}>
                 <div
-                    className="w-[120%] h-[120%] -ml-[10%] -mt-[5%]"
-                    style={{ transform: 'rotateX(25deg)', transformOrigin: 'bottom' }}
+                    className={!isMobile ? "w-[120%] h-[120%] -ml-[10%] -mt-[5%]" : "w-full h-full"}
+                    style={!isMobile ? { transform: 'rotateX(25deg)', transformOrigin: 'bottom' } : {}}
                 >
                     <MapContainer
                         center={center}
-                        zoom={12}
+                        zoom={isMobile ? 11 : 12}
                         scrollWheelZoom={false}
                         className="w-full h-full z-0"
                         style={{ background: '#0a0a0a' }}

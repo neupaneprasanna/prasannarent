@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { fadeInUp } from '@/lib/animations/motion-config';
 import MagneticButton from '@/components/cursor/MagneticButton';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 export default function CTASection() {
@@ -80,14 +81,18 @@ export default function CTASection() {
                             custom={2}
                         >
                             <MagneticButton strength={0.2}>
-                                <button className="px-8 py-4 bg-white text-black font-semibold rounded-2xl hover:bg-white/90 transition-colors text-sm" suppressHydrationWarning>
-                                    Start Renting Now
-                                </button>
+                                <Link href="/explore">
+                                    <button className="px-8 py-4 bg-white text-black font-semibold rounded-2xl hover:bg-white/90 transition-colors text-sm" suppressHydrationWarning>
+                                        Start Renting Now
+                                    </button>
+                                </Link>
                             </MagneticButton>
                             <MagneticButton strength={0.15}>
-                                <button className="px-8 py-4 border border-white/30 text-white font-medium rounded-2xl hover:bg-white/10 transition-colors text-sm" suppressHydrationWarning>
-                                    List Your Items
-                                </button>
+                                <Link href="/listings/new">
+                                    <button className="px-8 py-4 border border-white/30 text-white font-medium rounded-2xl hover:bg-white/10 transition-colors text-sm" suppressHydrationWarning>
+                                        List Your Items
+                                    </button>
+                                </Link>
                             </MagneticButton>
                         </motion.div>
                     </div>

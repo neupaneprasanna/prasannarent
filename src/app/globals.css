@@ -88,6 +88,13 @@ body {
   mix-blend-mode: overlay;
 }
 
+@media (max-width: 768px) {
+  .grain-overlay::before {
+    animation: none;
+    display: none;
+  }
+}
+
 @keyframes grain-shift {
   0% {
     transform: translate(0, 0);
