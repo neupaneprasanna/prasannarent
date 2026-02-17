@@ -13,6 +13,7 @@ import {
 import type { AdminRequest } from './middleware';
 import { ROLE_PERMISSIONS, getAccessibleModules, ADMIN_SIDEBAR_ITEMS } from '../../src/types/admin';
 import type { AdminRole } from '../../src/types/admin';
+import { calculateHostLevels } from '../jobs/host-levels';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
@@ -993,6 +994,25 @@ export function createAdminRouter(): Router {
                 error: 'Health check failed',
                 timestamp: new Date().toISOString(),
             });
+        }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // SYSTEM JOBS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    router.post('/jobs/host-levels', authenticateAdmin, requirePermission('system', 'manage'), async (req: AdminRequest, res) => {
+        try {
+            const result = await calculateHostLevels();
+
+            await auditLog(req.admin!.userId, 'job.execute', 'system', {
+                details: { job: 'calculateHostLevels', result } as any,
+                ipAddress: req.ip as string,
+            });
+
+            res.json({ message: 'Host levels updated', stats: result });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to calculate host levels' });
         }
     });
 

@@ -6,11 +6,14 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// --- Core Models ---
+// ═══════════════════════════════════════════
+//  CORE MODELS
+// ═══════════════════════════════════════════
 
 model User {
   id        String   @id @default(cuid())
@@ -35,28 +38,44 @@ model User {
   governmentIdNumber String?
 
   // Security and Auth
-  banned             Boolean   @default(false)
-  bannedAt           DateTime?
-  bannedReason       String?
-  lastLoginAt        DateTime?
-  loginCount         Int       @default(0)
-  failedLoginAttempts Int      @default(0)
-  lastPasswordChange DateTime?
-  twoFactorEnabled   Boolean   @default(false)
-  lastSeenAt         DateTime? @default(now())
+  banned              Boolean   @default(false)
+  bannedAt            DateTime?
+  bannedReason        String?
+  lastLoginAt         DateTime?
+  loginCount          Int       @default(0)
+  failedLoginAttempts Int       @default(0)
+  lastPasswordChange  DateTime?
+  twoFactorEnabled    Boolean   @default(false)
+  lastSeenAt          DateTime? @default(now())
+
+  // Referral
+  referralCode String? @unique
 
   // Relations
   listings         Listing[]
   bookings         Booking[]
   reviews          Review[]
-  sentMessages     Message[]              @relation("SentMessages")
-  receivedMessages Message[]              @relation("ReceivedMessages")
+  sentMessages     Message[]      @relation("SentMessages")
+  receivedMessages Message[]      @relation("ReceivedMessages")
   notifications    Notification[]
   badges           Badge[]
 
   // Messaging Relations
   conversationParticipants ConversationParticipant[]
   conversationMessages     ConversationMessage[]
+
+  // Engagement Relations
+  wishlistCollections WishlistCollection[]
+  recentlyViewed      RecentlyViewed[]
+  following           HostFollow[]         @relation("Following")
+  followers           HostFollow[]         @relation("Followers")
+  activityEvents      ActivityEvent[]
+  hostProfile         HostProfile?
+
+  // Growth Relations
+  referralsMade    Referral[]        @relation("Referrals")
+  referredBy       Referral[]        @relation("ReferredBy")
+  promoRedemptions PromoRedemption[]
 
   // Admin Relations
   auditLogs   AuditLog[]             @relation("AdminAuditLogs")
@@ -68,6 +87,7 @@ model User {
 
   @@index([email])
   @@index([role])
+  @@index([referralCode])
 }
 
 model Listing {
@@ -89,12 +109,31 @@ model Listing {
   reviewCount Int           @default(0)
   status      ListingStatus @default(ACTIVE)
 
+  // New listing fields
+  condition            ItemCondition @default(GOOD)
+  minRentalDays        Int           @default(1)
+  maxRentalDays        Int?
+  scheduledUnpublishAt DateTime?
+  duplicatedFrom       String?
+  trendScore           Float         @default(0)
+  bookingCount         Int           @default(0)
+
   owner   User   @relation(fields: [ownerId], references: [id])
   ownerId String
 
   bookings      Booking[]
   reviews       Review[]
   conversations Conversation[]
+
+  // New relations
+  media          ListingMedia[]
+  pricing        ListingPricing?
+  dateOverrides  DatePriceOverride[]
+  attributes     ListingAttribute[]
+  calendarBlocks CalendarBlock[]
+  wishlistItems  WishlistItem[]
+  recentlyViewed RecentlyViewed[]
+  boosts         ListingBoost[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -104,6 +143,7 @@ model Listing {
   @@index([price])
   @@index([rating])
   @@index([status])
+  @@index([trendScore(sort: Desc)])
 }
 
 model Booking {
@@ -115,10 +155,21 @@ model Booking {
   paymentId  String?
   ownerNote  String?
 
+  // New booking fields
+  renterNote       String?
+  expiresAt        DateTime?
+  counterPrice     Float?
+  counterMessage   String?
+  extensionEndDate DateTime?
+  returnDate       DateTime?
+
   listing   Listing @relation(fields: [listingId], references: [id])
   listingId String
   renter    User    @relation(fields: [renterId], references: [id])
   renterId  String
+
+  // New relations
+  timeline BookingTimeline[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -126,6 +177,7 @@ model Booking {
   @@index([listingId])
   @@index([renterId])
   @@index([status])
+  @@index([expiresAt])
 }
 
 model Review {
@@ -161,7 +213,9 @@ model Message {
   @@index([receiverId])
 }
 
-// --- Messaging / Conversations ---
+// ═══════════════════════════════════════════
+//  MESSAGING / CONVERSATIONS
+// ═══════════════════════════════════════════
 
 model Conversation {
   id        String   @id @default(cuid())
@@ -230,7 +284,279 @@ model Badge {
   @@unique([name])
 }
 
-// --- Admin Models ---
+// ═══════════════════════════════════════════
+//  LISTING ENHANCEMENTS
+// ═══════════════════════════════════════════
+
+model ListingMedia {
+  id        String    @id @default(cuid())
+  listingId String
+  listing   Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url       String
+  type      MediaType @default(IMAGE)
+  order     Int       @default(0)
+  caption   String?
+  width     Int?
+  height    Int?
+  duration  Float?
+  thumbnail String?
+  createdAt DateTime  @default(now())
+
+  @@index([listingId])
+  @@index([listingId, order])
+}
+
+model ListingPricing {
+  id        String  @id @default(cuid())
+  listingId String  @unique
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  hourlyPrice       Float?
+  dailyPrice        Float
+  weeklyPrice       Float?
+  monthlyPrice      Float?
+  weekendMultiplier Float  @default(1.0)
+}
+
+model DatePriceOverride {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  date      DateTime
+  price     Float
+  reason    String?
+
+  @@unique([listingId, date])
+  @@index([listingId])
+}
+
+model CategoryAttribute {
+  id          String   @id @default(cuid())
+  category    String
+  name        String
+  label       String
+  type        String // text, number, select, boolean, date
+  options     String[]
+  required    Boolean  @default(false)
+  order       Int      @default(0)
+  unit        String?
+  placeholder String?
+
+  @@unique([category, name])
+  @@index([category])
+}
+
+model ListingAttribute {
+  id        String  @id @default(cuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  key       String
+  value     String
+
+  @@unique([listingId, key])
+  @@index([listingId])
+}
+
+// ═══════════════════════════════════════════
+//  BOOKING WORKFLOW
+// ═══════════════════════════════════════════
+
+model BookingTimeline {
+  id        String   @id @default(cuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  status    String
+  note      String?
+  actor     String // "renter", "host", "system"
+  createdAt DateTime @default(now())
+
+  @@index([bookingId])
+}
+
+model CalendarBlock {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+
+  @@index([listingId])
+  @@index([listingId, startDate, endDate])
+}
+
+// ═══════════════════════════════════════════
+//  ENGAGEMENT & DISCOVERY
+// ═══════════════════════════════════════════
+
+model WishlistCollection {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String  @default("Saved Items")
+  emoji     String  @default("heart")
+  isDefault Boolean @default(false)
+
+  items WishlistItem[]
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model WishlistItem {
+  id           String             @id @default(cuid())
+  collectionId String
+  collection   WishlistCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  listingId    String
+  listing      Listing            @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  addedAt      DateTime           @default(now())
+
+  @@unique([collectionId, listingId])
+  @@index([collectionId])
+}
+
+model RecentlyViewed {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  viewedAt  DateTime @default(now())
+
+  @@unique([userId, listingId])
+  @@index([userId, viewedAt(sort: Desc)])
+}
+
+model HostFollow {
+  id         String   @id @default(cuid())
+  followerId String
+  follower   User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  hostId     String
+  host       User     @relation("Followers", fields: [hostId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([followerId, hostId])
+  @@index([hostId])
+  @@index([followerId])
+}
+
+model ActivityEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// ═══════════════════════════════════════════
+//  REPUTATION & HOST PROFILES
+// ═══════════════════════════════════════════
+
+model HostProfile {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id])
+  level            HostLevel @default(BRONZE)
+  responseRate     Float     @default(100)
+  avgResponseTime  Int       @default(0)
+  completionRate   Float     @default(100)
+  cancellationRate Float     @default(0)
+  totalRentals     Int       @default(0)
+  memberSince      DateTime  @default(now())
+  lastCalculated   DateTime  @default(now())
+
+  @@index([level])
+  @@index([userId])
+}
+
+// ═══════════════════════════════════════════
+//  MARKETPLACE GROWTH
+// ═══════════════════════════════════════════
+
+model Referral {
+  id           String         @id @default(cuid())
+  referrerId   String
+  referrer     User           @relation("Referrals", fields: [referrerId], references: [id])
+  refereeId    String?
+  referee      User?          @relation("ReferredBy", fields: [refereeId], references: [id])
+  code         String         @unique
+  status       ReferralStatus @default(PENDING)
+  rewardAmount Float          @default(10)
+  redeemedAt   DateTime?
+  createdAt    DateTime       @default(now())
+
+  @@index([referrerId])
+  @@index([code])
+}
+
+model PromoCode {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  discountType   String
+  discountValue  Float
+  maxUses        Int?
+  currentUses    Int       @default(0)
+  minOrderAmount Float?
+  validFrom      DateTime  @default(now())
+  validUntil     DateTime?
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+
+  redemptions PromoRedemption[]
+
+  @@index([code])
+}
+
+model PromoRedemption {
+  id        String    @id @default(cuid())
+  promoId   String
+  promo     PromoCode @relation(fields: [promoId], references: [id])
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  bookingId String?
+  discount  Float
+  createdAt DateTime  @default(now())
+
+  @@unique([promoId, userId])
+  @@index([userId])
+}
+
+model ListingBoost {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id])
+  type      String
+  startDate DateTime @default(now())
+  endDate   DateTime
+  active    Boolean  @default(true)
+
+  @@index([listingId])
+  @@index([type, active])
+}
+
+model Campaign {
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  bannerImage    String?
+  bannerLink     String?
+  position       String   @default("home_top")
+  targetCategory String?
+  startDate      DateTime
+  endDate        DateTime
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@index([position, active])
+}
+
+// ═══════════════════════════════════════════
+//  ADMIN MODELS
+// ═══════════════════════════════════════════
 
 model AuditLog {
   id         String  @id @default(cuid())
@@ -302,7 +628,7 @@ model ModerationItem {
   status     ModerationStatus @default(PENDING)
   priority   Int              @default(0)
 
-  reviewer   User?    @relation("ModeratorReviews", fields: [reviewerId], references: [id])
+  reviewer   User?     @relation("ModeratorReviews", fields: [reviewerId], references: [id])
   reviewerId String?
   reviewNote String?
   reviewedAt DateTime?
@@ -344,7 +670,9 @@ model NotificationCampaign {
   createdAt DateTime @default(now())
 }
 
-// --- Enums ---
+// ═══════════════════════════════════════════
+//  ENUMS
+// ═══════════════════════════════════════════
 
 enum Role {
   USER
@@ -365,18 +693,54 @@ enum PriceUnit {
 
 enum BookingStatus {
   PENDING
+  COUNTER_OFFERED
   CONFIRMED
   ACTIVE
+  EXTENSION_REQUESTED
+  EARLY_RETURN_REQUESTED
   COMPLETED
   CANCELLED
+  EXPIRED
+  DISPUTED
 }
 
 enum ListingStatus {
   DRAFT
   PENDING_APPROVAL
   ACTIVE
+  PAUSED
   SUSPENDED
   REJECTED
+  ARCHIVED
+}
+
+enum ItemCondition {
+  NEW
+  LIKE_NEW
+  GOOD
+  FAIR
+  WORN
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  PANORAMA_360
+}
+
+enum HostLevel {
+  BRONZE
+  SILVER
+  GOLD
+  SUPERHOST
+}
+
+enum ReferralStatus {
+  PENDING
+  REGISTERED
+  QUALIFIED
+  REWARDED
+  EXPIRED
 }
 
 enum ModerationStatus {

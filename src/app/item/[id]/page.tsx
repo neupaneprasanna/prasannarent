@@ -14,6 +14,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
 import { Loader2, MapPin, Star, MessageSquare, ShieldCheck, ChevronLeft, Calendar, Info, Sparkles } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import FollowButton from '@/components/engagement/FollowButton';
 
 export default function ProductPage() {
     const { id } = useParams();
@@ -438,6 +439,7 @@ export default function ProductPage() {
                                     </div>
                                     <p className="text-[10px] text-white/30">Verified Property Owner</p>
                                 </div>
+                                <FollowButton hostId={item.owner?.id} mini className="bg-white/5 hover:bg-[#6c5ce7] hover:text-white border border-white/10" />
                                 <button
                                     onClick={handleStartConversation}
                                     className="p-3 rounded-xl glass hover:bg-[#6c5ce7]/20 transition-all text-white/40 hover:text-white"

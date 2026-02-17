@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Search, Bell, MessageSquare, User as UserIcon, LogOut, Settings, LayoutDashboard } from 'lucide-react';
+import { Menu, X, Search, Bell, MessageSquare, User as UserIcon, LogOut, Settings, LayoutDashboard, Heart, ShoppingBag, BarChart3 } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
 import { useAuthStore } from '@/store/auth-store';
 import MagneticButton from '@/components/cursor/MagneticButton';
@@ -108,15 +108,26 @@ export default function Navbar() {
                         </button>
 
                         {isAuthenticated && (
-                            <Link
-                                href="/messages"
-                                className="p-2 text-white/60 hover:text-white transition-colors relative"
-                                onMouseEnter={() => setCursorVariant('hover')}
-                                onMouseLeave={() => setCursorVariant('default')}
-                                title="Messages"
-                            >
-                                <MessageSquare size={20} />
-                            </Link>
+                            <>
+                                <Link
+                                    href="/wishlist"
+                                    className="p-2 text-white/60 hover:text-[#ff6b6b] transition-colors hidden sm:block"
+                                    onMouseEnter={() => setCursorVariant('hover')}
+                                    onMouseLeave={() => setCursorVariant('default')}
+                                    title="Wishlist"
+                                >
+                                    <Heart size={20} />
+                                </Link>
+                                <Link
+                                    href="/messages"
+                                    className="p-2 text-white/60 hover:text-white transition-colors relative"
+                                    onMouseEnter={() => setCursorVariant('hover')}
+                                    onMouseLeave={() => setCursorVariant('default')}
+                                    title="Messages"
+                                >
+                                    <MessageSquare size={20} />
+                                </Link>
+                            </>
                         )}
 
                         <div className="relative">
@@ -241,6 +252,15 @@ export default function Navbar() {
                                                 <a href="/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 text-sm text-white/60 hover:text-white transition-all">
                                                     <LayoutDashboard size={16} /> Dashboard
                                                 </a>
+                                                <a href="/rentals" className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 text-sm text-white/60 hover:text-white transition-all">
+                                                    <ShoppingBag size={16} /> My Rentals
+                                                </a>
+                                                <a href="/host" className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 text-sm text-white/60 hover:text-white transition-all">
+                                                    <BarChart3 size={16} /> Host Dashboard
+                                                </a>
+                                                <a href="/wishlist" className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 text-sm text-white/60 hover:text-white transition-all">
+                                                    <Heart size={16} /> Wishlist
+                                                </a>
                                                 <a href="/settings" className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 text-sm text-white/60 hover:text-white transition-all">
                                                     <Settings size={16} /> Settings
                                                 </a>
@@ -312,6 +332,9 @@ export default function Navbar() {
                                 <div className="mt-auto space-y-4">
                                     <p className="text-white/40 text-sm">Logged in as {user?.firstName}</p>
                                     <a href="/dashboard" className="block text-2xl font-semibold" onClick={() => setMobileMenuOpen(false)}>Dashboard</a>
+                                    <a href="/rentals" className="block text-2xl font-semibold" onClick={() => setMobileMenuOpen(false)}>My Rentals</a>
+                                    <a href="/host" className="block text-2xl font-semibold" onClick={() => setMobileMenuOpen(false)}>Host Dashboard</a>
+                                    <a href="/wishlist" className="block text-2xl font-semibold" onClick={() => setMobileMenuOpen(false)}>Wishlist</a>
                                     <a href="/messages" className="block text-2xl font-semibold" onClick={() => setMobileMenuOpen(false)}>Messages</a>
                                     <button onClick={handleLogout} className="text-2xl font-semibold text-red-400">Logout</button>
                                 </div>

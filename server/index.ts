@@ -12,6 +12,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createAdminRouter } from './admin/routes';
 import { setupAdminWebSocket } from './admin/websocket';
+import { createEngagementRouter } from './engagement/routes';
 import { detectSearchIntent, rankResults } from './lib/groq';
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
@@ -169,6 +170,9 @@ nextApp.prepare().then(() => {
 
     // ─── Admin Routes ───
     app.use('/api/admin', createAdminRouter());
+
+    // ─── Engagement Routes (Wishlist, Recently Viewed, Follow, Dashboards) ───
+    app.use('/api/engagement', createEngagementRouter());
 
     // ─── Admin WebSocket ───
     const adminWS = setupAdminWebSocket(io);
