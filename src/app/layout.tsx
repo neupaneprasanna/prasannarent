@@ -70,6 +70,8 @@ export const metadata: Metadata = {
   },
 };
 
+import FloatingCompareBar from "@/components/listing/FloatingCompareBar";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -87,6 +89,7 @@ export default function RootLayout({
             <SmoothScroll>
               {children}
             </SmoothScroll>
+            <FloatingCompareBar />
           </MaintenanceGuard>
         </ClientProviders>
       </body>

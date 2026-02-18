@@ -102,6 +102,7 @@ export default function Navbar() {
                             className="p-2 text-white/60 hover:text-white transition-colors"
                             onMouseEnter={() => setCursorVariant('hover')}
                             onMouseLeave={() => setCursorVariant('default')}
+                            aria-label="Toggle search"
                             suppressHydrationWarning
                         >
                             <Search size={20} />
@@ -115,6 +116,7 @@ export default function Navbar() {
                                     onMouseEnter={() => setCursorVariant('hover')}
                                     onMouseLeave={() => setCursorVariant('default')}
                                     title="Wishlist"
+                                    aria-label="View wishlist"
                                 >
                                     <Heart size={20} />
                                 </Link>
@@ -124,6 +126,7 @@ export default function Navbar() {
                                     onMouseEnter={() => setCursorVariant('hover')}
                                     onMouseLeave={() => setCursorVariant('default')}
                                     title="Messages"
+                                    aria-label="View messages"
                                 >
                                     <MessageSquare size={20} />
                                 </Link>
@@ -136,6 +139,7 @@ export default function Navbar() {
                                 className="p-2 text-white/60 hover:text-white transition-colors relative"
                                 onMouseEnter={() => setCursorVariant('hover')}
                                 onMouseLeave={() => setCursorVariant('default')}
+                                aria-label="Toggle notifications"
                                 suppressHydrationWarning
                             >
                                 <Bell size={20} />
@@ -222,6 +226,7 @@ export default function Navbar() {
                                     onMouseEnter={() => setCursorVariant('hover')}
                                     onMouseLeave={() => setCursorVariant('default')}
                                     whileTap={{ scale: 0.95 }}
+                                    aria-label="User profile menu"
                                     suppressHydrationWarning
                                 >
                                     <span className="text-xs font-medium text-white/80 hidden lg:block">

@@ -64,8 +64,8 @@ export default function BookingDetailPage() {
                         <div className="flex items-center gap-3">
                             <h1 className="text-2xl font-bold text-[var(--admin-text-primary)]">Booking #{booking.id.slice(-8).toUpperCase()}</h1>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${booking.status === 'CONFIRMED' ? 'bg-[var(--admin-success)]/20 text-[var(--admin-success)]' :
-                                    booking.status === 'PENDING' ? 'bg-[var(--admin-warning)]/20 text-[var(--admin-warning)]' :
-                                        'bg-[var(--admin-danger)]/20 text-[var(--admin-danger)]'
+                                booking.status === 'PENDING' ? 'bg-[var(--admin-warning)]/20 text-[var(--admin-warning)]' :
+                                    'bg-[var(--admin-danger)]/20 text-[var(--admin-danger)]'
                                 }`}>
                                 {booking.status}
                             </span>
@@ -164,8 +164,8 @@ export default function BookingDetailPage() {
                         </div>
                         <div className="flex gap-4">
                             <div className="w-24 h-24 rounded-xl bg-[var(--admin-surface-active)] overflow-hidden flex-shrink-0">
-                                {booking.listing?.images?.[0] ? (
-                                    <img src={booking.listing.images[0]} alt="" className="w-full h-full object-cover" />
+                                {(booking.listing as any)?.media?.[0]?.url || booking.listing?.images?.[0] ? (
+                                    <img src={(booking.listing as any)?.media?.[0]?.url || booking.listing?.images?.[0]} alt="" className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-[var(--admin-text-muted)]">
                                         <Building2 size={24} />

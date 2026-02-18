@@ -19,6 +19,7 @@ export interface RentalItem {
     available: boolean;
     featured: boolean;
     tags: string[];
+    media?: { id: string; url: string; type: string; order: number }[];
 }
 
 interface RentalState {

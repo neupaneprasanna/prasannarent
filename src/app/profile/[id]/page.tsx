@@ -313,12 +313,18 @@ export default function ProfilePage() {
                                         }}
                                     >
                                         <Link href={`/item/${listing.id}`} style={{ textDecoration: 'none' }}>
-                                            <div style={{
-                                                height: '180px',
-                                                background: listing.images?.[0]
-                                                    ? `url(${listing.images[0]}) center/cover`
-                                                    : 'linear-gradient(135deg, #1a1a2e, #16213e)',
-                                            }} />
+                                            {(() => {
+                                                const mainImage = (listing as any).media?.find((m: any) => m.type === 'IMAGE')?.url ||
+                                                    (listing.images && listing.images.length > 0 ? listing.images[0] : null);
+                                                return (
+                                                    <div style={{
+                                                        height: '180px',
+                                                        background: mainImage
+                                                            ? `url(${mainImage}) center/cover`
+                                                            : 'linear-gradient(135deg, #1a1a2e, #16213e)',
+                                                    }} />
+                                                );
+                                            })()}
                                             <div style={{ padding: '16px' }}>
                                                 <h3 style={{ color: '#fff', margin: '0 0 8px', fontSize: '1rem', fontWeight: 600 }}>
                                                     {listing.title}

@@ -11,6 +11,7 @@ import { useAppStore } from '@/store/app-store';
 import { apiClient } from '@/lib/api-client';
 import { Loader2, Filter, Star, Info, Map as MapIcon, LayoutGrid } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import ListingCardSkeleton from '@/components/ui/ListingCardSkeleton';
 
 const MapboxMap = dynamic(() => import('@/components/map/MapboxMap'), {
     ssr: false,
@@ -233,9 +234,10 @@ function ExploreContent() {
                         </motion.div>
 
                         {loading ? (
-                            <div className="flex flex-col items-center justify-center h-64 text-white/20">
-                                <Loader2 size={32} className="animate-spin mb-4 text-[#6c5ce7]" />
-                                <p className="text-sm">Fetching rentals...</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {[...Array(6)].map((_, i) => (
+                                    <ListingCardSkeleton key={i} />
+                                ))}
                             </div>
                         ) : (
                             <>

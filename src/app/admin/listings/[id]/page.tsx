@@ -135,13 +135,17 @@ export default function ListingDetailPage() {
                 <div className="lg:col-span-2 space-y-6">
                     {/* Hero Image */}
                     <div className="aspect-video w-full rounded-2xl overflow-hidden bg-[var(--admin-surface)] border border-[var(--admin-border)] relative group">
-                        {listing.images?.[0] ? (
-                            <img src={listing.images[0]} alt={listing.title} className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[var(--admin-text-muted)]">
-                                <Store size={48} className="opacity-20" />
-                            </div>
-                        )}
+                        {(() => {
+                            const mainImage = (listing as any).media?.find((m: any) => m.type === 'IMAGE')?.url ||
+                                (listing.images && listing.images.length > 0 ? listing.images[0] : null);
+                            return mainImage ? (
+                                <img src={mainImage} alt={listing.title} className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[var(--admin-text-muted)]">
+                                    <Store size={48} className="opacity-20" />
+                                </div>
+                            );
+                        })()}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
                         <div className="absolute bottom-6 left-6 right-6">
                             <h2 className="text-3xl font-bold text-white mb-2">{listing.title}</h2>

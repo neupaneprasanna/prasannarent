@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/nav/Navbar';
@@ -41,11 +41,51 @@ export default function CreateListingPage() {
         location: '',
         tags: '',
         images: '',
+        media: [] as { url: string; type: string; caption: string }[],
+        customAttributes: {} as Record<string, any>,
+        pricing: {
+            hourlyPrice: '',
+            weeklyPrice: '',
+            monthlyPrice: '',
+            weekendMultiplier: '1.0',
+        },
     });
+
+    const [categoryAttributes, setCategoryAttributes] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (formData.category) {
+            fetchCategoryAttributes(formData.category);
+        }
+    }, [formData.category]);
+
+    const fetchCategoryAttributes = async (catName: string) => {
+        try {
+            const data = await apiClient.get<{ attributes: any[] }>(`/categories/${catName}/attributes`);
+            setCategoryAttributes(data.attributes || []);
+            // Reset custom attributes for the new category
+            const initialAttrs: Record<string, any> = {};
+            (data.attributes || []).forEach(attr => {
+                if (attr.type === 'boolean') initialAttrs[attr.name] = false;
+                else if (attr.type === 'number') initialAttrs[attr.name] = '';
+                else initialAttrs[attr.name] = '';
+            });
+            setFormData(prev => ({ ...prev, customAttributes: initialAttrs }));
+        } catch (err) {
+            console.error('Failed to fetch attributes:', err);
+        }
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleAttributeChange = (name: string, value: any) => {
+        setFormData(prev => ({
+            ...prev,
+            customAttributes: { ...prev.customAttributes, [name]: value }
+        }));
     };
 
     const nextStep = () => {
@@ -64,7 +104,20 @@ export default function CreateListingPage() {
                 ...formData,
                 price: parseFloat(formData.price),
                 tags: Array.from(new Set(formData.tags.split(',').map(tag => tag.trim()).filter(Boolean))),
-                images: formData.images.split('\n').map(img => img.trim()).filter(Boolean),
+                media: formData.media,
+                attributes: Object.entries(formData.customAttributes).map(([key, value]) => ({
+                    key,
+                    value: String(value)
+                })),
+                pricing: {
+                    dailyPrice: parseFloat(formData.price),
+                    hourlyPrice: formData.pricing.hourlyPrice ? parseFloat(formData.pricing.hourlyPrice) : null,
+                    weeklyPrice: formData.pricing.weeklyPrice ? parseFloat(formData.pricing.weeklyPrice) : null,
+                    monthlyPrice: formData.pricing.monthlyPrice ? parseFloat(formData.pricing.monthlyPrice) : null,
+                    weekendMultiplier: parseFloat(formData.pricing.weekendMultiplier) || 1.0,
+                },
+                // Keep images array for backward compatibility but populate from media URLs
+                images: formData.media.filter(m => m.type === 'IMAGE').map(m => m.url)
             };
 
             await apiClient.post('/listings', payload);
@@ -197,21 +250,120 @@ export default function CreateListingPage() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-xs text-white/40 mb-2 font-medium uppercase tracking-wider">Price Unit</label>
-                                        <div className="flex gap-2">
-                                            {priceUnits.map(unit => (
-                                                <button
-                                                    key={unit}
-                                                    type="button"
-                                                    className={`flex-1 py-3 rounded-xl border text-xs font-medium transition-all ${formData.priceUnit === unit ? 'bg-[#6c5ce7]/10 border-[#6c5ce7] text-white' : 'border-white/5 bg-white/5 text-white/40'}`}
-                                                    onClick={() => setFormData(prev => ({ ...prev, priceUnit: unit }))}
-                                                >
-                                                    Per {unit.toLowerCase()}
-                                                </button>
-                                            ))}
+
+                                    {/* Flexible Pricing Section */}
+                                    <div className="pt-6 border-t border-white/5 space-y-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1 h-4 bg-[#6c5ce7] rounded-full" />
+                                                <label className="text-[10px] text-white/60 font-bold uppercase tracking-[0.2em]">Flexible Pricing (Optional)</label>
+                                            </div>
+                                            <span className="text-[8px] text-white/20 uppercase tracking-widest font-bold">Set discounts for long durations</span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] text-white/30 mb-1.5 font-medium uppercase tracking-wider">Hourly</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-white/20">$</span>
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-6 pr-3 py-2.5 text-xs text-white outline-none focus:border-[#6c5ce7]"
+                                                        onChange={(e) => setFormData(p => ({ ...p, pricing: { ...p.pricing, hourlyPrice: e.target.value } }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] text-white/30 mb-1.5 font-medium uppercase tracking-wider">Weekly</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-white/20">$</span>
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-6 pr-3 py-2.5 text-xs text-white outline-none focus:border-[#6c5ce7]"
+                                                        onChange={(e) => setFormData(p => ({ ...p, pricing: { ...p.pricing, weeklyPrice: e.target.value } }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] text-white/30 mb-1.5 font-medium uppercase tracking-wider">Monthly</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-white/20">$</span>
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-6 pr-3 py-2.5 text-xs text-white outline-none focus:border-[#6c5ce7]"
+                                                        onChange={(e) => setFormData(p => ({ ...p, pricing: { ...p.pricing, monthlyPrice: e.target.value } }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] text-white/30 mb-1.5 font-medium uppercase tracking-wider">Weekend x</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        placeholder="1.0"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-[#6c5ce7]"
+                                                        onChange={(e) => setFormData(p => ({ ...p, pricing: { ...p.pricing, weekendMultiplier: e.target.value } }))}
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
+
+                                    {/* Dynamic Category Attributes */}
+                                    {categoryAttributes.length > 0 && (
+                                        <div className="pt-6 border-t border-white/5 space-y-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="w-1 h-4 bg-[#6c5ce7] rounded-full" />
+                                                <label className="text-[10px] text-white/60 font-bold uppercase tracking-[0.2em]">Specifications</label>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {categoryAttributes.map((attr) => (
+                                                    <div key={attr.id} className="space-y-2">
+                                                        <label className="block text-xs text-white/40 font-medium">{attr.label} {attr.unit && `(${attr.unit})`}</label>
+                                                        {attr.type === 'select' ? (
+                                                            <select
+                                                                value={formData.customAttributes[attr.name] || ''}
+                                                                onChange={(e) => handleAttributeChange(attr.name, e.target.value)}
+                                                                className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-[#6c5ce7]"
+                                                            >
+                                                                <option value="">Select {attr.label}</option>
+                                                                {attr.options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+                                                            </select>
+                                                        ) : attr.type === 'boolean' ? (
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleAttributeChange(attr.name, true)}
+                                                                    className={`flex-1 py-3 rounded-xl border text-[10px] font-bold transition-all ${formData.customAttributes[attr.name] === true ? 'bg-[#6c5ce7]/20 border-[#6c5ce7] text-white' : 'border-white/5 bg-white/5 text-white/40'}`}
+                                                                >
+                                                                    Yes
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleAttributeChange(attr.name, false)}
+                                                                    className={`flex-1 py-3 rounded-xl border text-[10px] font-bold transition-all ${formData.customAttributes[attr.name] === false ? 'bg-[#6c5ce7]/20 border-[#6c5ce7] text-white' : 'border-white/5 bg-white/5 text-white/40'}`}
+                                                                >
+                                                                    No
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <input
+                                                                type={attr.type === 'number' ? 'number' : 'text'}
+                                                                value={formData.customAttributes[attr.name] || ''}
+                                                                onChange={(e) => handleAttributeChange(attr.name, e.target.value)}
+                                                                placeholder={attr.placeholder || `Enter ${attr.label.toLowerCase()}...`}
+                                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-[#6c5ce7]"
+                                                            />
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </motion.div>
                         )}
@@ -271,25 +423,79 @@ export default function CreateListingPage() {
                             >
                                 <h3 className="text-xl font-semibold mb-6">Product Photos</h3>
                                 <div className="space-y-4">
-                                    <div className="p-8 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center">
-                                        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4 text-white/40">
-                                            <ImageIcon size={24} />
+                                    <div className="flex justify-between items-center mb-4">
+                                        <label className="block text-xs text-white/40 font-medium uppercase tracking-wider">Media Gallery</label>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setFormData(prev => ({
+                                                ...prev,
+                                                media: [...prev.media, { url: '', type: 'IMAGE', caption: '' }]
+                                            }))}
+                                        >
+                                            + Add Media
+                                        </Button>
+                                    </div>
+
+                                    {formData.media.map((item, index) => (
+                                        <div key={index} className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                                            <div className="flex gap-3">
+                                                <select
+                                                    value={item.type}
+                                                    onChange={(e) => {
+                                                        const newMedia = [...formData.media];
+                                                        newMedia[index].type = e.target.value;
+                                                        setFormData(prev => ({ ...prev, media: newMedia }));
+                                                    }}
+                                                    className="bg-[#1a1a1a] border border-white/10 rounded-lg px-2 py-2 text-[10px] text-white outline-none focus:border-[#6c5ce7]"
+                                                >
+                                                    <option value="IMAGE">IMAGE</option>
+                                                    <option value="VIDEO">VIDEO</option>
+                                                    <option value="PANORAMA_360">360° VIEW</option>
+                                                </select>
+                                                <input
+                                                    placeholder="Media URL (direct link)"
+                                                    value={item.url}
+                                                    onChange={(e) => {
+                                                        const newMedia = [...formData.media];
+                                                        newMedia[index].url = e.target.value;
+                                                        setFormData(prev => ({ ...prev, media: newMedia }));
+                                                    }}
+                                                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#6c5ce7]"
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        const newMedia = formData.media.filter((_, i) => i !== index);
+                                                        setFormData(prev => ({ ...prev, media: newMedia }));
+                                                    }}
+                                                    className="text-red-400/60 hover:text-red-400 p-2"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                            <input
+                                                placeholder="Add a caption (optional)"
+                                                value={item.caption}
+                                                onChange={(e) => {
+                                                    const newMedia = [...formData.media];
+                                                    newMedia[index].caption = e.target.value;
+                                                    setFormData(prev => ({ ...prev, media: newMedia }));
+                                                }}
+                                                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white/60 outline-none focus:border-[#6c5ce7]"
+                                            />
                                         </div>
-                                        <p className="text-sm text-white/60 mb-1">Image Upload Coming Soon</p>
-                                        <p className="text-xs text-white/20">For now, please provide image URLs below</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-white/40 mb-2 font-medium uppercase tracking-wider">Image URLs (one per line)</label>
-                                        <textarea
-                                            name="images"
-                                            value={formData.images}
-                                            onChange={handleInputChange}
-                                            placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg"
-                                            rows={4}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#6c5ce7] transition-all outline-none resize-none font-mono text-[10px]"
-                                        />
-                                        <p className="text-[10px] text-white/20 mt-2">Recommended: Use high-quality JPG or WEBP images.</p>
-                                    </div>
+                                    ))}
+
+                                    {formData.media.length === 0 && (
+                                        <div className="p-8 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center">
+                                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4 text-white/40">
+                                                <ImageIcon size={24} />
+                                            </div>
+                                            <p className="text-sm text-white/60 mb-1">No media added yet</p>
+                                            <p className="text-xs text-white/20">Add images, videos or 360 views to showcase your asset</p>
+                                        </div>
+                                    )}
+
                                 </div>
                             </motion.div>
                         )}
@@ -306,7 +512,11 @@ export default function CreateListingPage() {
                                 <div className="space-y-4">
                                     <div className="flex gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
                                         <div className="w-20 h-20 rounded-xl bg-white/10 flex items-center justify-center text-2xl overflow-hidden">
-                                            {formData.images.split('\n')[0] ? <img src={formData.images.split('\n')[0]} alt="" className="w-full h-full object-cover" /> : '📦'}
+                                            {formData.media[0]?.url ? (
+                                                <img src={formData.media[0].url} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                '📦'
+                                            )}
                                         </div>
                                         <div className="flex-1">
                                             <h4 className="font-bold text-lg">{formData.title || 'Untitled Listing'}</h4>
@@ -367,6 +577,6 @@ export default function CreateListingPage() {
             </div>
 
             <Footer />
-        </main>
+        </main >
     );
 }

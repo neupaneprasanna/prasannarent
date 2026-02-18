@@ -43,6 +43,7 @@ export function createEngagementRouter(): Router {
                                 select: {
                                     id: true, title: true, price: true, priceUnit: true,
                                     images: true, rating: true, location: true, available: true,
+                                    media: true,
                                 }
                             }
                         },
@@ -261,7 +262,7 @@ export function createEngagementRouter(): Router {
                         select: {
                             id: true, title: true, price: true, priceUnit: true,
                             images: true, rating: true, location: true, available: true,
-                            category: true, reviewCount: true,
+                            category: true, reviewCount: true, media: true,
                         }
                     }
                 }
@@ -586,30 +587,34 @@ export function createEngagementRouter(): Router {
                 select: {
                     id: true, title: true, images: true, price: true, priceUnit: true,
                     views: true, rating: true, reviewCount: true, status: true,
+                    media: true,
                     bookings: { select: { status: true, totalPrice: true } },
                 },
                 orderBy: { views: 'desc' }
             });
 
-            const performance = listings.map(l => ({
-                id: l.id,
-                title: l.title,
-                image: l.images[0] || null,
-                price: l.price,
-                priceUnit: l.priceUnit,
-                views: l.views,
-                rating: l.rating,
-                reviewCount: l.reviewCount,
-                status: l.status,
-                totalBookings: l.bookings.length,
-                completedBookings: l.bookings.filter(b => b.status === 'COMPLETED').length,
-                revenue: l.bookings
-                    .filter(b => b.status === 'COMPLETED')
-                    .reduce((sum, b) => sum + b.totalPrice, 0),
-                conversionRate: l.views > 0
-                    ? ((l.bookings.length / l.views) * 100).toFixed(1) + '%'
-                    : '0%',
-            }));
+            const performance = listings.map(l => {
+                const mainImage = (l as any).media?.find((m: any) => m.type === 'IMAGE')?.url || l.images[0] || null;
+                return {
+                    id: l.id,
+                    title: l.title,
+                    image: mainImage,
+                    price: l.price,
+                    priceUnit: l.priceUnit,
+                    views: l.views,
+                    rating: l.rating,
+                    reviewCount: l.reviewCount,
+                    status: l.status,
+                    totalBookings: l.bookings.length,
+                    completedBookings: l.bookings.filter(b => b.status === 'COMPLETED').length,
+                    revenue: l.bookings
+                        .filter(b => b.status === 'COMPLETED')
+                        .reduce((sum, b) => sum + b.totalPrice, 0),
+                    conversionRate: l.views > 0
+                        ? ((l.bookings.length / l.views) * 100).toFixed(1) + '%'
+                        : '0%',
+                };
+            });
 
             res.json({ listings: performance });
         } catch (error) {
@@ -718,7 +723,7 @@ export function createEngagementRouter(): Router {
                         listing: {
                             select: {
                                 id: true, title: true, images: true, price: true,
-                                priceUnit: true, location: true,
+                                priceUnit: true, location: true, media: true,
                                 owner: { select: { firstName: true, lastName: true, avatar: true } }
                             }
                         }

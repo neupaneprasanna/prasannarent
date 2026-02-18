@@ -48,8 +48,8 @@ export default function BookingsPage() {
             cell: (booking: any) => (
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center overflow-hidden">
-                        {booking.listing?.images?.[0] ? (
-                            <img src={booking.listing.images[0]} alt="" className="w-full h-full object-cover" />
+                        {booking.listing?.media?.[0]?.url || booking.listing?.images?.[0] ? (
+                            <img src={booking.listing.media?.[0]?.url || booking.listing.images[0]} alt="" className="w-full h-full object-cover" />
                         ) : (
                             <Building2 size={14} className="text-white/20" />
                         )}

@@ -413,6 +413,7 @@ export function createAdminRouter(): Router {
                     orderBy: { createdAt: 'desc' },
                     include: {
                         owner: { select: { id: true, firstName: true, lastName: true, email: true, verified: true } },
+                        media: true,
                         _count: { select: { bookings: true, reviews: true } },
                     }
                 }),
@@ -437,6 +438,7 @@ export function createAdminRouter(): Router {
                 where: { id: req.params.id as string },
                 include: {
                     owner: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true, verified: true } },
+                    media: true,
                     bookings: { take: 10, orderBy: { createdAt: 'desc' } },
                     reviews: { take: 10, orderBy: { createdAt: 'desc' }, include: { user: { select: { firstName: true, lastName: true } } } },
                 }
@@ -561,7 +563,7 @@ export function createAdminRouter(): Router {
                     take: pageSize,
                     orderBy: { createdAt: 'desc' },
                     include: {
-                        listing: { select: { id: true, title: true, price: true, images: true } },
+                        listing: { select: { id: true, title: true, price: true, images: true, media: true } },
                         renter: { select: { id: true, firstName: true, lastName: true, email: true } },
                     }
                 }),

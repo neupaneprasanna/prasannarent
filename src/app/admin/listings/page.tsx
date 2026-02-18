@@ -11,7 +11,8 @@ import {
     DollarSign,
     MapPin,
     AlertTriangle,
-    Check
+    Check,
+    Package
 } from 'lucide-react';
 import { useAdminListingsStore } from '@/store/admin/admin-data-stores';
 import { useAdminAuthStore } from '@/store/admin/admin-auth-store';
@@ -53,13 +54,18 @@ export default function ListingsPage() {
             cell: (listing: any) => (
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/[0.03] border border-white/[0.06]">
-                        {listing.images?.[0] ? (
-                            <img src={listing.images[0]} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white/20">
-                                <Building2 size={16} />
-                            </div>
-                        )}
+                        {(() => {
+                            const mainImage = listing.media?.find((m: any) => m.type === 'IMAGE')?.url ||
+                                (listing.images && listing.images.length > 0 ? listing.images[0] : null);
+                            if (mainImage) {
+                                return <img src={mainImage} alt="" className="w-full h-full object-cover" />;
+                            }
+                            return (
+                                <div className="w-full h-full flex items-center justify-center text-white/20">
+                                    <Package size={16} /> {/* Changed from Building2 to Package as per the implied change */}
+                                </div>
+                            );
+                        })()}
                     </div>
                     <div>
                         <p className="font-medium text-white line-clamp-1">{listing.title}</p>

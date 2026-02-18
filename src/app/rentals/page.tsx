@@ -132,8 +132,8 @@ export default function RenterDashboardPage() {
                                     key={tab.id}
                                     onClick={() => handleTabChange(tab.id)}
                                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${currentTab === tab.id
-                                            ? 'bg-[#6c5ce7]/10 text-white border border-[#6c5ce7]/20'
-                                            : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+                                        ? 'bg-[#6c5ce7]/10 text-white border border-[#6c5ce7]/20'
+                                        : 'text-white/30 hover:text-white/60 hover:bg-white/5'
                                         }`}
                                 >
                                     {tab.icon} {tab.label}
@@ -175,8 +175,8 @@ export default function RenterDashboardPage() {
                                                 <Link href={`/items/${booking.listing.id}`}>
                                                     <div className="glass-card rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4 group hover:border-white/10 transition-all">
                                                         <div className="w-full sm:w-20 h-32 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
-                                                            {booking.listing.images?.[0] ? (
-                                                                <img src={booking.listing.images[0]} alt="" className="w-full h-full object-cover" />
+                                                            {booking.listing.media?.[0]?.url || booking.listing.images?.[0] ? (
+                                                                <img src={booking.listing.media?.[0]?.url || booking.listing.images[0]} alt="" className="w-full h-full object-cover" />
                                                             ) : (
                                                                 <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02] flex items-center justify-center">
                                                                     <Package size={20} className="text-white/10" />
@@ -261,8 +261,8 @@ export default function RenterDashboardPage() {
                                         <Link key={item.id} href={`/items/${item.id}`}>
                                             <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors group">
                                                 <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
-                                                    {item.images?.[0] ? (
-                                                        <img src={item.images[0]} alt="" className="w-full h-full object-cover" />
+                                                    {item.media?.[0]?.url || item.images?.[0] ? (
+                                                        <img src={item.media?.[0]?.url || item.images[0]} alt="" className="w-full h-full object-cover" />
                                                     ) : (
                                                         <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02]" />
                                                     )}

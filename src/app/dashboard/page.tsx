@@ -14,6 +14,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useNotificationStore } from '@/store/notification-store';
 import { formatDistanceToNow } from 'date-fns';
 import { Listing, Booking } from '@/types/rental';
+import PricingManager from '@/components/dashboard/PricingManager';
+import DashboardOverviewSkeleton from '@/components/ui/DashboardOverviewSkeleton';
 
 const sidebarItems = [
     { icon: <LayoutDashboard size={18} />, label: 'Overview', id: 'overview' },
@@ -36,6 +38,7 @@ export default function DashboardPage() {
     const [stats, setStats] = useState({ totalListings: 0, totalEarnings: 0, messageCount: 0, activeBookings: 0 });
     const [revenueData, setRevenueData] = useState<any[]>([]);
     const [activityData, setActivityData] = useState<any[]>([]);
+    const [managingPricingListing, setManagingPricingListing] = useState<Listing | null>(null);
 
     const setCursorVariant = useAppStore((s) => s.setCursorVariant);
     const { user, isAuthenticated } = useAuthStore();
@@ -195,12 +198,7 @@ export default function DashboardPage() {
                     </div>
 
                     {loading ? (
-                        <div className="flex items-center justify-center h-[60vh]">
-                            <div className="flex flex-col items-center gap-4">
-                                <Loader2 className="w-10 h-10 animate-spin text-[#6c5ce7]" />
-                                <p className="text-sm text-white/30 animate-pulse">Loading secure data...</p>
-                            </div>
-                        </div>
+                        <DashboardOverviewSkeleton />
                     ) : (
                         <div className="space-y-8">
                             {activeSidebar === 'overview' && (
@@ -258,7 +256,14 @@ export default function DashboardPage() {
                                                 {bookingRequests.map(req => (
                                                     <div key={req.id} className="p-4 rounded-xl bg-black/20 border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-12 h-12 rounded-lg bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url(${req.listing.images?.[0] || ''})` }} />
+                                                            <div
+                                                                className="w-12 h-12 rounded-lg bg-cover bg-center flex-shrink-0"
+                                                                style={{
+                                                                    backgroundImage: `url(${req.listing.media?.find((m: any) => m.type === 'IMAGE')?.url ||
+                                                                        (req.listing.images && req.listing.images.length > 0 ? req.listing.images[0] : '')
+                                                                        })`
+                                                                }}
+                                                            />
                                                             <div>
                                                                 <h4 className="text-sm font-bold text-white">{req.listing.title}</h4>
                                                                 <p className="text-xs text-white/50 flex items-center gap-2">
@@ -322,7 +327,15 @@ export default function DashboardPage() {
                                                 {listings.length > 0 ? (
                                                     <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
                                                         <div className="w-10 h-10 rounded-lg bg-[#6c5ce7]/20 flex items-center justify-center text-[#a29bfe] overflow-hidden">
-                                                            {listings[0].images?.[0] ? <img src={listings[0].images[0]} alt={listings[0].title} className="w-full h-full object-cover" /> : <Package size={18} />}
+                                                            {(() => {
+                                                                const mainImage = listings[0].media?.find((m: any) => m.type === 'IMAGE')?.url ||
+                                                                    (listings[0].images && listings[0].images.length > 0 ? listings[0].images[0] : null);
+                                                                return mainImage ? (
+                                                                    <img src={mainImage} alt={listings[0].title} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <Package size={18} />
+                                                                );
+                                                            })()}
                                                         </div>
                                                         <div className="flex-1">
                                                             <div className="text-sm font-medium text-white">{listings[0].title}</div>
@@ -333,6 +346,75 @@ export default function DashboardPage() {
                                                 ) : <p className="text-xs text-white/20 italic text-center py-4">No listings yet</p>}
                                             </div>
                                         </motion.div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeSidebar === 'listings' && (
+                                <div className="space-y-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-xl font-bold text-white">Your Listings</h3>
+                                        <Link href="/listings/new">
+                                            <button className="flex items-center gap-2 px-4 py-2 bg-[#6c5ce7] text-white rounded-xl text-xs font-bold hover:bg-[#5f4dd0] transition-all">
+                                                <Plus size={16} /> Add New
+                                            </button>
+                                        </Link>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                        {listings.length === 0 ? (
+                                            <div className="col-span-full py-20 text-center glass-card rounded-2xl border-white/5">
+                                                <Package size={48} className="mx-auto text-white/5 mb-4" />
+                                                <p className="text-white/20 italic">No listings created yet</p>
+                                            </div>
+                                        ) : (
+                                            listings.map((l) => (
+                                                <motion.div
+                                                    key={l.id}
+                                                    variants={fadeInUp}
+                                                    className="glass-card rounded-2xl overflow-hidden group hover:border-[#6c5ce7]/30 transition-all"
+                                                >
+                                                    <div className="aspect-video relative overflow-hidden">
+                                                        {(() => {
+                                                            const mainImage = l.media?.find((m: any) => m.type === 'IMAGE')?.url ||
+                                                                (l.images && l.images.length > 0 ? l.images[0] : null);
+                                                            return mainImage ? (
+                                                                <img src={mainImage} alt={l.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center bg-white/5"><Package size={40} className="text-white/10" /></div>
+                                                            );
+                                                        })()}
+                                                        <div className="absolute top-3 left-3 px-2 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider border border-white/10">
+                                                            {l.category}
+                                                        </div>
+                                                        <div className={`absolute top-3 right-3 px-2 py-1 rounded-lg backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider border border-white/10 ${l.status === 'ACTIVE' ? 'bg-[#00cec9]/60' : 'bg-yellow-500/60'}`}>
+                                                            {l.status}
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-5">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <h4 className="font-bold text-white group-hover:text-[#a29bfe] transition-colors">{l.title}</h4>
+                                                            <div className="text-sm font-bold text-[#a29bfe]">${l.price}</div>
+                                                        </div>
+                                                        <div className="flex items-center gap-4 text-[10px] text-white/40 mb-4">
+                                                            <span className="flex items-center gap-1"><TrendingUp size={10} /> {l.views || 0} views</span>
+                                                            <span className="flex items-center gap-1"><Calendar size={10} /> Created {new Date(l.createdAt).toLocaleDateString()}</span>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button className="flex-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold text-white/60 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+                                                                <Settings size={14} /> Edit
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setManagingPricingListing(l)}
+                                                                className="flex-1 py-2.5 rounded-xl bg-[#6c5ce7]/10 border border-[#6c5ce7]/20 text-[10px] font-bold text-[#a29bfe] hover:bg-[#6c5ce7]/20 transition-all flex items-center justify-center gap-2"
+                                                            >
+                                                                <DollarSign size={14} /> Manage Pricing
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -391,6 +473,14 @@ export default function DashboardPage() {
                     )}
                 </div>
             </div>
+            <AnimatePresence>
+                {managingPricingListing && (
+                    <PricingManager
+                        listing={managingPricingListing}
+                        onClose={() => setManagingPricingListing(null)}
+                    />
+                )}
+            </AnimatePresence>
         </main>
     );
 }

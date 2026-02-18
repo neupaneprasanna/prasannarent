@@ -10,7 +10,8 @@ import {
     TrendingUp, Activity, Shield, Server,
     ArrowUpRight, ArrowDownRight, Clock, Eye,
     ChevronRight, CheckCircle2, AlertCircle,
-    Brain, Zap, ExternalLink, Database
+    Brain, Zap, ExternalLink, Database,
+    Trash2, MapPin, AlertTriangle, Check, Package
 } from 'lucide-react';
 import { AdminActivityEvent } from '@/types/admin';
 import { AdminStatsCard } from '@/components/admin/ui/AdminStatsCard';
@@ -235,18 +236,28 @@ export default function AdminDashboardPage() {
                             </div>
                         </div>
                         <span className="px-2 py-1 bg-white/5 rounded-lg text-[10px] font-bold text-white/40">
-                            {pendingListings.filter(l => l.status === 'PENDING').length} Items
+                            {pendingListings.filter(l => l.status === 'PENDING' || l.status === 'PENDING_APPROVAL').length} Items
                         </span>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-none">
-                        {pendingListings.filter(l => l.status === 'PENDING').slice(0, 5).map((listing: any, idx: number) => (
+                        {pendingListings.filter(l => l.status === 'PENDING' || l.status === 'PENDING_APPROVAL').slice(0, 5).map((listing: any, idx: number) => (
                             <div
                                 key={listing.id}
                                 className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] flex items-center gap-4 hover:bg-white/[0.04] transition-colors cursor-pointer group"
                             >
                                 <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/5 flex-shrink-0 grayscale group-hover:grayscale-0 transition-all duration-500">
-                                    <img src={listing.images?.[0]} alt="" className="w-full h-full object-cover" />
+                                    {(() => {
+                                        const mainImage = (listing as any).media?.find((m: any) => m.type === 'IMAGE')?.url ||
+                                            (listing.images && listing.images.length > 0 ? listing.images[0] : null);
+                                        return mainImage ? (
+                                            <img src={mainImage} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-white/10">
+                                                <Package size={20} />
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-xs font-bold text-white truncate">{listing.title}</p>

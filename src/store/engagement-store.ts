@@ -28,6 +28,7 @@ interface WishlistItem {
         rating: number;
         location: string;
         available: boolean;
+        media?: { url: string }[];
     };
     addedAt: string;
 }
@@ -149,6 +150,7 @@ interface RecentlyViewedItem {
     available: boolean;
     category: string;
     reviewCount: number;
+    media?: { url: string }[];
     viewedAt: string;
 }
 
@@ -209,6 +211,7 @@ interface ListingPerformance {
     views: number;
     rating: number;
     reviewCount: number;
+    media?: { url: string }[];
     status: string;
     totalBookings: number;
     completedBookings: number;
@@ -298,6 +301,7 @@ interface RenterBooking {
         price: number;
         priceUnit: string;
         location: string;
+        media?: { url: string }[];
         owner: { firstName: string; lastName: string; avatar: string | null };
     };
     createdAt: string;

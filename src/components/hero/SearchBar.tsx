@@ -396,16 +396,22 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                                                     </div>
                                                 )
                                             ) : (
-                                                result.images?.[0] ? (
-                                                    <img src={result.images[0]} alt="" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-white/20">
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                            <circle cx="11" cy="11" r="8" />
-                                                            <path d="m21 21-4.35-4.35" />
-                                                        </svg>
-                                                    </div>
-                                                )
+                                                (() => {
+                                                    const mediaImage = result.media?.find((m: any) => m.type === 'IMAGE' || m.type === 'image')?.url;
+                                                    const mainImage = mediaImage || (result.images && result.images.length > 0 ? result.images[0] : null);
+
+                                                    if (mainImage) {
+                                                        return <img src={mainImage} alt="" className="w-full h-full object-cover" />;
+                                                    }
+                                                    return (
+                                                        <div className="w-full h-full flex items-center justify-center text-white/20">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                <circle cx="11" cy="11" r="8" />
+                                                                <path d="m21 21-4.35-4.35" />
+                                                            </svg>
+                                                        </div>
+                                                    );
+                                                })()
                                             )}
                                         </div>
                                         <div className="flex-1 overflow-hidden">

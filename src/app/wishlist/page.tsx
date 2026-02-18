@@ -97,8 +97,8 @@ export default function WishlistPage() {
                                         key={c.id}
                                         onClick={() => setActiveCollection(c.id)}
                                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 group ${activeCollection === c.id
-                                                ? 'bg-[#6c5ce7]/10 border border-[#6c5ce7]/20'
-                                                : 'hover:bg-white/5'
+                                            ? 'bg-[#6c5ce7]/10 border border-[#6c5ce7]/20'
+                                            : 'hover:bg-white/5'
                                             }`}
                                     >
                                         <span className="text-lg">{c.emoji}</span>
@@ -185,8 +185,8 @@ export default function WishlistPage() {
                                                 <Link href={`/items/${item.listingId}`}>
                                                     <div className="glass-card rounded-2xl overflow-hidden group hover:border-white/10 transition-all duration-300 hover:-translate-y-1">
                                                         <div className="relative aspect-[4/3]">
-                                                            {item.listing.images?.[0] ? (
-                                                                <img src={item.listing.images[0]} alt={item.listing.title} className="w-full h-full object-cover" />
+                                                            {item.listing.media?.[0]?.url || item.listing.images?.[0] ? (
+                                                                <img src={item.listing.media?.[0]?.url || item.listing.images[0]} alt={item.listing.title} className="w-full h-full object-cover" />
                                                             ) : (
                                                                 <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02]" />
                                                             )}
@@ -227,8 +227,8 @@ export default function WishlistPage() {
                                                 <Link href={`/items/${item.listingId}`}>
                                                     <div className="glass-card rounded-xl p-4 flex items-center gap-4 group hover:border-white/10 transition-all">
                                                         <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
-                                                            {item.listing.images?.[0] ? (
-                                                                <img src={item.listing.images[0]} alt="" className="w-full h-full object-cover" />
+                                                            {item.listing.media?.[0]?.url || item.listing.images?.[0] ? (
+                                                                <img src={item.listing.media?.[0]?.url || item.listing.images[0]} alt="" className="w-full h-full object-cover" />
                                                             ) : (
                                                                 <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02]" />
                                                             )}

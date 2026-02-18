@@ -346,7 +346,10 @@ nextApp.prepare().then(() => {
             const listings = await prisma.listing.findMany({
                 where,
                 orderBy,
-                include: { owner: { select: { firstName: true, verified: true, avatar: true } } }
+                include: {
+                    owner: { select: { firstName: true, verified: true, avatar: true } },
+                    media: { orderBy: { order: 'asc' } }
+                }
             });
 
             res.json({ listings });
@@ -418,7 +421,10 @@ nextApp.prepare().then(() => {
             // 3. Fetch initial results
             let listings = await prisma.listing.findMany({
                 where,
-                include: { owner: { select: { firstName: true, verified: true, avatar: true } } },
+                include: {
+                    owner: { select: { firstName: true, verified: true, avatar: true } },
+                    media: { orderBy: { order: 'asc' } }
+                },
                 take: 30
             });
 
@@ -445,7 +451,7 @@ nextApp.prepare().then(() => {
     app.post('/api/listings', authenticateToken, async (req: AuthRequest, res) => {
         console.log(`[API] Listing creation attempt by user: ${req.user!.userId}`);
         try {
-            const { title, description, price, category, tags, images, location, priceUnit } = req.body;
+            const { title, description, price, category, tags, images, media, attributes, pricing, location, priceUnit } = req.body;
 
             if (!title || !description || !price || !category || !location) {
                 return res.status(400).json({ error: 'Missing required fields' });
@@ -462,6 +468,29 @@ nextApp.prepare().then(() => {
                     location,
                     priceUnit: (priceUnit?.toUpperCase() as any) || 'DAY',
                     ownerId: req.user!.userId,
+                    media: {
+                        create: (media || []).map((m: any, index: number) => ({
+                            url: m.url,
+                            type: m.type || 'IMAGE', // 'IMAGE', 'VIDEO', 'PANORAMA_360'
+                            order: index,
+                            caption: m.caption
+                        }))
+                    },
+                    attributes: {
+                        create: (attributes || []).map((attr: any) => ({
+                            key: attr.key,
+                            value: String(attr.value)
+                        }))
+                    },
+                    pricing: {
+                        create: {
+                            dailyPrice: parseFloat(price),
+                            hourlyPrice: pricing?.hourlyPrice ? parseFloat(pricing.hourlyPrice) : null,
+                            weeklyPrice: pricing?.weeklyPrice ? parseFloat(pricing.weeklyPrice) : null,
+                            monthlyPrice: pricing?.monthlyPrice ? parseFloat(pricing.monthlyPrice) : null,
+                            weekendMultiplier: pricing?.weekendMultiplier ? parseFloat(pricing.weekendMultiplier) : 1.0,
+                        }
+                    }
                 },
             });
 
@@ -476,6 +505,7 @@ nextApp.prepare().then(() => {
         try {
             const listings = await prisma.listing.findMany({
                 where: { ownerId: req.user!.userId },
+                include: { media: { orderBy: { order: 'asc' } } },
                 orderBy: { createdAt: 'desc' }
             });
             res.json({ listings });
@@ -489,7 +519,12 @@ nextApp.prepare().then(() => {
             const { id } = req.params;
             const listing = await prisma.listing.findUnique({
                 where: { id },
-                include: { owner: { select: { firstName: true, verified: true, avatar: true, bio: true } } }
+                include: {
+                    owner: { select: { id: true, firstName: true, lastName: true, verified: true, avatar: true, bio: true } },
+                    media: { orderBy: { order: 'asc' } },
+                    attributes: true,
+                    pricing: true
+                }
             });
             res.json({ listing });
         } catch (error) {
@@ -503,7 +538,7 @@ nextApp.prepare().then(() => {
         try {
             const bookings = await prisma.booking.findMany({
                 where: { renterId: req.user!.userId },
-                include: { listing: true },
+                include: { listing: { include: { media: true } } },
                 orderBy: { createdAt: 'desc' }
             });
             res.json({ bookings });
@@ -745,7 +780,7 @@ nextApp.prepare().then(() => {
             const bookings = await prisma.booking.findMany({
                 where: { listingId: { in: listingIds } },
                 include: {
-                    listing: { select: { id: true, title: true, images: true, price: true, priceUnit: true } },
+                    listing: { select: { id: true, title: true, images: true, media: true, price: true, priceUnit: true } },
                     renter: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true, phone: true } }
                 },
                 orderBy: { createdAt: 'desc' }
@@ -856,6 +891,57 @@ nextApp.prepare().then(() => {
         }
     });
 
+    // ─── Flexible Pricing & Overrides ───
+    app.get('/api/listings/:id/pricing/overrides', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const overrides = await prisma.datePriceOverride.findMany({
+                where: { listingId: id },
+                orderBy: { date: 'asc' }
+            });
+            res.json({ overrides });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch price overrides' });
+        }
+    });
+
+    app.post('/api/listings/:id/pricing/overrides', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const { id } = req.params;
+            const { date, price, reason } = req.body;
+
+            if (!date || !price) {
+                return res.status(400).json({ error: 'Date and price are required' });
+            }
+
+            // Verify ownership
+            const listing = await prisma.listing.findUnique({ where: { id: id as string } });
+            if (!listing || listing.ownerId !== req.user!.userId) {
+                return res.status(403).json({ error: 'Unauthorized' });
+            }
+
+            const override = await prisma.datePriceOverride.upsert({
+                where: {
+                    listingId_date: {
+                        listingId: id as string,
+                        date: new Date(date)
+                    }
+                },
+                update: { price: parseFloat(price), reason },
+                create: {
+                    listingId: id as string,
+                    date: new Date(date),
+                    price: parseFloat(price),
+                    reason
+                }
+            });
+
+            res.json({ message: 'Price override saved', override });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to save price override' });
+        }
+    });
+
     app.get('/api/reviews/:listingId', async (req, res) => {
         try {
             const { listingId } = req.params;
@@ -926,7 +1012,7 @@ nextApp.prepare().then(() => {
                     participants: {
                         include: { user: { select: { id: true, firstName: true, lastName: true, avatar: true } } }
                     },
-                    listing: { select: { id: true, title: true, images: true } },
+                    listing: { select: { id: true, title: true, images: true, media: true } },
                     messages: {
                         orderBy: { createdAt: 'desc' },
                         take: 1,
@@ -1057,21 +1143,21 @@ nextApp.prepare().then(() => {
                         data: {
                             userId: receiverIdToNotify,
                             type: 'NEW_MESSAGE',
-                            title: `New Message from ${msg.sender.firstName}`,
+                            title: `New Message from ${msg.sender.firstName} `,
                             message: message.length > 50 ? message.substring(0, 47) + '...' : message,
                         }
                     });
 
                     // Emit real-time stuff only to receiver
-                    io.emit(`message:${receiverIdToNotify}`, { conversationId: existing.id, message: msg });
-                    io.emit(`notification:${receiverIdToNotify}`, dbNotif);
+                    io.emit(`message:${receiverIdToNotify} `, { conversationId: existing.id, message: msg });
+                    io.emit(`notification:${receiverIdToNotify} `, dbNotif);
                 }
 
                 const returnConv = await (prisma as any).conversation.findUnique({
                     where: { id: existing.id },
                     include: {
                         participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatar: true } } } },
-                        listing: { select: { id: true, title: true, images: true } },
+                        listing: { select: { id: true, title: true, images: true, media: true } },
                         messages: {
                             orderBy: { createdAt: 'desc' },
                             take: 1,
@@ -1100,7 +1186,7 @@ nextApp.prepare().then(() => {
                 },
                 include: {
                     participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatar: true } } } },
-                    listing: { select: { id: true, title: true, images: true } },
+                    listing: { select: { id: true, title: true, images: true, media: true } },
                     messages: { include: { sender: { select: { id: true, firstName: true } } } },
                 }
             });
@@ -1115,14 +1201,14 @@ nextApp.prepare().then(() => {
                     data: {
                         userId: receiverIdToNotify,
                         type: 'NEW_MESSAGE',
-                        title: `New Message from ${conversation.participants.find((p: any) => p.userId === userId)?.user.firstName || 'User'}`,
+                        title: `New Message from ${conversation.participants.find((p: any) => p.userId === userId)?.user.firstName || 'User'} `,
                         message: message.length > 50 ? message.substring(0, 47) + '...' : message,
                     }
                 });
 
                 // ONLY emit to the receiver, NEVER the sender
-                io.emit(`notification:${receiverIdToNotify}`, dbNotif);
-                io.emit(`message:${receiverIdToNotify}`, {
+                io.emit(`notification:${receiverIdToNotify} `, dbNotif);
+                io.emit(`message:${receiverIdToNotify} `, {
                     conversationId: conversation.id,
                     message: conversation.messages[0]
                 });
@@ -1171,14 +1257,14 @@ nextApp.prepare().then(() => {
                     data: {
                         userId: p.userId,
                         type: 'NEW_MESSAGE',
-                        title: `New Message from ${message.sender.firstName}`,
+                        title: `New Message from ${message.sender.firstName} `,
                         message: message.text.length > 50 ? message.text.substring(0, 47) + '...' : message.text,
                     }
                 });
 
                 // Real-time: emit ONLY to the intended recipient
-                io.emit(`message:${p.userId}`, { conversationId: id, message });
-                io.emit(`notification:${p.userId}`, dbNotif);
+                io.emit(`message:${p.userId} `, { conversationId: id, message });
+                io.emit(`notification:${p.userId} `, dbNotif);
             }
 
             res.status(201).json({ message });
@@ -1288,6 +1374,7 @@ nextApp.prepare().then(() => {
 
             const listings = await prisma.listing.findMany({
                 where: { ownerId: id, status: 'ACTIVE' },
+                include: { media: { orderBy: { order: 'asc' } } },
                 take: 12,
                 orderBy: { createdAt: 'desc' },
             });
@@ -1308,13 +1395,25 @@ nextApp.prepare().then(() => {
         }
     });
 
+    app.get('/api/categories/:name/attributes', async (req, res) => {
+        try {
+            const { name } = req.params;
+            const attributes = await prisma.categoryAttribute.findMany({
+                where: { category: name }
+            });
+            res.json({ attributes });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch category attributes' });
+        }
+    });
+
     // ─── WebSocket (Real-time) ───
     io.on('connection', (socket) => {
-        console.log(`User connected: ${socket.id}`);
+        console.log(`User connected: ${socket.id} `);
 
         socket.on('join-room', (roomId: string) => {
             socket.join(roomId);
-            console.log(`User ${socket.id} joined room ${roomId}`);
+            console.log(`User ${socket.id} joined room ${roomId} `);
         });
 
         socket.on('send-message', (data: { roomId: string; message: string; senderId: string }) => {
@@ -1330,7 +1429,7 @@ nextApp.prepare().then(() => {
         });
 
         socket.on('disconnect', () => {
-            console.log(`User disconnected: ${socket.id}`);
+            console.log(`User disconnected: ${socket.id} `);
         });
     });
 
@@ -1341,7 +1440,7 @@ nextApp.prepare().then(() => {
 
     // ─── Start Server ───
     server.listen(PORT, () => {
-        console.log(`🚀 RentVerse Unified Server running on port ${PORT}`);
+        console.log(`🚀 RentVerse Unified Server running on port ${PORT} `);
         console.log(`📡 WebSocket server ready`);
     });
 }).catch((err) => {

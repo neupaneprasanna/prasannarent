@@ -69,7 +69,11 @@ export async function GET(req: Request) {
         const listings = await prisma.listing.findMany({
             where,
             orderBy,
-            include: { owner: { select: { firstName: true, verified: true } } }
+            include: {
+                owner: { select: { firstName: true, verified: true } },
+                media: { orderBy: { order: 'asc' } },
+                pricing: true
+            }
         });
 
         return NextResponse.json({ listings });
@@ -85,7 +89,7 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { title, description, price, category, tags, images, location, priceUnit } = body;
+        const { title, description, price, category, tags, images, location, priceUnit, media, pricing } = body;
 
         if (!title || !description || !price || !category || !location) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -102,7 +106,28 @@ export async function POST(req: Request) {
                 location,
                 priceUnit: (priceUnit?.toUpperCase() as any) || 'DAY',
                 ownerId: user.userId,
+                media: media && media.length > 0 ? {
+                    create: media.map((item: any, index: number) => ({
+                        url: item.url,
+                        type: item.type || 'IMAGE',
+                        caption: item.caption || '',
+                        order: index
+                    }))
+                } : undefined,
+                pricing: pricing ? {
+                    create: {
+                        dailyPrice: parseFloat(price),
+                        hourlyPrice: pricing.hourlyPrice ? parseFloat(pricing.hourlyPrice) : null,
+                        weeklyPrice: pricing.weeklyPrice ? parseFloat(pricing.weeklyPrice) : null,
+                        monthlyPrice: pricing.monthlyPrice ? parseFloat(pricing.monthlyPrice) : null,
+                        weekendMultiplier: parseFloat(pricing.weekendMultiplier) || 1.0,
+                    }
+                } : undefined,
             },
+            include: {
+                media: true,
+                pricing: true
+            }
         });
 
         return NextResponse.json({ message: 'Listing created successfully', listing }, { status: 201 });

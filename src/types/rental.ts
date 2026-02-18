@@ -26,6 +26,15 @@ export interface Listing {
     rating?: number;
     reviewCount?: number;
     tags?: string[];
+    status?: 'ACTIVE' | 'DRAFT' | 'ARCHIVED' | 'BLOCKED';
+    media?: { id: string; url: string; type: string; order: number }[];
+    attributes?: { key: string; value: string }[];
+    pricing?: {
+        hourlyPrice?: number;
+        weeklyPrice?: number;
+        monthlyPrice?: number;
+        weekendMultiplier?: number;
+    };
     createdAt: string;
     updatedAt: string;
 }

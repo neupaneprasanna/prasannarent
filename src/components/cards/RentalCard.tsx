@@ -5,6 +5,8 @@ import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import { useAppStore } from '@/store/app-store';
 import Link from 'next/link';
 import type { RentalItem } from '@/store/rental-store';
+import CompareButton from '@/components/listing/CompareButton';
+import { Listing } from '@/types/rental';
 
 interface RentalCardProps {
     item: RentalItem;
@@ -94,42 +96,57 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
                     {/* Image area */}
                     <div className={`relative h-48 md:h-56 bg-gradient-to-br ${gradient} overflow-hidden`}>
                         {/* Real Image with fallback */}
-                        {item.images && item.images.length > 0 && !imgError && (
-                            <motion.div
-                                className="absolute inset-0"
-                                initial={{ opacity: 0, scale: 1.1 }}
-                                animate={{ opacity: 1, scale: isHovered ? 1.05 : 1 }}
-                                transition={{ duration: 0.6 }}
-                            >
-                                <img
-                                    src={item.images[0]}
-                                    alt={item.title}
-                                    className="w-full h-full object-cover"
-                                    loading={index < 3 ? "eager" : "lazy"}
-                                    onError={() => setImgError(true)}
-                                />
-                            </motion.div>
-                        )}
+                        {(() => {
+                            const mainImage = item.media?.find((m: any) => m.type === 'IMAGE')?.url ||
+                                (item.images && item.images.length > 0 ? item.images[0] : null);
+
+                            if (mainImage && !imgError) {
+                                return (
+                                    <motion.div
+                                        className="absolute inset-0"
+                                        initial={{ opacity: 0, scale: 1.1 }}
+                                        animate={{ opacity: 1, scale: isHovered ? 1.05 : 1 }}
+                                        transition={{ duration: 0.6 }}
+                                    >
+                                        <img
+                                            src={mainImage}
+                                            alt={item.title}
+                                            className="w-full h-full object-cover"
+                                            loading={index < 3 ? "eager" : "lazy"}
+                                            onError={() => setImgError(true)}
+                                        />
+                                    </motion.div>
+                                );
+                            }
+
+                            return null;
+                        })()}
 
                         {/* Placeholder image with gradient (Visible if no image or error) */}
-                        {(!item.images || item.images.length === 0 || imgError) && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <motion.div
-                                    className="text-6xl opacity-30"
-                                    animate={isHovered ? { scale: 1.1, rotate: 5 } : { scale: 1, rotate: 0 }}
-                                    transition={{ duration: 0.4 }}
-                                >
-                                    {item.category === 'tech' && '📸'}
-                                    {item.category === 'vehicles' && '🚗'}
-                                    {item.category === 'rooms' && '🏠'}
-                                    {item.category === 'equipment' && '🎬'}
-                                    {item.category === 'fashion' && '👗'}
-                                    {item.category === 'studios' && '🎵'}
-                                    {item.category === 'tools' && '🔧'}
-                                    {item.category === 'digital' && '💻'}
-                                </motion.div>
-                            </div>
-                        )}
+                        {(() => {
+                            const hasImage = (item.images && item.images.length > 0) || item.media?.some((m: any) => m.type === 'IMAGE');
+                            if (!hasImage || imgError) {
+                                return (
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <motion.div
+                                            className="text-6xl opacity-30"
+                                            animate={isHovered ? { scale: 1.1, rotate: 5 } : { scale: 1, rotate: 0 }}
+                                            transition={{ duration: 0.4 }}
+                                        >
+                                            {item.category === 'tech' && '📸'}
+                                            {item.category === 'vehicles' && '🚗'}
+                                            {item.category === 'rooms' && '🏠'}
+                                            {item.category === 'equipment' && '🎬'}
+                                            {item.category === 'fashion' && '👗'}
+                                            {item.category === 'studios' && '🎵'}
+                                            {item.category === 'tools' && '🔧'}
+                                            {item.category === 'digital' && '💻'}
+                                        </motion.div>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
 
                         {/* Hover overlay */}
                         <motion.div
@@ -153,7 +170,7 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
                             animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 10 }}
                             transition={{ duration: 0.3 }}
                         >
-                            {/* Actions like compare or share can go here */}
+                            <CompareButton item={item as unknown as Listing} variant="icon" />
                         </motion.div>
                     </div>
 

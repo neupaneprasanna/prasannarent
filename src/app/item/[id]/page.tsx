@@ -13,8 +13,13 @@ import { useAppStore } from '@/store/app-store';
 import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
 import { Loader2, MapPin, Star, MessageSquare, ShieldCheck, ChevronLeft, Calendar, Info, Sparkles } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { Listing, Booking } from '@/types/rental';
+import CompareButton from '@/components/listing/CompareButton';
+import ProductPageSkeleton from '@/components/ui/ProductPageSkeleton';
 import { createPortal } from 'react-dom';
 import FollowButton from '@/components/engagement/FollowButton';
+import MediaGallery from '@/components/listing/MediaGallery';
 
 export default function ProductPage() {
     const { id } = useParams();
@@ -157,11 +162,10 @@ export default function ProductPage() {
 
     if (loading) {
         return (
-            <main className="min-h-screen pt-24 flex flex-col items-center justify-center">
+            <>
                 <Navbar />
-                <Loader2 size={40} className="animate-spin text-[#6c5ce7] mb-4" />
-                <p className="text-white/40">Loading details...</p>
-            </main>
+                <ProductPageSkeleton />
+            </>
         );
     }
 
@@ -176,7 +180,14 @@ export default function ProductPage() {
         );
     }
 
-    const images = item.images && item.images.length > 0 ? item.images : [];
+    const media = item.media && item.media.length > 0 ? item.media : (item.images || []).map((url: string, i: number) => ({
+        id: `legacy-${i}`,
+        url,
+        type: 'IMAGE',
+        order: i
+    }));
+
+    const images = media.filter((m: any) => m.type === 'IMAGE').map((m: any) => m.url);
     const hasImages = images.length > 0;
 
     const handleStartConversation = () => {
@@ -307,60 +318,11 @@ export default function ProductPage() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.7 }}
                     >
-                        {/* Main Image */}
-                        <div className="relative glass-card rounded-3xl overflow-hidden aspect-[4/3] mb-4 flex items-center justify-center bg-gradient-to-br from-[#6c5ce7]/10 to-[#a29bfe]/10">
-                            <AnimatePresence mode="wait">
-                                {hasImages && !imgError[selectedImage] ? (
-                                    <motion.img
-                                        key={images[selectedImage]}
-                                        src={images[selectedImage]}
-                                        alt={item.title}
-                                        className="absolute inset-0 w-full h-full object-cover"
-                                        initial={{ opacity: 0, scale: 1.1 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.9 }}
-                                        transition={{ duration: 0.4 }}
-                                        onError={() => setImgError(prev => ({ ...prev, [selectedImage]: true }))}
-                                    />
-                                ) : (
-                                    <motion.div
-                                        key="placeholder"
-                                        className="text-9xl opacity-30"
-                                        initial={{ opacity: 0, scale: 0.8 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.8 }}
-                                        transition={{ duration: 0.3 }}
-                                    >
-                                        📦
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-
-                            {item.featured && (
-                                <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] text-xs font-medium text-white shadow-lg">
-                                    Featured
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                            {images.map((img: string, i: number) => (
-                                <motion.button
-                                    key={i}
-                                    className={`w-20 h-20 flex-shrink-0 rounded-xl glass overflow-hidden flex items-center justify-center transition-all ${selectedImage === i ? 'ring-2 ring-[#6c5ce7] bg-[#6c5ce7]/10' : 'opacity-50 hover:opacity-80'
-                                        }`}
-                                    onClick={() => setSelectedImage(i)}
-                                    whileTap={{ scale: 0.95 }}
-                                    suppressHydrationWarning
-                                >
-                                    {!imgError[i] ? (
-                                        <img src={img} alt="" className="w-full h-full object-cover" onError={() => setImgError(prev => ({ ...prev, [i]: true }))} />
-                                    ) : (
-                                        <span className="text-2xl">📦</span>
-                                    )}
-                                </motion.button>
-                            ))}
-                        </div>
+                        <MediaGallery
+                            media={media}
+                            title={item.title}
+                            featured={item.featured}
+                        />
                     </motion.div>
 
                     {/* Right: Details */}
@@ -375,9 +337,14 @@ export default function ProductPage() {
                             {item.category} / Asset
                         </span>
 
-                        <h1 className="text-2xl md:text-5xl font-bold text-white/90 mb-4 leading-tight">
-                            {item.title}
-                        </h1>
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
+                            <h1 className="text-2xl md:text-5xl font-bold text-white/90 leading-tight">
+                                {item.title}
+                            </h1>
+                            <div className="pt-2">
+                                <CompareButton item={item} variant="full" />
+                            </div>
+                        </div>
 
                         {/* Rating & Location */}
                         <div className="flex items-center gap-4 mb-6">
@@ -400,6 +367,36 @@ export default function ProductPage() {
                                 <span className="text-5xl font-bold gradient-text">${item.price}</span>
                                 <span className="text-white/40 mb-2 font-medium">/ {item.priceUnit?.toLowerCase()}</span>
                             </div>
+
+                            {/* Flexible Rates Info */}
+                            {(item.pricing?.hourlyPrice || item.pricing?.weeklyPrice || item.pricing?.monthlyPrice) && (
+                                <div className="grid grid-cols-3 gap-3 mb-6 p-3 rounded-2xl bg-white/5 border border-white/5">
+                                    {item.pricing.hourlyPrice && (
+                                        <div className="text-center">
+                                            <p className="text-[8px] text-white/30 uppercase tracking-widest font-bold mb-1">Hourly</p>
+                                            <p className="text-xs font-bold text-white/80">${item.pricing.hourlyPrice}</p>
+                                        </div>
+                                    )}
+                                    {item.pricing.weeklyPrice && (
+                                        <div className="text-center">
+                                            <p className="text-[8px] text-white/30 uppercase tracking-widest font-bold mb-1">Weekly</p>
+                                            <p className="text-xs font-bold text-white/80">${item.pricing.weeklyPrice}</p>
+                                            {item.pricing.weeklyPrice < item.price * 6 && (
+                                                <span className="text-[8px] text-[#00cec9] font-bold">-{Math.round((1 - (item.pricing.weeklyPrice / (item.price * 7))) * 100)}%</span>
+                                            )}
+                                        </div>
+                                    )}
+                                    {item.pricing.monthlyPrice && (
+                                        <div className="text-center border-l border-white/5">
+                                            <p className="text-[8px] text-white/30 uppercase tracking-widest font-bold mb-1">Monthly</p>
+                                            <p className="text-xs font-bold text-white/80">${item.pricing.monthlyPrice}</p>
+                                            {item.pricing.monthlyPrice < item.price * 25 && (
+                                                <span className="text-[8px] text-[#00cec9] font-bold">-{Math.round((1 - (item.pricing.monthlyPrice / (item.price * 30))) * 100)}%</span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <Button
                                 variant="primary"
@@ -478,6 +475,24 @@ export default function ProductPage() {
                                     <div className="p-6 glass-card rounded-2xl bg-white/5">
                                         <p className="whitespace-pre-wrap">{item.description}</p>
                                     </div>
+
+                                    {/* Custom Attributes / Specifications */}
+                                    {item.attributes && item.attributes.length > 0 && (
+                                        <div className="p-6 glass-card rounded-2xl bg-white/5 border border-white/5">
+                                            <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6c5ce7] mb-4">Specifications</h4>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6">
+                                                {item.attributes.map((attr: any) => (
+                                                    <div key={attr.id} className="space-y-1">
+                                                        <p className="text-[10px] text-white/30 uppercase tracking-wider font-medium">{attr.key.replace('_', ' ')}</p>
+                                                        <p className="text-xs text-white/80 font-semibold">
+                                                            {attr.value === 'true' ? 'Yes' : attr.value === 'false' ? 'No' : attr.value}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="flex flex-wrap gap-2 pt-2">
                                         {Array.from(new Set(item.tags || [])).map((tag: any) => (
                                             <span key={tag} className="px-4 py-1.5 rounded-full glass text-[10px] font-bold text-white/30 uppercase tracking-widest">
