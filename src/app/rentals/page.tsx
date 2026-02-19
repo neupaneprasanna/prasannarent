@@ -175,13 +175,17 @@ export default function RenterDashboardPage() {
                                                 <Link href={`/items/${booking.listing.id}`}>
                                                     <div className="glass-card rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4 group hover:border-white/10 transition-all">
                                                         <div className="w-full sm:w-20 h-32 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
-                                                            {booking.listing.media?.[0]?.url || booking.listing.images?.[0] ? (
-                                                                <img src={booking.listing.media?.[0]?.url || booking.listing.images[0]} alt="" className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02] flex items-center justify-center">
-                                                                    <Package size={20} className="text-white/10" />
-                                                                </div>
-                                                            )}
+                                                            {(() => {
+                                                                const mainImage = booking.listing.media?.find((m: any) => m.type === 'IMAGE' || m.type === 'image')?.url ||
+                                                                    (booking.listing.images && booking.listing.images.length > 0 ? booking.listing.images[0] : null);
+                                                                return mainImage ? (
+                                                                    <img src={mainImage} alt="" className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02] flex items-center justify-center">
+                                                                        <Package size={20} className="text-white/10" />
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
 
                                                         <div className="flex-1 min-w-0">
@@ -261,11 +265,15 @@ export default function RenterDashboardPage() {
                                         <Link key={item.id} href={`/items/${item.id}`}>
                                             <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors group">
                                                 <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
-                                                    {item.media?.[0]?.url || item.images?.[0] ? (
-                                                        <img src={item.media?.[0]?.url || item.images[0]} alt="" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02]" />
-                                                    )}
+                                                    {(() => {
+                                                        const mainImage = item.media?.find((m: any) => m.type === 'IMAGE' || m.type === 'image')?.url ||
+                                                            (item.images && item.images.length > 0 ? item.images[0] : null);
+                                                        return mainImage ? (
+                                                            <img src={mainImage} alt="" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02]" />
+                                                        );
+                                                    })()}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-xs font-medium text-white/70 truncate group-hover:text-white transition-colors">{item.title}</p>

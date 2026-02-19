@@ -185,11 +185,15 @@ export default function WishlistPage() {
                                                 <Link href={`/items/${item.listingId}`}>
                                                     <div className="glass-card rounded-2xl overflow-hidden group hover:border-white/10 transition-all duration-300 hover:-translate-y-1">
                                                         <div className="relative aspect-[4/3]">
-                                                            {item.listing.media?.[0]?.url || item.listing.images?.[0] ? (
-                                                                <img src={item.listing.media?.[0]?.url || item.listing.images[0]} alt={item.listing.title} className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02]" />
-                                                            )}
+                                                            {(() => {
+                                                                const mainImage = item.listing.media?.find((m: any) => m.type === 'IMAGE')?.url ||
+                                                                    (item.listing.images && item.listing.images.length > 0 ? item.listing.images[0] : null);
+                                                                return mainImage ? (
+                                                                    <img src={mainImage} alt={item.listing.title} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02]" />
+                                                                );
+                                                            })()}
                                                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent" />
 
                                                             <button
@@ -227,11 +231,15 @@ export default function WishlistPage() {
                                                 <Link href={`/items/${item.listingId}`}>
                                                     <div className="glass-card rounded-xl p-4 flex items-center gap-4 group hover:border-white/10 transition-all">
                                                         <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
-                                                            {item.listing.media?.[0]?.url || item.listing.images?.[0] ? (
-                                                                <img src={item.listing.media?.[0]?.url || item.listing.images[0]} alt="" className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02]" />
-                                                            )}
+                                                            {(() => {
+                                                                const mainImage = item.listing.media?.find((m: any) => m.type === 'IMAGE')?.url ||
+                                                                    (item.listing.images && item.listing.images.length > 0 ? item.listing.images[0] : null);
+                                                                return mainImage ? (
+                                                                    <img src={mainImage} alt="" className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <div className="w-full h-full bg-gradient-to-br from-white/5 to-white/[0.02]" />
+                                                                );
+                                                            })()}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <h3 className="text-sm font-bold text-white truncate">{item.listing.title}</h3>

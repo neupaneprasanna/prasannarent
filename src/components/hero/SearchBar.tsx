@@ -397,8 +397,8 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                                                 )
                                             ) : (
                                                 (() => {
-                                                    const mediaImage = result.media?.find((m: any) => m.type === 'IMAGE' || m.type === 'image')?.url;
-                                                    const mainImage = mediaImage || (result.images && result.images.length > 0 ? result.images[0] : null);
+                                                    const mainImage = result.media?.find((m: any) => m.type === 'IMAGE' || m.type === 'image')?.url ||
+                                                        (result.images && result.images.length > 0 ? result.images[0] : null);
 
                                                     if (mainImage) {
                                                         return <img src={mainImage} alt="" className="w-full h-full object-cover" />;
