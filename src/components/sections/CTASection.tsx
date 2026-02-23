@@ -1,101 +1,137 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { fadeInUp } from '@/lib/animations/motion-config';
-import MagneticButton from '@/components/cursor/MagneticButton';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import LiquidButton from '@/components/motion/LiquidButton';
+
+const spring = { type: 'spring' as const, stiffness: 100, damping: 20 };
 
 export default function CTASection() {
     const [isMounted, setIsMounted] = useState(false);
-
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
+    useEffect(() => { setIsMounted(true); }, []);
 
     return (
         <section className="section-padding relative overflow-hidden">
-            <div className="max-w-7xl mx-auto px-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6">
                 <motion.div
                     className="relative rounded-3xl overflow-hidden"
-                    variants={fadeInUp}
-                    initial="hidden"
-                    whileInView="visible"
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
+                    transition={spring}
+                    style={{
+                        border: '1px solid rgba(122,92,255,0.15)',
+                        boxShadow: '0 0 80px rgba(122,92,255,0.08), 0 20px 60px rgba(0,0,0,0.4)',
+                    }}
                 >
-                    {/* Background */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#6c5ce7] via-[#a29bfe] to-[#fd79a8]" />
-                    <div className="absolute inset-0 bg-black/40" />
+                    {/* Background — deep void with strong radial glows */}
+                    <div className="absolute inset-0" style={{
+                        background: 'linear-gradient(135deg, #08091A 0%, #0D0F1A 50%, #08091A 100%)',
+                    }} />
 
-                    {/* Floating particles */}
+                    {/* Primary radial glow — very visible */}
+                    <div className="absolute inset-0" style={{
+                        background: 'radial-gradient(ellipse at 50% 20%, rgba(122,92,255,0.2) 0%, transparent 60%)',
+                    }} />
+
+                    {/* Secondary cyan glow */}
+                    <div className="absolute inset-0" style={{
+                        background: 'radial-gradient(ellipse at 20% 80%, rgba(0,240,255,0.08) 0%, transparent 50%)',
+                    }} />
+
+                    {/* Floating particles — brighter */}
                     <div className="absolute inset-0 overflow-hidden">
-                        {isMounted && [...Array(15)].map((_, i) => (
+                        {isMounted && [...Array(25)].map((_, i) => (
                             <motion.div
                                 key={i}
-                                className="absolute w-1 h-1 rounded-full bg-white/20"
+                                className="absolute rounded-full"
                                 style={{
                                     left: `${Math.random() * 100}%`,
                                     top: `${Math.random() * 100}%`,
+                                    width: `${1 + Math.random() * 2}px`,
+                                    height: `${1 + Math.random() * 2}px`,
+                                    background: i % 3 === 0 ? 'rgba(122,92,255,0.6)' : i % 3 === 1 ? 'rgba(0,240,255,0.5)' : 'rgba(255,255,255,0.3)',
+                                    boxShadow: i % 3 === 0 ? '0 0 6px rgba(122,92,255,0.4)' : i % 3 === 1 ? '0 0 6px rgba(0,240,255,0.3)' : 'none',
                                 }}
                                 animate={{
                                     y: [0, -100, 0],
-                                    opacity: [0, 1, 0],
+                                    opacity: [0, 0.8, 0],
                                 }}
                                 transition={{
-                                    duration: 3 + Math.random() * 3,
+                                    duration: 4 + Math.random() * 4,
                                     repeat: Infinity,
-                                    delay: Math.random() * 3,
+                                    delay: Math.random() * 4,
                                 }}
                             />
                         ))}
                     </div>
 
+                    {/* Geometric mesh — slightly more visible */}
+                    <div className="absolute inset-0 opacity-[0.04]" style={{
+                        backgroundImage: 'linear-gradient(rgba(122,92,255,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(122,92,255,0.2) 1px, transparent 1px)',
+                        backgroundSize: '40px 40px',
+                    }} />
+
                     {/* Content */}
-                    <div className="relative z-10 py-16 md:py-24 px-8 md:px-16 text-center">
+                    <div className="relative z-10 py-16 sm:py-20 md:py-28 px-6 sm:px-8 md:px-16 text-center">
                         <motion.h2
-                            className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-6"
-                            variants={fadeInUp}
-                            initial="hidden"
-                            whileInView="visible"
+                            className="text-section sm:text-4xl md:text-5xl text-white/90 mb-6 font-light"
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
+                            transition={{ ...spring, delay: 0.1 }}
+                            style={{ textShadow: '0 0 40px rgba(122,92,255,0.15)' }}
                         >
-                            Ready to Start Renting?
+                            ready to start <span className="gradient-text">renting</span>?
                         </motion.h2>
+
                         <motion.p
-                            className="text-base md:text-lg text-white/60 max-w-lg mx-auto mb-10"
-                            variants={fadeInUp}
-                            initial="hidden"
-                            whileInView="visible"
+                            className="text-body text-white/35 max-w-lg mx-auto mb-10"
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
-                            custom={1}
+                            transition={{ ...spring, delay: 0.2 }}
                         >
-                            Join thousands of users who rent smarter, not harder. List your items or find what you need today.
+                            join thousands of users who rent smarter, not harder. list your items or find what you need today.
                         </motion.p>
 
                         <motion.div
                             className="flex flex-col sm:flex-row items-center justify-center gap-4"
-                            variants={fadeInUp}
-                            initial="hidden"
-                            whileInView="visible"
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
-                            custom={2}
+                            transition={{ ...spring, delay: 0.3 }}
                         >
-                            <MagneticButton strength={0.2}>
-                                <Link href="/explore">
-                                    <button className="px-8 py-4 bg-white text-black font-semibold rounded-2xl hover:bg-white/90 transition-colors text-sm" suppressHydrationWarning>
-                                        Start Renting Now
-                                    </button>
-                                </Link>
-                            </MagneticButton>
-                            <MagneticButton strength={0.15}>
-                                <Link href="/listings/new">
-                                    <button className="px-8 py-4 border border-white/30 text-white font-medium rounded-2xl hover:bg-white/10 transition-colors text-sm" suppressHydrationWarning>
-                                        List Your Items
-                                    </button>
-                                </Link>
-                            </MagneticButton>
+                            <Link href="/explore">
+                                <LiquidButton variant="primary" size="lg">
+                                    start renting now
+                                </LiquidButton>
+                            </Link>
+
+                            <Link href="/listings/new">
+                                <LiquidButton variant="secondary" size="lg">
+                                    list your items
+                                </LiquidButton>
+                            </Link>
                         </motion.div>
                     </div>
+
+                    {/* Top border glow */}
+                    <div className="absolute top-0 left-[5%] right-[5%] h-[2px]"
+                        style={{
+                            background: 'linear-gradient(90deg, transparent, rgba(122,92,255,0.4), rgba(0,240,255,0.3), transparent)',
+                            boxShadow: '0 0 15px rgba(122,92,255,0.15)',
+                        }}
+                    />
+
+                    {/* Bottom border glow */}
+                    <div className="absolute bottom-0 left-[5%] right-[5%] h-[2px]"
+                        style={{
+                            background: 'linear-gradient(90deg, transparent, rgba(0,240,255,0.3), rgba(122,92,255,0.4), transparent)',
+                            boxShadow: '0 0 15px rgba(0,240,255,0.1)',
+                        }}
+                    />
                 </motion.div>
             </div>
         </section>

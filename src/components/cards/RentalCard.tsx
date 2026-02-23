@@ -23,10 +23,15 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
     const x = useMotionValue(0);
     const y = useMotionValue(0);
 
-    const rotateX = useTransform(y, [-100, 100], [8, -8]);
-    const rotateY = useTransform(x, [-100, 100], [-8, 8]);
-    const springRotateX = useSpring(rotateX, { stiffness: 300, damping: 30 });
-    const springRotateY = useSpring(rotateY, { stiffness: 300, damping: 30 });
+    // Tilt toward cursor — perspective transform
+    const rotateX = useTransform(y, [-150, 150], [12, -12]);
+    const rotateY = useTransform(x, [-150, 150], [-12, 12]);
+    const springRotateX = useSpring(rotateX, { stiffness: 200, damping: 25 });
+    const springRotateY = useSpring(rotateY, { stiffness: 200, damping: 25 });
+
+    // Glow position follows cursor
+    const glowX = useTransform(x, [-150, 150], [0, 100]);
+    const glowY = useTransform(y, [-150, 150], [0, 100]);
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!ref.current) return;
@@ -45,34 +50,25 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
         setCursorText('');
     };
 
-    const categoryGradients: Record<string, string> = {
-        tech: 'from-blue-500/20 to-purple-500/20',
-        vehicles: 'from-emerald-500/20 to-cyan-500/20',
-        rooms: 'from-orange-500/20 to-rose-500/20',
-        equipment: 'from-yellow-500/20 to-amber-500/20',
-        fashion: 'from-pink-500/20 to-fuchsia-500/20',
-        studios: 'from-violet-500/20 to-indigo-500/20',
-        tools: 'from-slate-500/20 to-zinc-500/20',
-        digital: 'from-cyan-500/20 to-blue-500/20',
-    };
-
-    const gradient = categoryGradients[item.category] || 'from-[#6c5ce7]/20 to-[#a29bfe]/20';
+    const mainImage = item.media?.find((m: any) => m.type === 'IMAGE')?.url ||
+        (item.images && item.images.length > 0 ? item.images[0] : null);
 
     return (
         <motion.div
             ref={ref}
             className="group relative"
             style={{
-                perspective: 1000,
+                perspective: 800,
                 transformStyle: 'preserve-3d',
             }}
-            initial={{ opacity: 0, y: 60 }}
+            initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-50px' }}
+            viewport={{ once: true, margin: '-40px' }}
             transition={{
-                duration: 0.7,
-                delay: index * 0.1,
-                ease: [0.25, 0.46, 0.45, 0.94],
+                type: 'spring',
+                stiffness: 100,
+                damping: 18,
+                delay: index * 0.08,
             }}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
@@ -84,112 +80,122 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
         >
             <Link href={`/item/${item.id}`} className="block h-full">
                 <motion.div
-                    className="relative glass-card rounded-2xl overflow-hidden h-full"
+                    className="capsule relative h-full overflow-hidden"
                     style={{
                         rotateX: springRotateX,
                         rotateY: springRotateY,
                         transformStyle: 'preserve-3d',
                     }}
-                    whileHover={{ y: -8 }}
-                    transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+                    animate={{
+                        y: isHovered ? -10 : 0,
+                    }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                 >
+                    {/* Cursor-following glow */}
+                    <motion.div
+                        className="absolute inset-0 pointer-events-none z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                        style={{
+                            background: useTransform(
+                                [glowX, glowY],
+                                ([gx, gy]) => `radial-gradient(circle at ${gx}% ${gy}%, rgba(122,92,255,0.15) 0%, transparent 60%)`
+                            ),
+                        }}
+                    />
+
                     {/* Image area */}
-                    <div className={`relative h-48 md:h-56 bg-gradient-to-br ${gradient} overflow-hidden`}>
-                        {/* Real Image with fallback */}
-                        {(() => {
-                            const mainImage = item.media?.find((m: any) => m.type === 'IMAGE')?.url ||
-                                (item.images && item.images.length > 0 ? item.images[0] : null);
-
-                            if (mainImage && !imgError) {
-                                return (
-                                    <motion.div
-                                        className="absolute inset-0"
-                                        initial={{ opacity: 0, scale: 1.1 }}
-                                        animate={{ opacity: 1, scale: isHovered ? 1.05 : 1 }}
-                                        transition={{ duration: 0.6 }}
-                                    >
-                                        <img
-                                            src={mainImage}
-                                            alt={item.title}
-                                            className="w-full h-full object-cover"
-                                            loading={index < 3 ? "eager" : "lazy"}
-                                            onError={() => setImgError(true)}
-                                        />
-                                    </motion.div>
-                                );
-                            }
-
-                            return null;
-                        })()}
-
-                        {/* Placeholder image with gradient (Visible if no image or error) */}
-                        {(() => {
-                            const hasImage = (item.images && item.images.length > 0) || item.media?.some((m: any) => m.type === 'IMAGE');
-                            if (!hasImage || imgError) {
-                                return (
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <motion.div
-                                            className="text-6xl opacity-30"
-                                            animate={isHovered ? { scale: 1.1, rotate: 5 } : { scale: 1, rotate: 0 }}
-                                            transition={{ duration: 0.4 }}
-                                        >
-                                            {item.category === 'tech' && '📸'}
-                                            {item.category === 'vehicles' && '🚗'}
-                                            {item.category === 'rooms' && '🏠'}
-                                            {item.category === 'equipment' && '🎬'}
-                                            {item.category === 'fashion' && '👗'}
-                                            {item.category === 'studios' && '🎵'}
-                                            {item.category === 'tools' && '🔧'}
-                                            {item.category === 'digital' && '💻'}
-                                        </motion.div>
-                                    </div>
-                                );
-                            }
-                            return null;
-                        })()}
-
-                        {/* Hover overlay */}
-                        <motion.div
-                            className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: isHovered ? 1 : 0 }}
-                            transition={{ duration: 0.3 }}
-                        />
-
-                        {/* Featured badge */}
-                        {item.featured && (
-                            <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] text-xs font-medium text-white">
-                                Featured
+                    <div className="relative h-48 md:h-56 overflow-hidden bg-[#0a0b10]">
+                        {mainImage && !imgError ? (
+                            <motion.div
+                                className="absolute inset-0"
+                                animate={{ scale: isHovered ? 1.08 : 1 }}
+                                transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+                            >
+                                <img
+                                    src={mainImage}
+                                    alt={item.title}
+                                    className="w-full h-full object-cover"
+                                    loading={index < 3 ? "eager" : "lazy"}
+                                    onError={() => setImgError(true)}
+                                />
+                            </motion.div>
+                        ) : (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#7A5CFF]/10 to-[#0B0E13]">
+                                <motion.div
+                                    className="text-5xl opacity-20"
+                                    animate={isHovered ? { scale: 1.15, rotate: 5 } : { scale: 1, rotate: 0 }}
+                                    transition={{ type: 'spring', stiffness: 200 }}
+                                >
+                                    {item.category === 'tech' && '📸'}
+                                    {item.category === 'vehicles' && '🚗'}
+                                    {item.category === 'rooms' && '🏠'}
+                                    {item.category === 'equipment' && '🎬'}
+                                    {item.category === 'fashion' && '👗'}
+                                    {item.category === 'studios' && '🎵'}
+                                    {item.category === 'tools' && '🔧'}
+                                    {item.category === 'digital' && '💻'}
+                                </motion.div>
                             </div>
                         )}
 
-                        {/* Quick actions on hover */}
+                        {/* Bottom gradient overlay */}
+                        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#0a0b10] to-transparent" />
+
+                        {/* Featured badge */}
+                        {item.featured && (
+                            <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-gradient-to-r from-[#7A5CFF] to-[#A18CFF] text-[10px] font-medium text-white tracking-wider uppercase"
+                                style={{ boxShadow: '0 4px 12px rgba(122,92,255,0.3)' }}
+                            >
+                                featured
+                            </div>
+                        )}
+
+                        {/* Availability pulse halo */}
+                        <div className="absolute top-3 right-3">
+                            <div className="relative">
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#00FFB3]" style={{ boxShadow: '0 0 8px rgba(0,255,179,0.5)' }} />
+                                <div className="absolute inset-0 rounded-full bg-[#00FFB3] animate-ping opacity-40" />
+                            </div>
+                        </div>
+
+                        {/* Compare button on hover */}
                         <motion.div
-                            className="absolute bottom-3 right-3 flex items-center gap-2"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 10 }}
+                            className="absolute bottom-3 right-3 flex items-center gap-2 z-10"
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 8 }}
                             transition={{ duration: 0.3 }}
                         >
                             <CompareButton item={item as unknown as Listing} variant="icon" />
+                        </motion.div>
+
+                        {/* "rent now" emerges from depth on hover */}
+                        <motion.div
+                            className="absolute bottom-3 left-3 z-10"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 10 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                        >
+                            <span className="text-[10px] font-medium text-white/70 tracking-[0.2em] uppercase px-3 py-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl">
+                                rent now
+                            </span>
                         </motion.div>
                     </div>
 
                     {/* Content */}
                     <div className="p-5">
                         <div className="flex items-start justify-between gap-2 mb-2">
-                            <h3 className="font-semibold text-white/90 text-sm leading-tight line-clamp-1 group-hover:text-white transition-colors">
+                            <h3 className="font-medium text-white/80 text-sm leading-tight line-clamp-1 group-hover:text-white transition-colors tracking-tight">
                                 {item.title}
                             </h3>
                             <div className="flex items-center gap-1 shrink-0">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="#fdcb6e" stroke="none">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="#fdcb6e" stroke="none">
                                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                                 </svg>
-                                <span className="text-xs text-white/60">{item.rating}</span>
-                                <span className="text-xs text-white/30">({item.reviewCount})</span>
+                                <span className="text-xs text-white/50">{item.rating}</span>
+                                <span className="text-xs text-white/20">({item.reviewCount})</span>
                             </div>
                         </div>
 
-                        <p className="text-xs text-white/40 mb-3 flex items-center gap-1">
+                        <p className="text-[11px] text-white/30 mb-3 flex items-center gap-1 tracking-wide">
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                 <circle cx="12" cy="10" r="3" />
@@ -198,20 +204,21 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
                         </p>
 
                         <div className="flex items-end justify-between">
+                            {/* Price — styled as subtle metallic */}
                             <div>
-                                <span className="text-lg font-bold gradient-text">${item.price}</span>
-                                <span className="text-xs text-white/40 ml-1">/ {item.priceUnit}</span>
+                                <span className="text-lg font-semibold gradient-text-chrome">${item.price}</span>
+                                <span className="text-[11px] text-white/25 ml-1 tracking-wide">/ {item.priceUnit}</span>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                                 {item.owner.verified && (
-                                    <div className="w-5 h-5 rounded-full bg-[#00cec9]/20 flex items-center justify-center">
-                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="#00cec9" stroke="none">
+                                    <div className="w-4 h-4 rounded-full bg-[#00FFB3]/15 flex items-center justify-center">
+                                        <svg width="8" height="8" viewBox="0 0 24 24" fill="#00FFB3" stroke="none">
                                             <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                                         </svg>
                                     </div>
                                 )}
-                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#6c5ce7]/30 to-[#a29bfe]/30 flex items-center justify-center text-[10px] font-medium text-white/60 overflow-hidden border border-white/5">
+                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#7A5CFF]/25 to-[#A18CFF]/25 flex items-center justify-center text-[9px] font-medium text-white/50 overflow-hidden border border-white/[0.04]">
                                     {item.owner.avatar ? (
                                         <img src={item.owner.avatar} alt={item.owner.name} className="w-full h-full object-cover" />
                                     ) : (
@@ -222,12 +229,11 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
                         </div>
                     </div>
 
-                    {/* Glow effect on hover */}
+                    {/* Shimmer edge effect on hover */}
                     <motion.div
-                        className="absolute -inset-px rounded-2xl pointer-events-none"
+                        className="absolute inset-0 rounded-[1.25rem] pointer-events-none"
                         style={{
-                            background: 'linear-gradient(135deg, rgba(108,92,231,0.3), transparent, rgba(253,121,168,0.2))',
-                            opacity: 0,
+                            background: 'linear-gradient(135deg, rgba(122,92,255,0.2), transparent 40%, transparent 60%, rgba(0,240,255,0.1))',
                         }}
                         animate={{ opacity: isHovered ? 1 : 0 }}
                         transition={{ duration: 0.4 }}

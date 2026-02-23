@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import LiquidButton from '@/components/motion/LiquidButton';
 import { useAppStore } from '@/store/app-store';
 import { Loader2 } from 'lucide-react';
 
@@ -230,15 +231,15 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
             <form
                 onSubmit={handleSearch}
                 className={`relative flex items-center rounded-2xl transition-all duration-500 ${focused
-                    ? 'glass-strong shadow-[0_0_50px_rgba(108,92,231,0.3)] border-[#6c5ce7]/50 scale-[1.02] bg-[#0a0a14]/90'
+                    ? 'glass-strong shadow-[0_0_50px_rgba(139,92,246,0.3)] border-[#8B5CF6]/50 scale-[1.02] bg-[#07080D]/90'
                     : 'glass border-white/5'
                     } z-10`}
             >
                 <motion.div
                     className="absolute inset-0 pointer-events-none"
                     animate={focused ? {
-                        boxShadow: ['0 0 20px rgba(108,92,231,0.2)', '0 0 40px rgba(108,92,231,0.4)', '0 0 20px rgba(108,92,231,0.2)']
-                    } : { boxShadow: '0 0 0px rgba(108,92,231,0)' }}
+                        boxShadow: ['0 0 20px rgba(139,92,246,0.2)', '0 0 40px rgba(139,92,246,0.4)', '0 0 20px rgba(139,92,246,0.2)']
+                    } : { boxShadow: '0 0 0px rgba(139,92,246,0)' }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 />
 
@@ -267,14 +268,14 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                                 <button
                                     type="button"
                                     onClick={() => { setSearchType('rentals'); setShowTypeSelector(false); inputRef.current?.focus(); }}
-                                    className={`w-full px-4 py-2 text-left text-xs font-medium hover:bg-white/5 transition-colors ${searchType === 'rentals' ? 'text-[#6c5ce7]' : 'text-white/60'}`}
+                                    className={`w-full px-4 py-2 text-left text-xs font-medium hover:bg-white/5 transition-colors ${searchType === 'rentals' ? 'text-[#8B5CF6]' : 'text-white/60'}`}
                                 >
                                     RENTALS
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => { setSearchType('users'); setShowTypeSelector(false); inputRef.current?.focus(); }}
-                                    className={`w-full px-4 py-2 text-left text-xs font-medium hover:bg-white/5 transition-colors ${searchType === 'users' ? 'text-[#6c5ce7]' : 'text-white/60'}`}
+                                    className={`w-full px-4 py-2 text-left text-xs font-medium hover:bg-white/5 transition-colors ${searchType === 'users' ? 'text-[#8B5CF6]' : 'text-white/60'}`}
                                 >
                                     USERS
                                 </button>
@@ -302,7 +303,7 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                 {/* AI badge (only for rentals) */}
                 {searchType === 'rentals' && (
                     <div className="hidden sm:flex items-center gap-2 px-3">
-                        <span className="px-2.5 py-1 rounded-lg bg-[#6c5ce7]/10 border border-[#6c5ce7]/20 text-[10px] text-[#a29bfe] font-medium tracking-wider">
+                        <span className="px-2.5 py-1 rounded-lg bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 text-[10px] text-[#A5B4FC] font-medium tracking-wider">
                             AI
                         </span>
                     </div>
@@ -313,7 +314,7 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                     <button
                         type="button"
                         onClick={toggleVoiceSearch}
-                        className={`px-4 transition-all duration-300 relative z-10 ${isListening ? 'text-[#ff4757]' : 'text-white/30 hover:text-white/60'
+                        className={`px-4 transition-all duration-300 relative z-10 ${isListening ? 'text-[#F472B6]' : 'text-white/30 hover:text-white/60'
                             }`}
                         suppressHydrationWarning
                         title="Voice Search"
@@ -329,14 +330,15 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
 
                 {/* Search button */}
                 <div className="pr-2">
-                    <button
+                    <LiquidButton
+                        variant="cta"
+                        size="sm"
                         type="submit"
-                        onMouseDown={(e) => e.preventDefault()}
-                        className="px-5 py-2.5 md:py-3 rounded-xl bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] text-white text-sm font-medium hover:shadow-lg hover:shadow-[#6c5ce7]/20 transition-all relative z-10"
-                        suppressHydrationWarning
+                        className="!py-2 !px-5"
+                        onMouseDown={(e: React.MouseEvent) => e.preventDefault()}
                     >
                         Search
-                    </button>
+                    </LiquidButton>
                 </div>
             </form>
 
@@ -355,7 +357,7 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                                 <span className="text-[10px] text-white/30 tracking-[0.2em] uppercase font-bold">
                                     {isAiLoading ? 'Searching...' : (searchType === 'users' ? 'User Results' : (aiIntent ? 'AI Recommendations' : 'Results'))}
                                 </span>
-                                {isAiLoading && <Loader2 className="w-3 h-3 animate-spin text-[#6c5ce7]" />}
+                                {isAiLoading && <Loader2 className="w-3 h-3 animate-spin text-[#8B5CF6]" />}
                             </div>
 
                             {/* AI Intent only for rentals */}
@@ -363,9 +365,9 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                                 <motion.div
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
-                                    className="px-4 py-2 mb-2 mx-4 rounded-xl bg-[#6c5ce7]/5 border border-[#6c5ce7]/10"
+                                    className="px-4 py-2 mb-2 mx-4 rounded-xl bg-[#8B5CF6]/5 border border-[#8B5CF6]/10"
                                 >
-                                    <p className="text-[11px] text-[#a29bfe] italic">
+                                    <p className="text-[11px] text-[#A5B4FC] italic">
                                         "{aiIntent.explanation}"
                                     </p>
                                 </motion.div>
@@ -391,7 +393,7 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                                                 result.avatar ? (
                                                     <img src={result.avatar} alt="" className="w-full h-full object-cover rounded-full" />
                                                 ) : (
-                                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#6c5ce7] to-[#a29bfe] text-white font-bold rounded-full">
+                                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#8B5CF6] to-[#A5B4FC] text-[#020305] font-bold rounded-full">
                                                         {result.firstName?.[0]}
                                                     </div>
                                                 )
@@ -422,7 +424,7 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                                                         : result.title}
                                                 </span>
                                                 {searchType === 'users' && result.verified && (
-                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#00b894]/10 text-[#00b894] uppercase tracking-wider border border-[#00b894]/20">Verified</span>
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#34D399]/10 text-[#34D399] uppercase tracking-wider border border-[#34D399]/20">Verified</span>
                                                 )}
                                                 {searchType === 'rentals' && (
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/40 uppercase tracking-wider">{result.category}</span>
@@ -436,7 +438,7 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                                                 <p className="text-[10px] text-white/30 truncate mt-0.5">${result.price}/{result.priceUnit?.toLowerCase()}</p>
                                             )}
                                         </div>
-                                        <span className="text-[10px] text-[#6c5ce7] opacity-0 group-hover:opacity-100 transition-opacity font-bold uppercase">
+                                        <span className="text-[10px] text-[#8B5CF6] opacity-0 group-hover:opacity-100 transition-opacity font-bold uppercase">
                                             {searchType === 'users' ? 'VIEW PROFILE' : 'VIEW ITEM'}
                                         </span>
                                     </Link>
@@ -463,9 +465,9 @@ export default function SearchBar({ autoFocus = false }: { autoFocus?: boolean }
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="absolute inset-0 bg-[#050508]/60 cursor-pointer pointer-events-auto"
+                    className="absolute inset-0 bg-[#020305]/60 cursor-pointer pointer-events-auto"
                     style={{
-                        background: 'radial-gradient(circle at center, transparent 0%, rgba(5,5,8,0.9) 100%)'
+                        background: 'radial-gradient(circle at center, transparent 0%, rgba(2,3,5,0.95) 100%)'
                     }}
                     onMouseDown={(e) => {
                         e.preventDefault();

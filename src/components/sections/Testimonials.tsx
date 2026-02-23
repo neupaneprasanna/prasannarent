@@ -1,106 +1,102 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { fadeInUp, staggerContainer } from '@/lib/animations/motion-config';
 
 const testimonials = [
-    {
-        name: 'Sarah Mitchell',
-        role: 'Professional Photographer',
-        quote: 'RentVerse saved my career. I rented a $5,000 lens for a weekend shoot at a fraction of the cost. The experience was seamless.',
-        avatar: 'S',
-        rating: 5,
-    },
-    {
-        name: 'James Chen',
-        role: 'Startup Founder',
-        quote: 'We furnished our entire pop-up office through RentVerse. Standing desks, monitors, even an espresso machine. Incredible platform.',
-        avatar: 'J',
-        rating: 5,
-    },
-    {
-        name: 'Maria Rodriguez',
-        role: 'Film Director',
-        quote: 'Finding professional film equipment has never been easier. The AI search understood exactly what I needed for my indie project.',
-        avatar: 'M',
-        rating: 5,
-    },
+    { name: 'Sarah Mitchell', role: 'photographer', quote: 'rented a Sony A7IV for a weekend shoot. seamless experience, gear arrived in perfect condition. this platform is a game-changer.', avatar: 'S', rating: 5, color: '#00F0FF' },
+    { name: 'David Park', role: 'filmmaker', quote: 'I needed a drone for a short film project. found one within minutes, and the owner was incredibly helpful. will definitely use again.', avatar: 'D', rating: 5, color: '#7A5CFF' },
+    { name: 'Emily Rodriguez', role: 'event planner', quote: 'rented lighting and sound equipment for a corporate event. saved us thousands compared to buying. customer support was exceptional.', avatar: 'E', rating: 5, color: '#00FFB3' },
 ];
+
+const spring = { type: 'spring' as const, stiffness: 100, damping: 20 };
 
 export default function Testimonials() {
     return (
-        <section className="section-padding relative overflow-hidden">
-            {/* Background */}
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#fd79a8]/5 to-transparent pointer-events-none" />
-
-            <div className="max-w-7xl mx-auto px-6">
+        <section className="section-padding relative">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6">
                 {/* Header */}
                 <motion.div
                     className="text-center mb-16"
-                    variants={fadeInUp}
-                    initial="hidden"
-                    whileInView="visible"
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
+                    transition={spring}
                 >
-                    <span className="inline-block text-xs tracking-[0.3em] uppercase text-[#fdcb6e] mb-4">
-                        Testimonials
-                    </span>
-                    <h2 className="text-3xl md:text-5xl font-bold">
-                        Loved by <span className="gradient-text">Thousands</span>
+                    <span className="text-label mb-4 block" style={{ color: '#A18CFF', textShadow: '0 0 20px rgba(161,140,255,0.3)' }}>testimonials</span>
+                    <h2 className="text-section mb-4">
+                        what <span className="gradient-text">renters</span> say
                     </h2>
+                    <p className="text-body text-white/35 max-w-md mx-auto">
+                        hear from our community of satisfied renters and hosts.
+                    </p>
                 </motion.div>
 
-                {/* Cards */}
-                <motion.div
-                    className="grid grid-cols-1 md:grid-cols-3 gap-6"
-                    variants={staggerContainer}
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, margin: '-100px' }}
-                >
+                {/* Testimonial cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                     {testimonials.map((t, i) => (
                         <motion.div
                             key={t.name}
-                            className="glass-card rounded-2xl p-8 relative group"
-                            variants={fadeInUp}
-                            custom={i}
-                            whileHover={{ y: -4 }}
-                            transition={{ duration: 0.3 }}
+                            className="group relative p-6 sm:p-8 rounded-2xl overflow-hidden"
+                            initial={{ opacity: 0, y: 40 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true, margin: '-60px' }}
+                            transition={{ ...spring, delay: i * 0.1 }}
+                            whileHover={{ y: -6 }}
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(16,17,26,0.9) 0%, rgba(10,11,16,0.8) 100%)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                backdropFilter: 'blur(20px)',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+                            }}
                         >
-                            {/* Quote mark */}
-                            <div className="text-5xl text-[#6c5ce7]/20 font-serif leading-none mb-4">&ldquo;</div>
-
-                            <p className="text-sm text-white/60 leading-relaxed mb-6">{t.quote}</p>
-
-                            {/* Stars */}
+                            {/* Stars — colored */}
                             <div className="flex gap-1 mb-6">
                                 {[...Array(t.rating)].map((_, j) => (
-                                    <svg key={j} width="14" height="14" viewBox="0 0 24 24" fill="#fdcb6e" stroke="none">
-                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                    <svg key={j} width="16" height="16" viewBox="0 0 24 24" fill={t.color} className="opacity-80">
+                                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                                     </svg>
                                 ))}
                             </div>
 
-                            {/* Author */}
+                            <p className="text-white/50 text-sm leading-relaxed mb-8 italic">
+                                &ldquo;{t.quote}&rdquo;
+                            </p>
+
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6c5ce7] to-[#a29bfe] flex items-center justify-center text-sm font-semibold text-white">
+                                <div
+                                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
+                                    style={{
+                                        background: `linear-gradient(135deg, ${t.color}40, ${t.color}15)`,
+                                        color: t.color,
+                                        border: `1px solid ${t.color}30`,
+                                        boxShadow: `0 0 15px ${t.color}15`,
+                                    }}
+                                >
                                     {t.avatar}
                                 </div>
                                 <div>
-                                    <div className="text-sm font-medium text-white/80">{t.name}</div>
-                                    <div className="text-xs text-white/30">{t.role}</div>
+                                    <p className="text-sm font-medium text-white/80">{t.name}</p>
+                                    <p className="text-xs text-white/30">{t.role}</p>
                                 </div>
                             </div>
 
-                            {/* Glow */}
-                            <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                            {/* Hover glow */}
+                            <div
+                                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
                                 style={{
-                                    background: 'radial-gradient(circle at 50% 0%, rgba(108,92,231,0.06) 0%, transparent 60%)',
+                                    background: `radial-gradient(circle at 50% 80%, ${t.color}12 0%, transparent 60%)`,
+                                    boxShadow: `inset 0 0 40px ${t.color}05`,
                                 }}
+                            />
+
+                            {/* Bottom accent */}
+                            <div
+                                className="absolute bottom-0 left-[10%] right-[10%] h-[2px] opacity-30 group-hover:opacity-100 transition-opacity duration-500"
+                                style={{ background: `linear-gradient(90deg, transparent, ${t.color}60, transparent)` }}
                             />
                         </motion.div>
                     ))}
-                </motion.div>
+                </div>
             </div>
         </section>
     );

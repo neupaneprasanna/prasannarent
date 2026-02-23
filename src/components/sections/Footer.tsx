@@ -1,8 +1,6 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { fadeInUp, staggerContainer } from '@/lib/animations/motion-config';
-import MagneticButton from '@/components/cursor/MagneticButton';
 
 const footerLinks = {
     Product: ['Explore', 'Categories', 'Pricing', 'Enterprise', 'Mobile App'],
@@ -11,54 +9,73 @@ const footerLinks = {
     Legal: ['Terms', 'Privacy', 'Cookies', 'Licenses', 'Accessibility'],
 };
 
+const spring = { type: 'spring' as const, stiffness: 100, damping: 20 };
+
 export default function Footer() {
     return (
-        <footer className="relative pt-24 pb-8">
-            {/* Top border gradient */}
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <footer className="relative pt-20 pb-8">
+            {/* Top gradient line — luminous separator */}
+            <div className="absolute top-0 left-[5%] right-[5%] h-[2px]"
+                style={{
+                    background: 'linear-gradient(90deg, transparent, rgba(122,92,255,0.3), rgba(0,240,255,0.25), transparent)',
+                    boxShadow: '0 0 15px rgba(122,92,255,0.1)',
+                }}
+            />
 
-            <div className="max-w-7xl mx-auto px-6">
-                <motion.div
-                    className="grid grid-cols-2 md:grid-cols-5 gap-12 mb-16"
-                    variants={staggerContainer}
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true }}
-                >
-                    {/* Brand column */}
-                    <motion.div className="col-span-2 md:col-span-1" variants={fadeInUp}>
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6c5ce7] to-[#a29bfe] flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">R</span>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-16">
+                    {/* Brand */}
+                    <motion.div
+                        className="col-span-2 md:col-span-1"
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={spring}
+                    >
+                        <div className="flex items-center gap-2.5 mb-4">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#7A5CFF] to-[#A18CFF] flex items-center justify-center">
+                                <span className="text-white font-semibold text-sm">R</span>
                             </div>
-                            <span className="text-lg font-bold">
-                                <span className="gradient-text">Rent</span>
-                                <span className="text-white/90">Verse</span>
+                            <span className="text-lg font-medium tracking-tight">
+                                <span className="gradient-text">rent</span>
+                                <span className="text-white/70">verse</span>
                             </span>
                         </div>
-                        <p className="text-sm text-white/30 leading-relaxed mb-6">
-                            The future of renting. Anything, anywhere, anytime.
+                        <p className="text-sm text-white/25 leading-relaxed mb-6">
+                            the future of renting. anything, anywhere, anytime.
                         </p>
-                        {/* Social */}
-                        <div className="flex gap-3">
-                            {['X', 'In', 'Ig', 'Gh'].map((social) => (
-                                <MagneticButton key={social} strength={0.3}>
-                                    <div className="w-9 h-9 rounded-lg glass flex items-center justify-center text-xs text-white/40 hover:text-white/70 transition-colors">
-                                        {social}
-                                    </div>
-                                </MagneticButton>
+                        <div className="flex gap-2.5">
+                            {['X', 'in', 'ig', 'gh'].map((social) => (
+                                <motion.div
+                                    key={social}
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] text-white/40 hover:text-white/70 transition-all duration-300 cursor-pointer tracking-wider"
+                                    whileHover={{ y: -2 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    style={{
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        background: 'rgba(255,255,255,0.04)',
+                                    }}
+                                >
+                                    {social}
+                                </motion.div>
                             ))}
                         </div>
                     </motion.div>
 
                     {/* Link columns */}
                     {Object.entries(footerLinks).map(([title, links], i) => (
-                        <motion.div key={title} variants={fadeInUp} custom={i + 1}>
-                            <h4 className="text-sm font-semibold text-white/70 mb-4">{title}</h4>
-                            <ul className="space-y-3">
+                        <motion.div
+                            key={title}
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ ...spring, delay: (i + 1) * 0.06 }}
+                        >
+                            <h4 className="text-label text-white/50 mb-5">{title}</h4>
+                            <ul className="space-y-2.5">
                                 {links.map((link) => (
                                     <li key={link}>
-                                        <a href="#" className="text-sm text-white/30 hover:text-white/60 transition-colors">
+                                        <a href="#" className="text-sm text-white/25 hover:text-white/50 transition-colors duration-200 tracking-wide">
                                             {link}
                                         </a>
                                     </li>
@@ -66,18 +83,20 @@ export default function Footer() {
                             </ul>
                         </motion.div>
                     ))}
-                </motion.div>
+                </div>
 
-                {/* Bottom */}
-                <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <p className="text-xs text-white/20">
-                        © 2026 RentVerse. All rights reserved.
+                {/* Bottom bar */}
+                <div className="border-t border-white/[0.04] pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <p className="text-[11px] text-white/15 tracking-wide">
+                        © 2026 rentverse. all rights reserved.
                     </p>
-                    <div className="flex items-center gap-6">
-                        <span className="text-xs text-white/15">Made with precision</span>
-                        <div className="flex items-center gap-1">
-                            <div className="w-1.5 h-1.5 rounded-full bg-[#00cec9]" />
-                            <span className="text-xs text-white/30">All systems operational</span>
+                    <div className="flex items-center gap-5">
+                        <span className="text-[11px] text-white/10 tracking-wide">made with precision</span>
+                        <div className="flex items-center gap-1.5">
+                            <div className="relative">
+                                <div className="w-1.5 h-1.5 rounded-full bg-[#00FFB3]" style={{ boxShadow: '0 0 6px rgba(0,255,179,0.4)' }} />
+                            </div>
+                            <span className="text-[11px] text-white/20 tracking-wide">all systems operational</span>
                         </div>
                     </div>
                 </div>

@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Outfit, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import ClientProviders from "@/components/providers/ClientProviders";
 import PremiumBackground from "@/components/ui/PremiumBackground";
 import SearchOverlay from "@/components/ui/SearchOverlay";
-import SmoothScroll from "@/components/providers/SmoothScroll";
 import MaintenanceGuard from "@/components/guards/MaintenanceGuard";
 
-const inter = Inter({
+const outfit = Outfit({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
 });
 
-const spaceGrotesk = Space_Grotesk({
+const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-display",
   subsets: ["latin"],
   display: "swap",
@@ -80,18 +79,18 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased text-white grain-overlay`}
+        className={`${outfit.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable} antialiased text-white grain-overlay`}
       >
         <PremiumBackground />
-        <SearchOverlay />
-        <ClientProviders>
-          <MaintenanceGuard>
-            <SmoothScroll>
+        <div className="relative z-10">
+          <SearchOverlay />
+          <ClientProviders>
+            <MaintenanceGuard>
               {children}
-            </SmoothScroll>
-            <FloatingCompareBar />
-          </MaintenanceGuard>
-        </ClientProviders>
+              <FloatingCompareBar />
+            </MaintenanceGuard>
+          </ClientProviders>
+        </div>
       </body>
     </html>
   );
