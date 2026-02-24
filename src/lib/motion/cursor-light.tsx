@@ -65,7 +65,10 @@ export function CursorLightProvider({ children }: { children: React.ReactNode })
                 target.closest('a') ||
                 target.closest('[role="button"]') ||
                 target.closest('input') ||
-                target.closest('[data-interactive]')
+                target.closest('textarea') ||
+                target.closest('select') ||
+                target.closest('[data-interactive]') ||
+                target.closest('h1, h2, h3, h4, h5, h6, p, label, li, span')
             );
 
             store.setState({

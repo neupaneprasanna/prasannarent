@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useVelocity, useTransform } from 'framer-motion';
 import { useAppStore } from '@/store/app-store';
 import { useIsMobile } from '@/hooks/use-is-mobile';
+import { useCursorLight } from '@/lib/motion/cursor-light';
 
 /**
  * CustomCursor — Enhanced with:
@@ -18,6 +19,7 @@ export default function CustomCursor() {
     const cursorVariant = useAppStore((s) => s.cursorVariant);
     const cursorText = useAppStore((s) => s.cursorText);
     const cursorRef = useRef<HTMLDivElement>(null);
+    const { isOverInteractive } = useCursorLight();
 
     const mouseX = useMotionValue(0);
     const mouseY = useMotionValue(0);
@@ -81,7 +83,7 @@ export default function CustomCursor() {
     };
 
     // Interactive state — glow intensifies
-    const isInteractive = cursorVariant === 'hover' || cursorVariant === 'text';
+    const isInteractive = cursorVariant === 'hover' || cursorVariant === 'text' || isOverInteractive;
 
     return (
         <>
@@ -120,7 +122,7 @@ export default function CustomCursor() {
                     scaleX,
                     scaleY,
                 }}
-                animate={cursorVariant}
+                animate={isOverInteractive && cursorVariant === 'default' ? 'hover' : cursorVariant}
                 variants={variants}
                 transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
             >
@@ -166,10 +168,14 @@ export default function CustomCursor() {
                     translateY: '-50%',
                 }}
                 animate={{
-                    scale: cursorVariant === 'hover' ? [1, 1.5, 1] : 1,
+                    scale: isInteractive ? 4.5 : 1,
                     opacity: cursorVariant === 'hidden' ? 0 : 1,
+                    backgroundColor: isInteractive ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 1)',
                 }}
-                transition={cursorVariant === 'hover' ? { duration: 2, repeat: Infinity } : { duration: 0.2 }}
+                transition={{
+                    scale: { type: 'spring', stiffness: 300, damping: 25 },
+                    opacity: { duration: 0.2 }
+                }}
             />
         </>
     );

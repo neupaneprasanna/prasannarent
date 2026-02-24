@@ -89,6 +89,7 @@ export default function FAQ() {
                             <button
                                 onClick={() => toggleFAQ(i)}
                                 className="w-full flex items-center justify-between gap-4 p-5 sm:p-6 text-left group"
+                                suppressHydrationWarning
                             >
                                 <span className={`text-sm font-medium tracking-tight transition-colors duration-300 ${openIndex === i ? 'text-white/90' : 'text-white/60 group-hover:text-white/80'}`}>
                                     {faq.question}

@@ -237,6 +237,7 @@ export default function Navbar() {
                                             <button
                                                 onClick={() => markAllAsRead()}
                                                 className="text-label text-[#8B5CF6] hover:text-[#A5B4FC] transition-colors"
+                                                suppressHydrationWarning
                                             >
                                                 Clear All
                                             </button>
