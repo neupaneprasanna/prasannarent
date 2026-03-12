@@ -6,8 +6,29 @@ const prisma = new PrismaClient();
 async function main() {
     console.log('🌱 Starting comprehensive data seeding...');
 
-    // 1. CLEAR EXISTING DATA (Optional, but ensures clean state)
+    // 1. CLEAR EXISTING DATA
     console.log('🧹 Cleaning old data...');
+    // We must delete in reverse order of dependencies
+    await prisma.auditLog.deleteMany();
+    await prisma.moderationItem.deleteMany();
+    await prisma.notificationCampaign.deleteMany();
+    await prisma.activityEvent.deleteMany();
+    await prisma.hostFollow.deleteMany();
+    await prisma.recentlyViewed.deleteMany();
+    await prisma.wishlistItem.deleteMany();
+    await prisma.wishlistCollection.deleteMany();
+    await prisma.promoRedemption.deleteMany();
+    await prisma.referral.deleteMany();
+    await prisma.hostProfile.deleteMany();
+    await prisma.notification.deleteMany();
+    await prisma.review.deleteMany();
+    await prisma.bookingTimeline.deleteMany();
+    await prisma.booking.deleteMany();
+    await prisma.listingMedia.deleteMany();
+    await prisma.listingPricing.deleteMany();
+    await prisma.listingAttribute.deleteMany();
+    await prisma.calendarBlock.deleteMany();
+    await prisma.datePriceOverride.deleteMany();
     await prisma.listing.deleteMany();
     await prisma.user.deleteMany();
 

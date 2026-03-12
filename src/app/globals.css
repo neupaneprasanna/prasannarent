@@ -69,6 +69,11 @@
   }
 }
 
+/* Restore normal cursor for messaging page */
+.messaging-page-root, .messaging-page-root * {
+  cursor: auto !important;
+}
+
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

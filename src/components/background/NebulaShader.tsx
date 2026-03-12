@@ -2,37 +2,47 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 
-// Time-of-day color palettes
-function getTimeColors(hour: number): { r: number; g: number; b: number }[] {
-    if (hour >= 5 && hour < 11) {
-        // Morning → Soft Aurora Cyan
-        return [
-            { r: 0, g: 0.55, b: 0.65 },  // cyan teal
-            { r: 0.02, b: 0.08, g: 0.04 }, // deep base
-            { r: 0.0, g: 0.35, b: 0.45 },  // aurora
-        ];
-    } else if (hour >= 11 && hour < 17) {
-        // Afternoon → Balanced neutral graphite
-        return [
-            { r: 0.12, g: 0.10, b: 0.18 },
-            { r: 0.03, g: 0.03, b: 0.05 },
-            { r: 0.08, g: 0.06, b: 0.14 },
-        ];
-    } else if (hour >= 17 && hour < 21) {
-        // Evening → Quantum Violet undertone
-        return [
-            { r: 0.28, g: 0.18, b: 0.55 },
-            { r: 0.04, g: 0.03, b: 0.07 },
-            { r: 0.15, g: 0.08, b: 0.35 },
-        ];
-    } else {
-        // Midnight → Deep void black with silver shimmer
-        return [
-            { r: 0.06, g: 0.06, b: 0.10 },
-            { r: 0.02, g: 0.02, b: 0.035 },
-            { r: 0.08, g: 0.08, b: 0.12 },
-        ];
-    }
+// Section-based color palettes across the page scroll
+const SCROLL_PALETTES = [
+    // 0% - Top Hero (Aurora Teal/Violet)
+    [
+        { r: 0, g: 0.55, b: 0.65 },  // cyan teal
+        { r: 0.02, b: 0.08, g: 0.04 }, // deep base
+        { r: 0.28, g: 0.18, b: 0.55 }, // Violet aura
+    ],
+    // 25% - Quarter down (Mint Matrix)
+    [
+        { r: 0.0, g: 0.85, b: 0.55 },  // Bright emerald
+        { r: 0.01, g: 0.05, b: 0.03 }, // Dark forest void
+        { r: 0.0, g: 0.45, b: 0.65 },  // Deep teal
+    ],
+    // 50% - Half down (Quantum Pink/Magenta)
+    [
+        { r: 0.8, g: 0.15, b: 0.5 },    // Hot Pink
+        { r: 0.06, g: 0.02, b: 0.08 },  // Deep violet base
+        { r: 0.35, g: 0.1, b: 0.7 },    // Indigo surge
+    ],
+    // 75% - 3/4 down (Deep Ocean Blue)
+    [
+        { r: 0.0, g: 0.45, b: 0.95 },   // Electric Blue
+        { r: 0.01, g: 0.02, b: 0.10 },  // Dark Navy
+        { r: 0.0, g: 0.7, b: 0.85 },    // Bright Cyan
+    ],
+    // 100% - Bottom Footer (Rich Violet Gold)
+    [
+        { r: 0.5, g: 0.3, b: 0.8 },     // Royal Purple
+        { r: 0.03, g: 0.02, b: 0.05 },  // Void
+        { r: 0.8, g: 0.4, b: 0.2 },     // Sunset Gold
+    ]
+];
+
+// Helper to linearly interpolate between two colors
+function lerpColor(c1: {r:number, g:number, b:number}, c2: {r:number, g:number, b:number}, t: number) {
+    return {
+        r: c1.r + (c2.r - c1.r) * t,
+        g: c1.g + (c2.g - c1.g) * t,
+        b: c1.b + (c2.b - c1.b) * t,
+    };
 }
 
 // Simple noise function for nebula
@@ -85,9 +95,25 @@ export default function NebulaShader() {
         // Low resolution for performance — we render at 1/6th then CSS scales up
         const w = canvas.width;
         const h = canvas.height;
-        const hour = new Date().getHours();
-        const colors = getTimeColors(hour);
         const t = timeRef.current;
+
+        // Calculate scroll progress for color transitions
+        const scrollY = window.scrollY || 0;
+        const maxScroll = Math.max(1, document.body.scrollHeight - window.innerHeight);
+        const progress = Math.max(0, Math.min(1, scrollY / maxScroll));
+
+        // Determine which palettes to interpolate between
+        const segments = SCROLL_PALETTES.length - 1;
+        const rawIndex = progress * segments;
+        const idx1 = Math.floor(rawIndex);
+        const idx2 = Math.min(segments, idx1 + 1);
+        const blend = rawIndex - idx1;
+
+        const colors = [
+            lerpColor(SCROLL_PALETTES[idx1][0], SCROLL_PALETTES[idx2][0], blend),
+            lerpColor(SCROLL_PALETTES[idx1][1], SCROLL_PALETTES[idx2][1], blend),
+            lerpColor(SCROLL_PALETTES[idx1][2], SCROLL_PALETTES[idx2][2], blend),
+        ];
 
         const imageData = ctx.createImageData(w, h);
         const data = imageData.data;

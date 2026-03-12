@@ -7,18 +7,12 @@ import { AdminStatsCard } from '@/components/admin/ui/AdminStatsCard';
 import { AdminTable } from '@/components/admin/ui/AdminTable';
 
 // Mock Transaction Data
-const mockTransactions = [
-    { id: 'TRX-9982', user: 'Alice Smith', type: 'Payment', amount: 450.00, status: 'Completed', date: '2025-10-24' },
-    { id: 'TRX-9983', user: 'Bob Jones', type: 'Refund', amount: -120.50, status: 'Processed', date: '2025-10-23' },
-    { id: 'TRX-9984', user: 'Charlie Day', type: 'Payout', amount: -2400.00, status: 'Pending', date: '2025-10-23' },
-    { id: 'TRX-9985', user: 'Diana Prince', type: 'Payment', amount: 890.00, status: 'Completed', date: '2025-10-22' },
-    { id: 'TRX-9986', user: 'Evan Wright', type: 'Payment', amount: 120.00, status: 'Failed', date: '2025-10-22' },
-];
+const mockTransactions: any[] = [];
 
 export default function PaymentsPage() {
     const [search, setSearch] = useState('');
 
-    const filteredTransactions = mockTransactions.filter(t =>
+    const filteredTransactions = mockTransactions.filter((t: any) =>
         t.user.toLowerCase().includes(search.toLowerCase()) ||
         t.id.toLowerCase().includes(search.toLowerCase())
     );
@@ -51,34 +45,34 @@ export default function PaymentsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <AdminStatsCard
                     title="Net Volume"
-                    value="$842,300"
+                    value="$0"
                     icon={Wallet}
-                    change={14}
-                    changeType="increase"
+                    change={0}
+                    changeType="neutral"
                     description="Total processed volume"
                 />
                 <AdminStatsCard
                     title="Active Subscriptions"
-                    value="1,240"
+                    value="0"
                     icon={CreditCard}
-                    change={5}
-                    changeType="increase"
+                    change={0}
+                    changeType="neutral"
                     description="Recurring revenue"
                 />
                 <AdminStatsCard
                     title="Payouts"
-                    value="$65,200"
+                    value="$0"
                     icon={ArrowUpRight}
-                    change={2}
-                    changeType="decrease"
+                    change={0}
+                    changeType="neutral"
                     description="Sent to hosts"
                 />
                 <AdminStatsCard
                     title="Refund Rate"
-                    value="1.2%"
+                    value="0%"
                     icon={ArrowDownLeft}
-                    change={0.1}
-                    changeType="increase"
+                    change={0}
+                    changeType="neutral"
                     description="Low dispute rate"
                 />
             </div>

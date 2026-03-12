@@ -3,14 +3,12 @@
 import { useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { useNotificationStore } from '@/store/notification-store';
-import { useMessageStore } from '@/store/message-store';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const { user, isAuthenticated } = useAuthStore();
     const { addNotification, fetchNotifications } = useNotificationStore();
-    const { fetchConversations, addMessage } = useMessageStore();
 
     const setupRealtime = useCallback(() => {
         if (!user?.id) return;
@@ -30,16 +28,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                         duration: 5000,
                         position: 'top-right',
                     });
-                    if (notification.type === 'NEW_MESSAGE') {
-                        fetchConversations();
-                    }
                 }
-            })
-            .on('broadcast', { event: 'message' }, (payload) => {
-                const { conversationId, message } = payload.payload;
-                console.log('[Supabase] New message received:', message);
-                addMessage(conversationId, message);
-                fetchConversations();
             })
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {
@@ -50,7 +39,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [user?.id, addNotification, fetchNotifications, fetchConversations, addMessage]);
+    }, [user?.id, addNotification, fetchNotifications]);
 
     useEffect(() => {
         if (isAuthenticated && user?.id) {

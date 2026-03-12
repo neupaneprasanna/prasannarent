@@ -16,10 +16,13 @@ import FAQ from '@/components/sections/FAQ';
 import CTASection from '@/components/sections/CTASection';
 import Footer from '@/components/sections/Footer';
 import DimensionalReveal from '@/components/motion/DimensionalReveal';
+import RecentlyViewedSection from '@/components/sections/RecentlyViewedSection';
+
 
 export default function HomePage() {
     return (
         <main className="relative">
+
             <Navbar />
 
             {/* Hero Section */}
@@ -38,6 +41,11 @@ export default function HomePage() {
             {/* Trending */}
             <DimensionalReveal glowColor="rgba(0,255,179,0.08)" parallaxIntensity={0.3}>
                 <TrendingCarousel />
+            </DimensionalReveal>
+
+            {/* Recently Viewed */}
+            <DimensionalReveal glowColor="rgba(161,140,255,0.1)" parallaxIntensity={0.2}>
+                <RecentlyViewedSection />
             </DimensionalReveal>
 
             {/* Why RentVerse */}

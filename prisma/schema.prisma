@@ -30,6 +30,11 @@ model User {
   points    Int      @default(0)
   interests String[]
 
+  // Reputation & Trust
+  fairnessScore    Float   @default(75)
+  responseTime     Int     @default(0) // average response time in minutes
+  subscriptionTier SubscriptionTier @default(FREE)
+
   // Extended Profile / Security
   address            String?
   city               String?
@@ -55,15 +60,6 @@ model User {
   listings         Listing[]
   bookings         Booking[]
   reviews          Review[]
-  sentMessages     Message[]      @relation("SentMessages")
-  receivedMessages Message[]      @relation("ReceivedMessages")
-  notifications    Notification[]
-  badges           Badge[]
-
-  // Messaging Relations
-  conversationParticipants ConversationParticipant[]
-  conversationMessages     ConversationMessage[]
-
   // Engagement Relations
   wishlistCollections WishlistCollection[]
   recentlyViewed      RecentlyViewed[]
@@ -72,15 +68,30 @@ model User {
   activityEvents      ActivityEvent[]
   hostProfile         HostProfile?
 
+  // Reputation & Social Relations
+  subscription      Subscription?
+  reputation        UserReputation?
+  achievements      Achievement[]
+  connectionsFrom   Connection[]     @relation("ConnectionFrom")
+  connectionsTo     Connection[]     @relation("ConnectionTo")
+  pointLedger       PointLedger[]
+
   // Growth Relations
   referralsMade    Referral[]        @relation("Referrals")
   referredBy       Referral[]        @relation("ReferredBy")
   promoRedemptions PromoRedemption[]
 
   // Admin Relations
-  auditLogs   AuditLog[]             @relation("AdminAuditLogs")
-  moderations ModerationItem[]       @relation("ModeratorReviews")
-  campaigns   NotificationCampaign[] @relation("CampaignCreator")
+  auditLogs     AuditLog[]             @relation("AdminAuditLogs")
+  moderations   ModerationItem[]       @relation("ModeratorReviews")
+  campaigns     NotificationCampaign[] @relation("CampaignCreator")
+
+  notifications Notification[]
+  badges        Badge[]
+
+  // Chat Relations
+  chatMembers   ChatMember[]
+  messagesSent  Message[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -88,6 +99,8 @@ model User {
   @@index([email])
   @@index([role])
   @@index([referralCode])
+  @@index([level])
+  @@index([subscriptionTier])
 }
 
 model Listing {
@@ -123,8 +136,6 @@ model Listing {
 
   bookings      Booking[]
   reviews       Review[]
-  conversations Conversation[]
-
   // New relations
   media          ListingMedia[]
   pricing        ListingPricing?
@@ -195,67 +206,6 @@ model Review {
 
   @@index([listingId])
   @@index([userId])
-}
-
-model Message {
-  id   String  @id @default(cuid())
-  text String
-  read Boolean @default(false)
-
-  sender     User   @relation("SentMessages", fields: [senderId], references: [id])
-  senderId   String
-  receiver   User   @relation("ReceivedMessages", fields: [receiverId], references: [id])
-  receiverId String
-
-  createdAt DateTime @default(now())
-
-  @@index([senderId])
-  @@index([receiverId])
-}
-
-// ═══════════════════════════════════════════
-//  MESSAGING / CONVERSATIONS
-// ═══════════════════════════════════════════
-
-model Conversation {
-  id        String   @id @default(cuid())
-  listingId String?
-  listing   Listing? @relation(fields: [listingId], references: [id])
-
-  participants ConversationParticipant[]
-  messages     ConversationMessage[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([listingId])
-}
-
-model ConversationParticipant {
-  id             String       @id @default(cuid())
-  userId         String
-  user           User         @relation(fields: [userId], references: [id])
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
-  joinedAt       DateTime     @default(now())
-
-  @@unique([userId, conversationId])
-  @@index([userId])
-  @@index([conversationId])
-}
-
-model ConversationMessage {
-  id             String       @id @default(cuid())
-  text           String
-  senderId       String
-  sender         User         @relation(fields: [senderId], references: [id])
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
-  read           Boolean      @default(false)
-  createdAt      DateTime     @default(now())
-
-  @@index([conversationId])
-  @@index([senderId])
 }
 
 model Notification {
@@ -632,6 +582,7 @@ model ModerationItem {
   reviewerId String?
   reviewNote String?
   reviewedAt DateTime?
+  deletedAt DateTime?
 
   createdAt DateTime @default(now())
 
@@ -671,6 +622,104 @@ model NotificationCampaign {
 }
 
 // ═══════════════════════════════════════════
+//  REPUTATION & SUBSCRIPTION SYSTEM
+// ═══════════════════════════════════════════
+
+model Subscription {
+  id              String           @id @default(cuid())
+  userId          String           @unique
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier            SubscriptionTier @default(FREE)
+  monthlyPrice    Float            @default(0)
+  startDate       DateTime         @default(now())
+  renewalDate     DateTime?
+  cancelledAt     DateTime?
+  isActive        Boolean          @default(true)
+  paymentMethod   String?
+  features        String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([tier])
+}
+
+model UserReputation {
+  id                String  @id @default(cuid())
+  userId            String  @unique
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Trust Score Components (0-100 each)
+  transactionScore  Float   @default(50)
+  reviewScore       Float   @default(50)
+  verificationScore Float   @default(0)
+  activityScore     Float   @default(30)
+  responseScore     Float   @default(50)
+  
+  // Negative Factors
+  reportCount       Int     @default(0)
+  disputeCount      Int     @default(0)
+  cancelCount       Int     @default(0)
+  spamCount         Int     @default(0)
+  
+  // Computed
+  overallScore      Float   @default(50)
+  lastCalculated    DateTime @default(now())
+
+  @@index([userId])
+  @@index([overallScore(sort: Desc)])
+}
+
+model Connection {
+  id          String         @id @default(cuid())
+  fromUserId  String
+  fromUser    User           @relation("ConnectionFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId    String
+  toUser      User           @relation("ConnectionTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  type        ConnectionType @default(FOLLOWER)
+  note        String?
+  
+  createdAt DateTime @default(now())
+
+  @@unique([fromUserId, toUserId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([type])
+}
+
+model Achievement {
+  id          String  @id @default(cuid())
+  userId      String
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key         String  // e.g., "first_listing", "10_transactions", "verified_identity"
+  title       String
+  description String
+  icon        String
+  category    String  @default("general") // "engagement", "trust", "commerce", "social"
+  rarity      String  @default("common")  // "common", "rare", "epic", "legendary"
+  unlockedAt  DateTime @default(now())
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@index([category])
+}
+
+model PointLedger {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity    String   // e.g., "listing_created", "transaction_completed", "review_received"
+  points      Int
+  description String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([activity])
+}
+
+// ═══════════════════════════════════════════
 //  ENUMS
 // ═══════════════════════════════════════════
 
@@ -682,6 +731,21 @@ enum Role {
   FINANCE
   SUPPORT
   ANALYST
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum ConnectionType {
+  CLOSE_FRIEND
+  BUSINESS_FRIEND
+  FOLLOWER
+  FOLLOWING
+  TRUSTED_PARTNER
 }
 
 enum PriceUnit {
@@ -748,4 +812,97 @@ enum ModerationStatus {
   APPROVED
   REJECTED
   ESCALATED
+}
+
+// ==========================================
+// CHAT & MESSAGING SYSTEM
+// ==========================================
+
+model ChatRoom {
+  id          String   @id @default(cuid())
+  isGroup     Boolean  @default(false)
+  name        String?  // Optional name for group chats
+  
+  members     ChatMember[]
+  messages    Message[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ChatMember {
+  id          String   @id @default(cuid())
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  chatRoomId  String
+  chatRoom    ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+
+  // Personalization & Settings
+  nickname    String?
+  isMuted     Boolean  @default(false)
+  isPinned    Boolean  @default(false)
+  
+  // Tracking
+  lastReadAt  DateTime? @default(now())
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, chatRoomId])
+  @@index([userId])
+  @@index([chatRoomId])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  
+  content     String?  // Optional if sending only attachments
+  
+  senderId    String
+  sender      User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  
+  chatRoomId  String
+  chatRoom    ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+
+  // Status
+  isRead      Boolean  @default(false)
+  isEdited    Boolean  @default(false)
+  isDeleted   Boolean  @default(false)
+
+  // Rich Media
+  attachments Attachment[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([chatRoomId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model Attachment {
+  id          String   @id @default(cuid())
+  
+  messageId   String
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  url         String
+  type        AttachmentType
+  name        String?  // Original file name
+  size        Int?     // Size in bytes
+
+  createdAt   DateTime @default(now())
+
+  @@index([messageId])
+  @@index([type])
+}
+
+enum AttachmentType {
+  IMAGE
+  VIDEO
+  DOCUMENT
+  AUDIO
+  LISTING_SHARE
 }

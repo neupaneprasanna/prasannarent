@@ -21,15 +21,12 @@ export type PermissionModule =
     | 'bookings'
     | 'payments'
     | 'content'
-    | 'ai'
     | 'features'
-    | 'notifications'
     | 'moderation'
     | 'analytics'
     | 'audit'
     | 'system'
-    | 'settings'
-    | 'messages';
+    | 'settings';
 
 export type PermissionAction = 'read' | 'write' | 'delete' | 'approve' | 'manage';
 
@@ -43,7 +40,7 @@ export interface Permission {
 export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
     SUPER_ADMIN: [
         // Full access to everything
-        ...(['dashboard', 'users', 'listings', 'bookings', 'payments', 'content', 'ai', 'features', 'notifications', 'moderation', 'analytics', 'audit', 'system', 'settings'] as PermissionModule[])
+        ...(['dashboard', 'users', 'listings', 'bookings', 'payments', 'content', 'features', 'moderation', 'analytics', 'audit', 'system', 'settings'] as PermissionModule[])
             .flatMap(module => (['read', 'write', 'delete', 'approve', 'manage'] as PermissionAction[]).map(action => ({ module, action }))),
     ],
     ADMIN: [
@@ -53,7 +50,6 @@ export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
         { module: 'bookings', action: 'read' }, { module: 'bookings', action: 'write' },
         { module: 'payments', action: 'read' }, { module: 'payments', action: 'write' },
         { module: 'content', action: 'read' }, { module: 'content', action: 'write' },
-        { module: 'notifications', action: 'read' }, { module: 'notifications', action: 'write' },
         { module: 'moderation', action: 'read' }, { module: 'moderation', action: 'write' }, { module: 'moderation', action: 'approve' },
         { module: 'analytics', action: 'read' },
         { module: 'audit', action: 'read' },
@@ -65,7 +61,6 @@ export const ROLE_PERMISSIONS: Record<AdminRole, Permission[]> = {
         { module: 'listings', action: 'read' }, { module: 'listings', action: 'write' }, { module: 'listings', action: 'delete' }, { module: 'listings', action: 'approve' },
         { module: 'bookings', action: 'read' },
         { module: 'content', action: 'read' }, { module: 'content', action: 'write' },
-        { module: 'notifications', action: 'read' }, { module: 'notifications', action: 'write' },
         { module: 'moderation', action: 'read' }, { module: 'moderation', action: 'write' }, { module: 'moderation', action: 'approve' },
         { module: 'audit', action: 'read' },
     ],
@@ -179,11 +174,8 @@ export const ADMIN_SIDEBAR_ITEMS: SidebarItem[] = [
     { id: 'users', label: 'Users', icon: 'Users', href: '/admin/users', module: 'users' },
     { id: 'listings', label: 'Listings', icon: 'Building2', href: '/admin/listings', module: 'listings' },
     { id: 'bookings', label: 'Bookings', icon: 'Calendar', href: '/admin/bookings', module: 'bookings' },
-    { id: 'messages', label: 'Messages', icon: 'MessageSquare', href: '/admin/messages', module: 'dashboard' },
     { id: 'payments', label: 'Payments', icon: 'CreditCard', href: '/admin/payments', module: 'payments' },
     { id: 'content', label: 'Content', icon: 'FileText', href: '/admin/content', module: 'content' },
-    { id: 'ai', label: 'AI Control', icon: 'Brain', href: '/admin/ai', module: 'ai' },
-    { id: 'notifications', label: 'Notifications', icon: 'Bell', href: '/admin/notifications', module: 'notifications' },
     { id: 'features', label: 'Features', icon: 'ToggleRight', href: '/admin/features', module: 'features' },
     { id: 'moderation', label: 'Moderation', icon: 'Shield', href: '/admin/moderation', module: 'moderation' },
     { id: 'analytics', label: 'Analytics', icon: 'BarChart3', href: '/admin/analytics', module: 'analytics' },

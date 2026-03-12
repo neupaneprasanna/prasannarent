@@ -10,13 +10,12 @@ import {
     TrendingUp, Activity, Shield, Server,
     ArrowUpRight, ArrowDownRight, Clock, Eye,
     ChevronRight, CheckCircle2, AlertCircle,
-    Brain, Zap, ExternalLink, Database,
+    ScrollText, Zap, ExternalLink, Database,
     Trash2, MapPin, AlertTriangle, Check, Package
 } from 'lucide-react';
 import { AdminActivityEvent } from '@/types/admin';
 import { AdminStatsCard } from '@/components/admin/ui/AdminStatsCard';
 import { AdminRevenueChart } from '@/components/admin/dashboard/AdminRevenueChart';
-import { AdminUserGrowthChart } from '@/components/admin/dashboard/AdminUserGrowthChart';
 
 // ─── Activity Item ──────────────────────────────────────────────────────────────
 
@@ -125,12 +124,12 @@ export default function AdminDashboardPage() {
     }
 
     const dashboardStats: DashboardStat[] = [
-        { title: 'Total Users', value: stats?.totalUsers ?? '—', icon: Users, change: 12.5, type: 'increase' },
-        { title: 'Active Listings', value: stats?.totalListings ?? '—', icon: Building2, change: 8.2, type: 'increase' },
-        { title: 'Global Bookings', value: stats?.totalBookings ?? '—', icon: Calendar, change: 23.4, type: 'increase' },
-        { title: 'Total Revenue', value: stats ? `$${stats.totalRevenue.toLocaleString()}` : '—', icon: DollarSign, change: 18.2, type: 'increase' },
-        { title: 'Pending Review', value: stats?.pendingApprovals ?? '—', icon: Clock, type: 'neutral' },
-        { title: 'System Alerts', value: stats?.moderationQueue ?? '—', icon: Shield, type: 'neutral' },
+        { title: 'Total Users', value: stats?.totalUsers ?? 0, icon: Users, change: 0, type: 'neutral' },
+        { title: 'Active Listings', value: stats?.totalListings ?? 0, icon: Building2, change: 0, type: 'neutral' },
+        { title: 'Global Bookings', value: stats?.totalBookings ?? 0, icon: Calendar, change: 0, type: 'neutral' },
+        { title: 'Total Revenue', value: stats ? `$${stats.totalRevenue.toLocaleString()}` : '$0', icon: DollarSign, change: 0, type: 'neutral' },
+        { title: 'Pending Review', value: stats?.pendingApprovals ?? 0, icon: Clock, type: 'neutral' },
+        { title: 'System Alerts', value: stats?.moderationQueue ?? 0, icon: Shield, type: 'neutral' },
     ];
 
     return (
@@ -209,7 +208,9 @@ export default function AdminDashboardPage() {
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="text-lg font-display font-bold text-emerald-400">+$24,842</p>
+                            <p className="text-lg font-display font-bold text-emerald-400">
+                                ${revenueData.reduce((acc, curr) => acc + curr.revenue, 0).toLocaleString()}
+                            </p>
                             <p className="text-[10px] text-white/20 uppercase font-bold">Month to date</p>
                         </div>
                     </div>
@@ -295,7 +296,7 @@ export default function AdminDashboardPage() {
                     <div className="p-6 border-b border-white/[0.04] bg-white/[0.01] flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                                <Brain size={20} />
+                                <ScrollText size={20} />
                             </div>
                             <div>
                                 <h3 className="text-sm font-bold text-white tracking-wide">Live Audit Log</h3>
@@ -393,28 +394,6 @@ export default function AdminDashboardPage() {
                     </div>
                 </motion.div>
 
-                {/* New User Growth Section */}
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.35 }}
-                    className="glass shadow-2xl rounded-3xl border border-white/[0.06] overflow-hidden"
-                >
-                    <div className="p-6 border-b border-white/[0.04] bg-white/[0.01] flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                                <Users size={20} />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-bold text-white tracking-wide">User Growth</h3>
-                                <p className="text-[10px] text-white/30 uppercase tracking-widest font-medium">New registrations</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="p-6">
-                        <AdminUserGrowthChart />
-                    </div>
-                </motion.div>
             </div>
         </div>
     );

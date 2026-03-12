@@ -146,8 +146,8 @@ export default function UsersPage() {
                     value={items.filter(u => u.lastSeenAt && new Date(u.lastSeenAt).getTime() > Date.now() - 15 * 60 * 1000).length}
                     icon={Activity}
                     description="Online in last 15m"
-                    change={12}
-                    changeType="increase"
+                    change={0}
+                    changeType="neutral"
                 />
                 <AdminStatsCard
                     title="Banned"

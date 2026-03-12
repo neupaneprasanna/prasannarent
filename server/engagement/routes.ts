@@ -812,5 +812,555 @@ export function createEngagementRouter(): Router {
         }
     });
 
+    // ═══════════════════════════════════════════
+    //  REPUTATION & POINTS SYSTEM
+    // ═══════════════════════════════════════════
+
+    // Activity point values
+    const POINT_VALUES: Record<string, { points: number; cooldownMinutes?: number; description: string }> = {
+        listing_created: { points: 20, description: 'Created a listing' },
+        transaction_completed: { points: 50, description: 'Completed a transaction' },
+        review_received_positive: { points: 15, description: 'Received a positive review' },
+        comment_posted: { points: 5, cooldownMinutes: 10, description: 'Posted a helpful comment' },
+        daily_login: { points: 2, cooldownMinutes: 1440, description: 'Daily login bonus' },
+        referral_completed: { points: 40, description: 'Referred a new user' },
+        identity_verified: { points: 30, description: 'Verified identity' },
+        profile_completed: { points: 10, description: 'Completed profile' },
+        first_booking: { points: 25, description: 'Made first booking' },
+    };
+
+    // Level thresholds
+    const LEVELS = [
+        { level: 1, title: 'Explorer', minPoints: 0, maxPoints: 100 },
+        { level: 2, title: 'Contributor', minPoints: 100, maxPoints: 500 },
+        { level: 3, title: 'Trusted Member', minPoints: 500, maxPoints: 1500 },
+        { level: 4, title: 'Community Leader', minPoints: 1500, maxPoints: 5000 },
+        { level: 5, title: 'Elite Partner', minPoints: 5000, maxPoints: 15000 },
+        { level: 6, title: 'Platform Ambassador', minPoints: 15000, maxPoints: 999999 },
+    ];
+
+    function getLevelInfo(points: number) {
+        const current = LEVELS.find(l => points >= l.minPoints && points < l.maxPoints) || LEVELS[LEVELS.length - 1];
+        const progress = Math.min(100, ((points - current.minPoints) / (current.maxPoints - current.minPoints)) * 100);
+        return { ...current, progress: Math.round(progress) };
+    }
+
+    function getTrustStatus(score: number) {
+        if (score >= 90) return { status: 'Highly Trusted', color: '#34d399' };
+        if (score >= 75) return { status: 'Trusted', color: '#60a5fa' };
+        if (score >= 50) return { status: 'Standard', color: '#fbbf24' };
+        if (score >= 25) return { status: 'Risky', color: '#f97316' };
+        return { status: 'Restricted', color: '#ef4444' };
+    }
+
+    // POST /api/engagement/reputation/award — Award points for an activity
+    router.post('/reputation/award', authenticateToken, async (req: Request, res: Response) => {
+        try {
+            const userId = (req as AuthRequest).user!.userId;
+            const { activity } = req.body;
+
+            const activityConfig = POINT_VALUES[activity];
+            if (!activityConfig) return res.status(400).json({ error: 'Unknown activity type' });
+
+            // Cooldown check
+            if (activityConfig.cooldownMinutes) {
+                const cooldownDate = new Date();
+                cooldownDate.setMinutes(cooldownDate.getMinutes() - activityConfig.cooldownMinutes);
+
+                const recent = await (prisma as any).pointLedger.findFirst({
+                    where: {
+                        userId,
+                        activity,
+                        createdAt: { gte: cooldownDate }
+                    }
+                });
+
+                if (recent) {
+                    return res.status(429).json({ error: 'Activity on cooldown', cooldownMinutes: activityConfig.cooldownMinutes });
+                }
+            }
+
+            // Award points
+            const [ledgerEntry, updatedUser] = await prisma.$transaction([
+                (prisma as any).pointLedger.create({
+                    data: {
+                        userId,
+                        activity,
+                        points: activityConfig.points,
+                        description: activityConfig.description,
+                    }
+                }),
+                prisma.user.update({
+                    where: { id: userId },
+                    data: {
+                        points: { increment: activityConfig.points },
+                    } as any
+                })
+            ]);
+
+            // Recalculate level
+            const newLevel = getLevelInfo((updatedUser as any).points);
+            if (newLevel.level !== (updatedUser as any).level) {
+                await prisma.user.update({
+                    where: { id: userId },
+                    data: { level: newLevel.level } as any
+                });
+            }
+
+            res.json({
+                pointsAwarded: activityConfig.points,
+                totalPoints: (updatedUser as any).points,
+                level: newLevel,
+            });
+        } catch (error) {
+            console.error('Award points error:', error);
+            res.status(500).json({ error: 'Failed to award points' });
+        }
+    });
+
+    // GET /api/engagement/reputation/:userId — Get reputation data
+    router.get('/reputation/:userId', async (req: Request, res: Response) => {
+        try {
+            const userId = req.params.userId as string;
+
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    id: true, points: true, level: true, verified: true,
+                    fairnessScore: true, responseTime: true,
+                    createdAt: true,
+                } as any
+            });
+
+            if (!user) return res.status(404).json({ error: 'User not found' });
+
+            // Get or create reputation record
+            let reputation = await (prisma as any).userReputation.findUnique({
+                where: { userId }
+            });
+
+            if (!reputation) {
+                reputation = await (prisma as any).userReputation.create({
+                    data: { userId, overallScore: (user as any).fairnessScore || 50 }
+                });
+            }
+
+            // Get recent point activity
+            const recentActivity = await (prisma as any).pointLedger.findMany({
+                where: { userId },
+                orderBy: { createdAt: 'desc' },
+                take: 20,
+            });
+
+            // Get achievements
+            const achievements = await (prisma as any).achievement.findMany({
+                where: { userId },
+                orderBy: { unlockedAt: 'desc' },
+            });
+
+            const levelInfo = getLevelInfo((user as any).points);
+            const trustInfo = getTrustStatus(reputation.overallScore);
+
+            res.json({
+                points: (user as any).points,
+                level: levelInfo,
+                trustScore: {
+                    overall: reputation.overallScore,
+                    ...trustInfo,
+                    components: {
+                        transaction: reputation.transactionScore,
+                        review: reputation.reviewScore,
+                        verification: reputation.verificationScore,
+                        activity: reputation.activityScore,
+                        response: reputation.responseScore,
+                    },
+                    negativeFactors: {
+                        reports: reputation.reportCount,
+                        disputes: reputation.disputeCount,
+                        cancellations: reputation.cancelCount,
+                        spam: reputation.spamCount,
+                    }
+                },
+                achievements,
+                recentActivity,
+                verified: (user as any).verified,
+                memberSince: (user as any).createdAt,
+            });
+        } catch (error) {
+            console.error('Reputation fetch error:', error);
+            res.status(500).json({ error: 'Failed to fetch reputation' });
+        }
+    });
+
+    // POST /api/engagement/reputation/recalculate — Recalculate trust score
+    router.post('/reputation/recalculate', authenticateToken, async (req: Request, res: Response) => {
+        try {
+            const userId = (req as AuthRequest).user!.userId;
+
+            // Get user data for calculation
+            const [completedBookingsAsRenter, completedBookingsAsHost, reviewsReceived, cancelledBookings, user] = await Promise.all([
+                prisma.booking.count({ where: { renterId: userId, status: 'COMPLETED' } }),
+                prisma.booking.count({ where: { listing: { ownerId: userId }, status: 'COMPLETED' } }),
+                prisma.review.findMany({ where: { listing: { ownerId: userId } }, select: { rating: true } }),
+                prisma.booking.count({
+                    where: {
+                        OR: [
+                            { renterId: userId, status: 'CANCELLED' },
+                            { listing: { ownerId: userId }, status: 'CANCELLED' }
+                        ]
+                    }
+                }),
+                prisma.user.findUnique({
+                    where: { id: userId },
+                    select: { verified: true, loginCount: true, createdAt: true } as any
+                })
+            ]);
+
+            if (!user) return res.status(404).json({ error: 'User not found' });
+
+            const totalTransactions = completedBookingsAsRenter + completedBookingsAsHost;
+            const transactionScore = Math.min(100, 30 + (totalTransactions * 5));
+
+            const avgRating = reviewsReceived.length > 0
+                ? reviewsReceived.reduce((sum, r) => sum + r.rating, 0) / reviewsReceived.length
+                : 2.5;
+            const reviewScore = Math.min(100, (avgRating / 5) * 100);
+
+            const verificationScore = (user as any).verified ? 100 : 0;
+
+            const daysSinceJoin = Math.floor((Date.now() - new Date((user as any).createdAt).getTime()) / (1000 * 60 * 60 * 24));
+            const activityScore = Math.min(100, 20 + (daysSinceJoin / 2) + ((user as any).loginCount * 2));
+
+            const cancelRate = totalTransactions > 0 ? cancelledBookings / (totalTransactions + cancelledBookings) : 0;
+            const responseScore = Math.max(0, 100 - (cancelRate * 100));
+
+            // Weighted average
+            const overallScore = Math.round(
+                transactionScore * 0.25 +
+                reviewScore * 0.25 +
+                verificationScore * 0.15 +
+                activityScore * 0.15 +
+                responseScore * 0.20
+            );
+
+            // Update or create
+            const reputation = await (prisma as any).userReputation.upsert({
+                where: { userId },
+                update: {
+                    transactionScore: Math.round(transactionScore),
+                    reviewScore: Math.round(reviewScore),
+                    verificationScore,
+                    activityScore: Math.round(activityScore),
+                    responseScore: Math.round(responseScore),
+                    cancelCount: cancelledBookings,
+                    overallScore,
+                    lastCalculated: new Date(),
+                },
+                create: {
+                    userId,
+                    transactionScore: Math.round(transactionScore),
+                    reviewScore: Math.round(reviewScore),
+                    verificationScore,
+                    activityScore: Math.round(activityScore),
+                    responseScore: Math.round(responseScore),
+                    cancelCount: cancelledBookings,
+                    overallScore,
+                }
+            });
+
+            // Update user's fairnessScore
+            await prisma.user.update({
+                where: { id: userId },
+                data: { fairnessScore: overallScore } as any
+            });
+
+            res.json({ reputation, overallScore });
+        } catch (error) {
+            console.error('Recalculate reputation error:', error);
+            res.status(500).json({ error: 'Failed to recalculate reputation' });
+        }
+    });
+
+    // ═══════════════════════════════════════════
+    //  SUBSCRIPTION SYSTEM
+    // ═══════════════════════════════════════════
+
+    const SUBSCRIPTION_TIERS = {
+        FREE: { price: 0, features: ['Basic features', 'Up to 5 listings', 'Standard support'] },
+        PRO: { price: 9, features: ['Boosted visibility', 'Advanced analytics', 'Profile highlight badge', 'Up to 20 listings', 'Priority support'] },
+        BUSINESS: { price: 29, features: ['Business profile verification', 'Bulk listing tools', 'Networking features', 'Unlimited listings', 'Advanced analytics', 'Priority support'] },
+        ENTERPRISE: { price: 79, features: ['API integrations', 'Premium exposure', 'Dedicated support', 'Unlimited everything', 'Custom branding', 'White-label options'] },
+    };
+
+    // GET /api/engagement/subscription/:userId — Get subscription info
+    router.get('/subscription/:userId', async (req: Request, res: Response) => {
+        try {
+            const userId = req.params.userId as string;
+
+            let subscription = await (prisma as any).subscription.findUnique({
+                where: { userId }
+            });
+
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { subscriptionTier: true } as any
+            });
+
+            if (!subscription) {
+                // Default to free
+                const tier = (user as any)?.subscriptionTier || 'FREE';
+                const tierInfo = SUBSCRIPTION_TIERS[tier as keyof typeof SUBSCRIPTION_TIERS] || SUBSCRIPTION_TIERS.FREE;
+                return res.json({
+                    tier,
+                    monthlyPrice: tierInfo.price,
+                    features: tierInfo.features,
+                    isActive: true,
+                    startDate: null,
+                    renewalDate: null,
+                });
+            }
+
+            const tierInfo = SUBSCRIPTION_TIERS[subscription.tier as keyof typeof SUBSCRIPTION_TIERS] || SUBSCRIPTION_TIERS.FREE;
+
+            res.json({
+                ...subscription,
+                features: subscription.features.length > 0 ? subscription.features : tierInfo.features,
+                allTiers: SUBSCRIPTION_TIERS,
+            });
+        } catch (error) {
+            console.error('Subscription fetch error:', error);
+            res.status(500).json({ error: 'Failed to fetch subscription' });
+        }
+    });
+
+    // ═══════════════════════════════════════════
+    //  SOCIAL CONNECTIONS
+    // ═══════════════════════════════════════════
+
+    // GET /api/engagement/connections/:userId — Get user connections
+    router.get('/connections/:userId', async (req: Request, res: Response) => {
+        try {
+            const { userId } = req.params;
+            const type = req.query.type as string;
+
+            const where: any = {
+                OR: [{ fromUserId: userId }, { toUserId: userId }]
+            };
+            if (type) where.type = type;
+
+            const connections = await (prisma as any).connection.findMany({
+                where,
+                include: {
+                    fromUser: { select: { id: true, firstName: true, lastName: true, avatar: true, verified: true, level: true, subscriptionTier: true } },
+                    toUser: { select: { id: true, firstName: true, lastName: true, avatar: true, verified: true, level: true, subscriptionTier: true } },
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+
+            // Map connections to show the "other" user
+            const mapped = connections.map((c: any) => {
+                const isFrom = c.fromUserId === userId;
+                const otherUser = isFrom ? c.toUser : c.fromUser;
+                return {
+                    id: c.id,
+                    type: c.type,
+                    user: otherUser,
+                    note: c.note,
+                    createdAt: c.createdAt,
+                };
+            });
+
+            // Group by type
+            const grouped = {
+                closeFriends: mapped.filter((c: any) => c.type === 'CLOSE_FRIEND'),
+                businessFriends: mapped.filter((c: any) => c.type === 'BUSINESS_FRIEND'),
+                followers: mapped.filter((c: any) => c.type === 'FOLLOWER'),
+                following: mapped.filter((c: any) => c.type === 'FOLLOWING'),
+                trustedPartners: mapped.filter((c: any) => c.type === 'TRUSTED_PARTNER'),
+            };
+
+            res.json({ connections: mapped, grouped, total: mapped.length });
+        } catch (error) {
+            console.error('Connections fetch error:', error);
+            res.status(500).json({ error: 'Failed to fetch connections' });
+        }
+    });
+
+    // POST /api/engagement/connections — Add connection
+    router.post('/connections', authenticateToken, async (req: Request, res: Response) => {
+        try {
+            const fromUserId = (req as AuthRequest).user!.userId;
+            const { toUserId, type } = req.body;
+
+            if (fromUserId === toUserId) return res.status(400).json({ error: 'Cannot connect with yourself' });
+
+            const connection = await (prisma as any).connection.upsert({
+                where: { fromUserId_toUserId: { fromUserId, toUserId } },
+                update: { type },
+                create: { fromUserId, toUserId, type: type || 'FOLLOWER' },
+                include: {
+                    toUser: { select: { id: true, firstName: true, lastName: true, avatar: true, verified: true, level: true } },
+                }
+            });
+
+            res.status(201).json({ connection });
+        } catch (error) {
+            console.error('Add connection error:', error);
+            res.status(500).json({ error: 'Failed to add connection' });
+        }
+    });
+
+    // DELETE /api/engagement/connections/:connectionId — Remove connection
+    router.delete('/connections/:connectionId', authenticateToken, async (req: Request, res: Response) => {
+        try {
+            const userId = (req as AuthRequest).user!.userId;
+            const { connectionId } = req.params;
+
+            const connection = await (prisma as any).connection.findFirst({
+                where: {
+                    id: connectionId,
+                    OR: [{ fromUserId: userId }, { toUserId: userId }]
+                }
+            });
+
+            if (!connection) return res.status(404).json({ error: 'Connection not found' });
+
+            await (prisma as any).connection.delete({ where: { id: connectionId } });
+            res.json({ success: true });
+        } catch (error) {
+            console.error('Remove connection error:', error);
+            res.status(500).json({ error: 'Failed to remove connection' });
+        }
+    });
+
+    // ═══════════════════════════════════════════
+    //  FULL PROFILE DATA
+    // ═══════════════════════════════════════════
+
+    // GET /api/engagement/profile/:userId/full — Complete profile data for profile page
+    router.get('/profile/:userId/full', async (req: Request, res: Response) => {
+        try {
+            const { userId } = req.params;
+
+            const [user, reputation, subscription, achievements, connections, recentPoints, listings, completedBookings, reviewsReceived, followersCount, followingCount] = await Promise.all([
+                prisma.user.findUnique({
+                    where: { id: userId },
+                    select: {
+                        id: true, firstName: true, lastName: true, avatar: true,
+                        bio: true, verified: true, city: true, interests: true,
+                        level: true, points: true, fairnessScore: true,
+                        subscriptionTier: true, responseTime: true,
+                        createdAt: true,
+                    } as any,
+                }),
+                (prisma as any).userReputation.findUnique({ where: { userId } }),
+                (prisma as any).subscription.findUnique({ where: { userId } }),
+                (prisma as any).achievement.findMany({
+                    where: { userId },
+                    orderBy: { unlockedAt: 'desc' },
+                }),
+                (prisma as any).connection.findMany({
+                    where: { OR: [{ fromUserId: userId }, { toUserId: userId }] },
+                    include: {
+                        fromUser: { select: { id: true, firstName: true, lastName: true, avatar: true, verified: true, level: true, subscriptionTier: true } },
+                        toUser: { select: { id: true, firstName: true, lastName: true, avatar: true, verified: true, level: true, subscriptionTier: true } },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 50,
+                }),
+                (prisma as any).pointLedger.findMany({
+                    where: { userId },
+                    orderBy: { createdAt: 'desc' },
+                    take: 10,
+                }),
+                prisma.listing.count({ where: { ownerId: userId, status: 'ACTIVE' } }),
+                prisma.booking.count({
+                    where: {
+                        OR: [
+                            { renterId: userId, status: 'COMPLETED' },
+                            { listing: { ownerId: userId }, status: 'COMPLETED' }
+                        ]
+                    }
+                }),
+                prisma.review.count({ where: { listing: { ownerId: userId } } }),
+                (prisma as any).hostFollow.count({ where: { hostId: userId } }),
+                (prisma as any).hostFollow.count({ where: { followerId: userId } }),
+            ]);
+
+            if (!user) return res.status(404).json({ error: 'User not found' });
+
+            const levelInfo = getLevelInfo((user as any).points);
+            const trustInfo = getTrustStatus(reputation?.overallScore || (user as any).fairnessScore);
+
+            // Map connections
+            const mappedConnections = (connections || []).map((c: any) => {
+                const isFrom = c.fromUserId === userId;
+                return {
+                    id: c.id,
+                    type: c.type,
+                    user: isFrom ? c.toUser : c.fromUser,
+                    createdAt: c.createdAt,
+                };
+            });
+
+            const tier = (user as any).subscriptionTier || 'FREE';
+            const tierInfo = SUBSCRIPTION_TIERS[tier as keyof typeof SUBSCRIPTION_TIERS] || SUBSCRIPTION_TIERS.FREE;
+
+            res.json({
+                user: {
+                    ...(user as any),
+                    levelInfo,
+                },
+                reputation: {
+                    trustScore: reputation?.overallScore || (user as any).fairnessScore,
+                    ...trustInfo,
+                    components: reputation ? {
+                        transaction: reputation.transactionScore,
+                        review: reputation.reviewScore,
+                        verification: reputation.verificationScore,
+                        activity: reputation.activityScore,
+                        response: reputation.responseScore,
+                    } : null,
+                    negativeFactors: reputation ? {
+                        reports: reputation.reportCount,
+                        disputes: reputation.disputeCount,
+                        cancellations: reputation.cancelCount,
+                        spam: reputation.spamCount,
+                    } : null,
+                },
+                subscription: {
+                    tier,
+                    monthlyPrice: tierInfo.price,
+                    features: subscription?.features?.length > 0 ? subscription.features : tierInfo.features,
+                    isActive: subscription?.isActive ?? true,
+                    renewalDate: subscription?.renewalDate,
+                },
+                achievements: achievements || [],
+                connections: {
+                    all: mappedConnections,
+                    closeFriends: mappedConnections.filter((c: any) => c.type === 'CLOSE_FRIEND'),
+                    businessFriends: mappedConnections.filter((c: any) => c.type === 'BUSINESS_FRIEND'),
+                    followers: mappedConnections.filter((c: any) => c.type === 'FOLLOWER'),
+                    following: mappedConnections.filter((c: any) => c.type === 'FOLLOWING'),
+                    trustedPartners: mappedConnections.filter((c: any) => c.type === 'TRUSTED_PARTNER'),
+                },
+                stats: {
+                    listings,
+                    completedTransactions: completedBookings,
+                    reviewsReceived,
+                    followersCount,
+                    followingCount,
+                    totalConnections: mappedConnections.length,
+                },
+                recentActivity: recentPoints || [],
+                allLevels: LEVELS,
+                allSubscriptionTiers: SUBSCRIPTION_TIERS,
+            });
+        } catch (error) {
+            console.error('Full profile fetch error:', error);
+            res.status(500).json({ error: 'Failed to fetch full profile' });
+        }
+    });
+
     return router;
 }

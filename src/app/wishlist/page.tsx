@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/nav/Navbar';
 import { useAuthStore } from '@/store/auth-store';
 import { useWishlistStore } from '@/store/engagement-store';
-import { Heart, Plus, Trash2, MoreHorizontal, Grid3X3, List, Loader2, ExternalLink, MapPin, Star } from 'lucide-react';
+import { Heart, Plus, Trash2, Grid3X3, List, Loader2, MapPin, Star, Filter, ArrowUpDown, Search, FolderOpen, Tag, X, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+
+type SortOption = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'rating';
+type CategoryFilter = 'all' | string;
 
 export default function WishlistPage() {
     const router = useRouter();
@@ -19,6 +22,13 @@ export default function WishlistPage() {
     const [newName, setNewName] = useState('');
     const [newEmoji, setNewEmoji] = useState('📁');
 
+    // New filter states
+    const [searchQuery, setSearchQuery] = useState('');
+    const [sortBy, setSortBy] = useState<SortOption>('newest');
+    const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+    const [showFilters, setShowFilters] = useState(false);
+    const [moveItemModal, setMoveItemModal] = useState<{ itemId: string; listingId: string; fromCollectionId: string } | null>(null);
+
     useEffect(() => {
         if (isAuthenticated) fetchCollections();
     }, [isAuthenticated]);
@@ -29,8 +39,63 @@ export default function WishlistPage() {
         }
     }, [collections]);
 
-    const activeItems = collections.find(c => c.id === activeCollection)?.items || [];
+    const activeCollectionData = collections.find(c => c.id === activeCollection);
+    const activeItems = activeCollectionData?.items || [];
     const totalItems = collections.reduce((sum, c) => sum + (c._count?.items || c.items?.length || 0), 0);
+
+    // Extract unique categories from items
+    const availableCategories = useMemo(() => {
+        const cats = new Set<string>();
+        activeItems.forEach(item => {
+            // Try to infer category from listing data
+            const listing = item.listing as any;
+            if (listing?.category) cats.add(listing.category);
+        });
+        return Array.from(cats);
+    }, [activeItems]);
+
+    // Filter and sort items
+    const filteredItems = useMemo(() => {
+        let items = [...activeItems];
+
+        // Search filter
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            items = items.filter(item =>
+                item.listing.title.toLowerCase().includes(q) ||
+                item.listing.location?.toLowerCase().includes(q)
+            );
+        }
+
+        // Category filter
+        if (categoryFilter !== 'all') {
+            items = items.filter(item => {
+                const listing = item.listing as any;
+                return listing?.category?.toLowerCase() === categoryFilter.toLowerCase();
+            });
+        }
+
+        // Sort
+        switch (sortBy) {
+            case 'newest':
+                items.sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime());
+                break;
+            case 'oldest':
+                items.sort((a, b) => new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime());
+                break;
+            case 'price_asc':
+                items.sort((a, b) => (a.listing.price || 0) - (b.listing.price || 0));
+                break;
+            case 'price_desc':
+                items.sort((a, b) => (b.listing.price || 0) - (a.listing.price || 0));
+                break;
+            case 'rating':
+                items.sort((a, b) => (b.listing.rating || 0) - (a.listing.rating || 0));
+                break;
+        }
+
+        return items;
+    }, [activeItems, searchQuery, categoryFilter, sortBy]);
 
     const handleCreate = async () => {
         if (!newName.trim()) return;
@@ -38,6 +103,18 @@ export default function WishlistPage() {
         setNewName('');
         setNewEmoji('📁');
         setShowCreateModal(false);
+    };
+
+    const handleMoveItem = async (listingId: string, targetCollectionId: string) => {
+        if (!activeCollection) return;
+        try {
+            // Add to new collection
+            await useWishlistStore.getState().addItem(targetCollectionId, listingId);
+            // Remove from current collection
+            await removeItem(activeCollection, listingId);
+        } catch (err) {
+            console.error('Failed to move item:', err);
+        }
     };
 
     if (!isAuthenticated) {
@@ -95,7 +172,12 @@ export default function WishlistPage() {
                                 {collections.map(c => (
                                     <button
                                         key={c.id}
-                                        onClick={() => setActiveCollection(c.id)}
+                                        onClick={() => {
+                                            setActiveCollection(c.id);
+                                            // Reset filters on collection change
+                                            setSearchQuery('');
+                                            setCategoryFilter('all');
+                                        }}
                                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 group ${activeCollection === c.id
                                             ? 'bg-[#6c5ce7]/10 border border-[#6c5ce7]/20'
                                             : 'hover:bg-white/5'
@@ -134,45 +216,187 @@ export default function WishlistPage() {
 
                     {/* Items Grid */}
                     <div className="flex-1">
-                        <div className="flex items-center justify-between mb-4">
-                            <p className="text-sm text-white/40">{activeItems.length} items</p>
-                            <div className="flex items-center gap-2">
+                        {/* Filters Bar */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                            <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
+                                {/* Search */}
+                                <div className="relative flex-1 sm:max-w-xs">
+                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
+                                    <input
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search saved items..."
+                                        className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-white/20 focus:outline-none focus:border-[#6c5ce7]/40"
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            onClick={() => setSearchQuery('')}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/60"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Filter toggle */}
                                 <button
-                                    onClick={() => setViewMode('grid')}
-                                    className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    className={`p-2 rounded-lg border transition-colors ${showFilters ? 'bg-[#6c5ce7]/10 border-[#6c5ce7]/20 text-[#a29bfe]' : 'border-white/10 text-white/30 hover:text-white/60'}`}
                                 >
-                                    <Grid3X3 size={16} />
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('list')}
-                                    className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}
-                                >
-                                    <List size={16} />
+                                    <Filter size={16} />
                                 </button>
                             </div>
+
+                            <div className="flex items-center gap-2">
+                                <p className="text-xs text-white/40">{filteredItems.length} items</p>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => setViewMode('grid')}
+                                        className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}
+                                    >
+                                        <Grid3X3 size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode('list')}
+                                        className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}
+                                    >
+                                        <List size={16} />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
+
+                        {/* Extended Filters */}
+                        <AnimatePresence>
+                            {showFilters && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="mb-4 overflow-hidden"
+                                >
+                                    <div className="glass-card rounded-xl p-4 border border-white/5 space-y-3">
+                                        {/* Category chips */}
+                                        <div>
+                                            <label className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-2 block">Category</label>
+                                            <div className="flex flex-wrap gap-2">
+                                                <button
+                                                    onClick={() => setCategoryFilter('all')}
+                                                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${categoryFilter === 'all'
+                                                        ? 'bg-[#6c5ce7]/20 text-[#a29bfe] border border-[#6c5ce7]/30'
+                                                        : 'bg-white/5 text-white/40 hover:text-white/60 border border-white/10'
+                                                        }`}
+                                                >
+                                                    All
+                                                </button>
+                                                {availableCategories.map(cat => (
+                                                    <button
+                                                        key={cat}
+                                                        onClick={() => setCategoryFilter(cat)}
+                                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${categoryFilter === cat
+                                                            ? 'bg-[#6c5ce7]/20 text-[#a29bfe] border border-[#6c5ce7]/30'
+                                                            : 'bg-white/5 text-white/40 hover:text-white/60 border border-white/10'
+                                                            }`}
+                                                    >
+                                                        {cat}
+                                                    </button>
+                                                ))}
+                                                {/* Also show common categories even if not in items */}
+                                                {['Tech', 'Vehicles', 'Rooms', 'Equipment', 'Fashion', 'Studios'].filter(c => !availableCategories.includes(c)).map(cat => (
+                                                    <button
+                                                        key={cat}
+                                                        onClick={() => setCategoryFilter(cat)}
+                                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${categoryFilter === cat
+                                                            ? 'bg-[#6c5ce7]/20 text-[#a29bfe] border border-[#6c5ce7]/30'
+                                                            : 'bg-white/5 text-white/30 hover:text-white/50 border border-white/5'
+                                                            }`}
+                                                    >
+                                                        {cat}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Sort */}
+                                        <div>
+                                            <label className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-2 block">Sort By</label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {[
+                                                    { id: 'newest' as SortOption, label: 'Newest' },
+                                                    { id: 'oldest' as SortOption, label: 'Oldest' },
+                                                    { id: 'price_asc' as SortOption, label: 'Price: Low → High' },
+                                                    { id: 'price_desc' as SortOption, label: 'Price: High → Low' },
+                                                    { id: 'rating' as SortOption, label: 'Top Rated' },
+                                                ].map(opt => (
+                                                    <button
+                                                        key={opt.id}
+                                                        onClick={() => setSortBy(opt.id)}
+                                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 ${sortBy === opt.id
+                                                            ? 'bg-[#6c5ce7]/20 text-[#a29bfe] border border-[#6c5ce7]/30'
+                                                            : 'bg-white/5 text-white/40 hover:text-white/60 border border-white/10'
+                                                            }`}
+                                                    >
+                                                        <ArrowUpDown size={10} /> {opt.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Clear filters */}
+                                        {(categoryFilter !== 'all' || sortBy !== 'newest' || searchQuery) && (
+                                            <button
+                                                onClick={() => {
+                                                    setCategoryFilter('all');
+                                                    setSortBy('newest');
+                                                    setSearchQuery('');
+                                                }}
+                                                className="text-[10px] text-[#a29bfe] hover:text-white transition-colors flex items-center gap-1"
+                                            >
+                                                <X size={10} /> Clear all filters
+                                            </button>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         {loading ? (
                             <div className="flex items-center justify-center h-64">
                                 <Loader2 className="w-8 h-8 animate-spin text-[#6c5ce7]" />
                             </div>
-                        ) : activeItems.length === 0 ? (
+                        ) : filteredItems.length === 0 ? (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 className="glass-card rounded-2xl p-12 text-center"
                             >
-                                <Heart size={48} className="mx-auto text-white/10 mb-4" />
-                                <h3 className="text-lg font-bold text-white/60 mb-2">No items saved</h3>
-                                <p className="text-sm text-white/30 mb-6 max-w-sm mx-auto">Browse the explore page to find items you love</p>
-                                <Link href="/explore" className="px-6 py-3 bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] rounded-xl font-medium text-white text-sm">
-                                    Explore Items
-                                </Link>
+                                {searchQuery || categoryFilter !== 'all' ? (
+                                    <>
+                                        <Filter size={48} className="mx-auto text-white/10 mb-4" />
+                                        <h3 className="text-lg font-bold text-white/60 mb-2">No matching items</h3>
+                                        <p className="text-sm text-white/30 mb-6">Try adjusting your filters or search query</p>
+                                        <button
+                                            onClick={() => { setCategoryFilter('all'); setSearchQuery(''); setSortBy('newest'); }}
+                                            className="px-6 py-3 bg-white/5 hover:bg-white/10 rounded-xl font-medium text-white/60 text-sm transition-colors"
+                                        >
+                                            Clear Filters
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Heart size={48} className="mx-auto text-white/10 mb-4" />
+                                        <h3 className="text-lg font-bold text-white/60 mb-2">No items saved</h3>
+                                        <p className="text-sm text-white/30 mb-6 max-w-sm mx-auto">Browse the explore page to find items you love</p>
+                                        <Link href="/explore" className="px-6 py-3 bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] rounded-xl font-medium text-white text-sm">
+                                            Explore Items
+                                        </Link>
+                                    </>
+                                )}
                             </motion.div>
                         ) : (
                             <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4' : 'space-y-3'}>
                                 <AnimatePresence mode="popLayout">
-                                    {activeItems.map((item, i) => (
+                                    {filteredItems.map((item, i) => (
                                         <motion.div
                                             key={item.id}
                                             layout
@@ -196,16 +420,58 @@ export default function WishlistPage() {
                                                             })()}
                                                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent" />
 
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    if (activeCollection) removeItem(activeCollection, item.listingId);
-                                                                }}
-                                                                className="absolute top-3 right-3 p-2 rounded-full bg-black/40 backdrop-blur-sm text-[#ff6b6b] hover:bg-red-500/20 transition-all"
-                                                            >
-                                                                <Heart size={16} className="fill-current" />
-                                                            </button>
+                                                            {/* Category badge */}
+                                                            {(item.listing as any)?.category && (
+                                                                <span className="absolute top-3 left-3 px-2 py-0.5 bg-black/50 backdrop-blur-sm rounded-lg text-[9px] font-bold text-white/80 uppercase tracking-wider border border-white/10">
+                                                                    {(item.listing as any).category}
+                                                                </span>
+                                                            )}
+
+                                                            <div className="absolute top-3 right-3 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        if (activeCollection) removeItem(activeCollection, item.listingId);
+                                                                    }}
+                                                                    className="p-2 rounded-xl bg-black/60 backdrop-blur-md text-[#ff6b6b] hover:bg-red-500/20 border border-white/10 transition-all"
+                                                                    title="Remove from collection"
+                                                                >
+                                                                    <Heart size={14} className="fill-current" />
+                                                                </button>
+                                                                
+                                                                {/* Move Dropdown */}
+                                                                <div className="relative group/move">
+                                                                    <button
+                                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                                        className="p-2 rounded-xl bg-black/60 backdrop-blur-md text-white/60 hover:text-white border border-white/10 transition-all"
+                                                                        title="Move to collection"
+                                                                    >
+                                                                        <FolderOpen size={14} />
+                                                                    </button>
+                                                                    <div className="absolute right-0 top-0 hidden group-hover/move:block z-20 pt-2 pr-10 -mr-10">
+                                                                        <div className="w-40 glass-card rounded-xl border border-white/10 p-1.5 shadow-2xl backdrop-blur-xl">
+                                                                            <p className="px-2 py-1 text-[8px] font-bold text-white/20 uppercase tracking-widest mb-1">Move to</p>
+                                                                            <div className="max-h-32 overflow-y-auto custom-scrollbar space-y-0.5">
+                                                                                {collections.filter(c => c.id !== activeCollection).map(c => (
+                                                                                    <button
+                                                                                        key={c.id}
+                                                                                        onClick={(e) => {
+                                                                                            e.preventDefault();
+                                                                                            e.stopPropagation();
+                                                                                            handleMoveItem(item.listingId, c.id);
+                                                                                        }}
+                                                                                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] text-white/50 hover:bg-white/5 hover:text-white transition-all text-left"
+                                                                                    >
+                                                                                        <span>{c.emoji}</span>
+                                                                                        <span className="truncate">{c.name}</span>
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
 
                                                             <div className="absolute bottom-3 left-3 right-3">
                                                                 <h3 className="text-sm font-bold text-white line-clamp-1 mb-1">{item.listing.title}</h3>
@@ -243,22 +509,63 @@ export default function WishlistPage() {
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <h3 className="text-sm font-bold text-white truncate">{item.listing.title}</h3>
-                                                            <p className="text-[10px] text-white/30 flex items-center gap-1"><MapPin size={10} />{item.listing.location}</p>
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                <p className="text-[10px] text-white/30 flex items-center gap-1"><MapPin size={10} />{item.listing.location}</p>
+                                                                {(item.listing as any)?.category && (
+                                                                    <span className="text-[9px] text-[#a29bfe] bg-[#6c5ce7]/10 px-1.5 py-0.5 rounded font-medium">
+                                                                        {(item.listing as any).category}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                         <div className="text-right flex-shrink-0">
                                                             <div className="text-sm font-bold text-white">${item.listing.price}</div>
                                                             <div className="text-[10px] text-white/30">/{item.listing.priceUnit?.toLowerCase()}</div>
                                                         </div>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                if (activeCollection) removeItem(activeCollection, item.listingId);
-                                                            }}
-                                                            className="p-2 rounded-lg text-white/20 hover:text-red-400 transition-colors"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            {/* Move UI for List View */}
+                                                            <div className="relative group/move">
+                                                                <button
+                                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                                    className="p-2 rounded-lg text-white/20 hover:text-white hover:bg-white/5 transition-all"
+                                                                    title="Move to collection"
+                                                                >
+                                                                    <FolderOpen size={14} />
+                                                                </button>
+                                                                <div className="absolute right-0 bottom-full mb-2 hidden group-hover/move:block z-20">
+                                                                    <div className="w-40 glass-card rounded-xl border border-white/10 p-1.5 shadow-2xl backdrop-blur-xl">
+                                                                        <p className="px-2 py-1 text-[8px] font-bold text-white/20 uppercase tracking-widest mb-1">Move to</p>
+                                                                        <div className="max-h-32 overflow-y-auto custom-scrollbar space-y-0.5">
+                                                                            {collections.filter(c => c.id !== activeCollection).map(c => (
+                                                                                <button
+                                                                                    key={c.id}
+                                                                                    onClick={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        e.stopPropagation();
+                                                                                        handleMoveItem(item.listingId, c.id);
+                                                                                    }}
+                                                                                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] text-white/50 hover:bg-white/5 hover:text-white transition-all text-left"
+                                                                                >
+                                                                                    <span>{c.emoji}</span>
+                                                                                    <span className="truncate">{c.name}</span>
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    if (activeCollection) removeItem(activeCollection, item.listingId);
+                                                                }}
+                                                                className="p-2 rounded-lg text-white/20 hover:text-red-400 transition-colors"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </Link>
                                             )}

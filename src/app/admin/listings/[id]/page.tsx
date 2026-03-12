@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChevronLeft, Store, MapPin, DollarSign, Calendar,
-    CheckCircle2, XCircle, AlertTriangle, MessageSquare,
+    CheckCircle2, XCircle, AlertTriangle,
     MoreHorizontal, Trash2, ShieldCheck, Eye
 } from 'lucide-react';
 import { useAdminListingsStore } from '@/store/admin/admin-data-stores';
@@ -208,13 +208,6 @@ export default function ListingDetailPage() {
                                 <p className="text-[var(--admin-text-primary)] font-mono text-sm">3</p>
                             </div>
                         </div>
-                        <button
-                            onClick={() => router.push(`/messages?startWith=${listing.ownerId}&listing=${listingId}`)}
-                            className="w-full py-2.5 rounded-xl border border-[var(--admin-border)] hover:bg-[var(--admin-surface-hover)] text-xs font-bold text-[var(--admin-text-secondary)] transition-all flex items-center justify-center gap-2"
-                        >
-                            <MessageSquare size={14} />
-                            Contact Host
-                        </button>
                     </div>
 
                     {/* Analytics Card */}

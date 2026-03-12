@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
+import { usePathname } from 'next/navigation';
 import { useAppStore } from '@/store/app-store';
 import SmoothScroll from '@/components/providers/SmoothScroll';
 import CustomCursor from '@/components/cursor/CustomCursor';
@@ -11,10 +12,13 @@ import Toaster from '@/components/ui/Toaster';
 import { SocketProvider } from './SocketProvider';
 import { ScrollEngineProvider } from '@/lib/motion/scroll-engine';
 import { CursorLightProvider } from '@/lib/motion/cursor-light';
+import ThunderEffect from '@/components/effects/ThunderEffect';
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
     const isSearchActive = useAppStore((s) => s.isSearchActive);
     const isCinemaMode = useAppStore((s) => s.isCinemaMode);
+    const pathname = usePathname();
+    const isMessagesPage = pathname?.startsWith('/messages');
 
     return (
         <ScrollEngineProvider>
@@ -22,7 +26,8 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
                 <SmoothScroll>
                     <SocketProvider>
                         <CinematicLoader />
-                        <CustomCursor />
+                        <ThunderEffect />
+                        {!isMessagesPage && <CustomCursor />}
                         <CommandMenu />
                         <Toaster />
                         <motion.div

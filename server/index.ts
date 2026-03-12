@@ -13,6 +13,7 @@ import jwt from 'jsonwebtoken';
 import { createAdminRouter } from './admin/routes';
 import { setupAdminWebSocket } from './admin/websocket';
 import { createEngagementRouter } from './engagement/routes';
+import { chatRoutes } from './chat/routes';
 import { detectSearchIntent, rankResults } from './lib/groq';
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
@@ -172,7 +173,10 @@ nextApp.prepare().then(() => {
     app.use('/api/admin', createAdminRouter());
 
     // ─── Engagement Routes (Wishlist, Recently Viewed, Follow, Dashboards) ───
-    app.use('/api/engagement', createEngagementRouter());
+    app.use('/api/engagement', authenticateToken, createEngagementRouter(prisma));
+    
+    // Chat & Messaging API
+    app.use('/api/chat', authenticateToken, chatRoutes);
 
     // ─── Admin WebSocket ───
     const adminWS = setupAdminWebSocket(io);
@@ -532,8 +536,64 @@ nextApp.prepare().then(() => {
         }
     });
 
+    app.patch('/api/listings/:id', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const { id } = req.params;
+            const listing = await prisma.listing.findUnique({ where: { id } });
+            if (!listing) return res.status(404).json({ error: 'Listing not found' });
+            if (listing.ownerId !== req.user!.userId) return res.status(403).json({ error: 'Forbidden' });
 
-    // ─── Bookings Routes ───
+            const { title, description, price, location, category, tags, status, available, priceUnit } = req.body;
+            const updateData: Record<string, any> = {};
+            if (title !== undefined) updateData.title = title;
+            if (description !== undefined) updateData.description = description;
+            if (price !== undefined) updateData.price = parseFloat(price);
+            if (location !== undefined) updateData.location = location;
+            if (category !== undefined) updateData.category = category;
+            if (tags !== undefined) updateData.tags = tags;
+            if (status !== undefined) updateData.status = status;
+            if (available !== undefined) updateData.available = available;
+            if (priceUnit !== undefined) updateData.priceUnit = priceUnit;
+
+            const updated = await prisma.listing.update({
+                where: { id },
+                data: updateData,
+                include: { media: { orderBy: { order: 'asc' } }, pricing: true }
+            });
+            res.json({ listing: updated });
+        } catch (error) {
+            console.error('Update listing error:', error);
+            res.status(500).json({ error: 'Failed to update listing' });
+        }
+    });
+
+    app.delete('/api/listings/:id', authenticateToken, async (req: AuthRequest, res) => {
+        try {
+            const id = req.params.id as string;
+            const listing = await prisma.listing.findUnique({ where: { id } });
+            if (!listing) return res.status(404).json({ error: 'Listing not found' });
+            if (listing.ownerId !== req.user!.userId) return res.status(403).json({ error: 'Forbidden' });
+
+            await prisma.$transaction([
+                prisma.booking.deleteMany({ where: { listingId: id } }),
+                prisma.review.deleteMany({ where: { listingId: id } }),
+                prisma.listingMedia.deleteMany({ where: { listingId: id } }),
+                prisma.listingPricing.deleteMany({ where: { listingId: id } }),
+                prisma.listingAttribute.deleteMany({ where: { listingId: id } }),
+                prisma.calendarBlock.deleteMany({ where: { listingId: id } }),
+                prisma.wishlistItem.deleteMany({ where: { listingId: id } }),
+                prisma.recentlyViewed.deleteMany({ where: { listingId: id } }),
+                prisma.datePriceOverride.deleteMany({ where: { listingId: id } }),
+                prisma.listing.delete({ where: { id } }),
+            ]);
+            res.json({ message: 'Listing deleted successfully' });
+        } catch (error) {
+            console.error('Delete listing error:', error);
+            res.status(500).json({ error: 'Failed to delete listing' });
+        }
+    });
+
+
     app.get('/api/bookings/me', authenticateToken, async (req: AuthRequest, res) => {
         try {
             const bookings = await prisma.booking.findMany({
@@ -568,13 +628,6 @@ nextApp.prepare().then(() => {
                 _sum: { totalPrice: true }
             });
 
-            // Message count
-            const messageCount = await prisma.message.count({
-                where: {
-                    OR: [{ senderId: userId }, { receiverId: userId }]
-                }
-            });
-
             // Active bookings (as host)
             const activeBookingsAsHost = await prisma.booking.count({
                 where: {
@@ -586,7 +639,6 @@ nextApp.prepare().then(() => {
             res.json({
                 totalListings: listingIds.length,
                 totalEarnings: earnings._sum.totalPrice || 0,
-                messageCount,
                 activeBookings: activeBookingsAsHost
             });
         } catch (error) {
@@ -998,281 +1050,7 @@ nextApp.prepare().then(() => {
         }
     });
 
-    // ─── Messaging / Conversations Routes ───
-    app.get('/api/conversations', authenticateToken, async (req: AuthRequest, res) => {
-        try {
-            const userId = req.user!.userId;
 
-            // Fetch all conversations involving this user
-            const allConversations = await (prisma as any).conversation.findMany({
-                where: {
-                    participants: { some: { userId } }
-                },
-                include: {
-                    participants: {
-                        include: { user: { select: { id: true, firstName: true, lastName: true, avatar: true } } }
-                    },
-                    listing: { select: { id: true, title: true, images: true, media: true } },
-                    messages: {
-                        orderBy: { createdAt: 'desc' },
-                        take: 1,
-                        include: { sender: { select: { id: true, firstName: true } } }
-                    },
-                },
-                orderBy: { updatedAt: 'desc' },
-            });
-
-            // Group and deduplicate by the OTHER participant's user ID
-            // This ensures only one conversation per person shows up in the list
-            const uniqueMap = new Map();
-
-            for (const conv of allConversations) {
-                // Find the first participant that is NOT the current requester
-                const otherParticipant = conv.participants.find((p: any) => p.userId !== userId);
-
-                if (otherParticipant) {
-                    const otherId = otherParticipant.userId;
-                    // Since they are ordered by updatedAt desc, the first one we see is the latest
-                    if (!uniqueMap.has(otherId)) {
-                        uniqueMap.set(otherId, conv);
-                    }
-                }
-            }
-
-            const uniqueConversations = Array.from(uniqueMap.values());
-
-            // Supplement with unread counts
-            const conversationsWithMetadata = await Promise.all(uniqueConversations.map(async (conv: any) => {
-                const unreadCount = await (prisma as any).conversationMessage.count({
-                    where: {
-                        conversationId: conv.id,
-                        senderId: { not: userId },
-                        read: false
-                    }
-                });
-                return { ...conv, unreadCount };
-            }));
-
-            res.json({ conversations: conversationsWithMetadata });
-        } catch (error) {
-            console.error('Conversations fetch error:', error);
-            res.status(500).json({ error: 'Failed to fetch conversations' });
-        }
-    });
-
-    app.get('/api/conversations/:id/messages', authenticateToken, async (req: AuthRequest, res) => {
-        try {
-            const userId = req.user!.userId;
-            const { id } = req.params;
-
-            // Verify user is participant
-            const participant = await (prisma as any).conversationParticipant.findUnique({
-                where: { userId_conversationId: { userId, conversationId: id } }
-            });
-            if (!participant) return res.status(403).json({ error: 'Not a participant' });
-
-            const messages = await (prisma as any).conversationMessage.findMany({
-                where: { conversationId: id },
-                include: { sender: { select: { id: true, firstName: true, lastName: true, avatar: true } } },
-                orderBy: { createdAt: 'asc' },
-            });
-
-            // Mark unread messages as read
-            await (prisma as any).conversationMessage.updateMany({
-                where: { conversationId: id, senderId: { not: userId }, read: false },
-                data: { read: true },
-            });
-
-            res.json({ messages });
-        } catch (error) {
-            console.error('Messages fetch error:', error);
-            res.status(500).json({ error: 'Failed to fetch messages' });
-        }
-    });
-
-    app.post('/api/conversations', authenticateToken, async (req: AuthRequest, res) => {
-        try {
-            const userId = req.user!.userId;
-            const { receiverId, listingId, message } = req.body;
-
-            if (!receiverId) return res.status(400).json({ error: 'receiverId is required' });
-            if (receiverId === userId) return res.status(400).json({ error: 'Cannot message yourself' });
-
-            // Find ANY existing conversation between these exact people
-            const existing = await (prisma as any).conversation.findFirst({
-                where: {
-                    AND: [
-                        { participants: { some: { userId } } },
-                        { participants: { some: { userId: receiverId } } }
-                    ]
-                },
-                orderBy: { updatedAt: 'desc' }
-            });
-
-            if (existing) {
-                // Update listing association if missing or different, and always bump updatedAt
-                const updateData: any = { updatedAt: new Date() };
-                if (listingId && existing.listingId !== listingId) {
-                    updateData.listingId = listingId;
-                }
-
-                await (prisma as any).conversation.update({
-                    where: { id: existing.id },
-                    data: updateData
-                });
-
-                if (message) {
-                    const msg = await (prisma as any).conversationMessage.create({
-                        data: {
-                            conversationId: existing.id,
-                            senderId: userId,
-                            text: message
-                        },
-                        include: { sender: { select: { firstName: true } } }
-                    });
-
-                    // Determine correct receiver
-                    const otherParticipant = existing.participants?.find((p: any) => p.userId !== userId)
-                        || await (prisma as any).conversationParticipant.findFirst({
-                            where: { conversationId: existing.id, userId: { not: userId } }
-                        });
-                    const receiverIdToNotify = otherParticipant?.userId || receiverId;
-
-                    // Create DB Notification
-                    const dbNotif = await prisma.notification.create({
-                        data: {
-                            userId: receiverIdToNotify,
-                            type: 'NEW_MESSAGE',
-                            title: `New Message from ${msg.sender.firstName} `,
-                            message: message.length > 50 ? message.substring(0, 47) + '...' : message,
-                        }
-                    });
-
-                    // Emit real-time stuff only to receiver
-                    io.emit(`message:${receiverIdToNotify} `, { conversationId: existing.id, message: msg });
-                    io.emit(`notification:${receiverIdToNotify} `, dbNotif);
-                }
-
-                const returnConv = await (prisma as any).conversation.findUnique({
-                    where: { id: existing.id },
-                    include: {
-                        participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatar: true } } } },
-                        listing: { select: { id: true, title: true, images: true, media: true } },
-                        messages: {
-                            orderBy: { createdAt: 'desc' },
-                            take: 1,
-                            include: { sender: { select: { id: true, firstName: true } } }
-                        },
-                    }
-                });
-                return res.json({ conversation: returnConv });
-            }
-
-            // Create new conversation
-            const conversation = await (prisma as any).conversation.create({
-                data: {
-                    listingId: listingId || null,
-                    participants: {
-                        create: [
-                            { userId },
-                            { userId: receiverId },
-                        ]
-                    },
-                    ...(message ? {
-                        messages: {
-                            create: { senderId: userId, text: message }
-                        }
-                    } : {})
-                },
-                include: {
-                    participants: { include: { user: { select: { id: true, firstName: true, lastName: true, avatar: true } } } },
-                    listing: { select: { id: true, title: true, images: true, media: true } },
-                    messages: { include: { sender: { select: { id: true, firstName: true } } } },
-                }
-            });
-
-            // Create DB Notification for the receiver if a message was sent
-            if (message) {
-                // Determine receiverId (the one who is NOT the current userId)
-                const realReceiver = conversation.participants.find((p: any) => p.userId !== userId);
-                const receiverIdToNotify = realReceiver?.userId || receiverId;
-
-                const dbNotif = await prisma.notification.create({
-                    data: {
-                        userId: receiverIdToNotify,
-                        type: 'NEW_MESSAGE',
-                        title: `New Message from ${conversation.participants.find((p: any) => p.userId === userId)?.user.firstName || 'User'} `,
-                        message: message.length > 50 ? message.substring(0, 47) + '...' : message,
-                    }
-                });
-
-                // ONLY emit to the receiver, NEVER the sender
-                io.emit(`notification:${receiverIdToNotify} `, dbNotif);
-                io.emit(`message:${receiverIdToNotify} `, {
-                    conversationId: conversation.id,
-                    message: conversation.messages[0]
-                });
-            }
-
-            res.status(201).json({ conversation });
-        } catch (error) {
-            console.error('Create conversation error:', error);
-            res.status(500).json({ error: 'Failed to create conversation' });
-        }
-    });
-
-    app.post('/api/conversations/:id/messages', authenticateToken, async (req: AuthRequest, res) => {
-        try {
-            const userId = req.user!.userId;
-            const { id } = req.params;
-            const { text } = req.body;
-
-            if (!text) return res.status(400).json({ error: 'Message text is required' });
-
-            // Verify user is participant
-            const participant = await (prisma as any).conversationParticipant.findUnique({
-                where: { userId_conversationId: { userId, conversationId: id } }
-            });
-            if (!participant) return res.status(403).json({ error: 'Not a participant' });
-
-            const message = await (prisma as any).conversationMessage.create({
-                data: { conversationId: id, senderId: userId, text },
-                include: { sender: { select: { id: true, firstName: true, lastName: true, avatar: true } } }
-            });
-
-            // Update conversation timestamp
-            await (prisma as any).conversation.update({ where: { id }, data: { updatedAt: new Date() } });
-
-            // Real-time: emit to all participants except sender
-            const participants = await (prisma as any).conversationParticipant.findMany({
-                where: { conversationId: id, userId: { not: userId } }
-            });
-
-            for (const p of participants) {
-                // SAFETY: Skip the sender entirely for both message and notification emissions
-                if (p.userId === userId) continue;
-
-                // Create DB Notification for persistence
-                const dbNotif = await prisma.notification.create({
-                    data: {
-                        userId: p.userId,
-                        type: 'NEW_MESSAGE',
-                        title: `New Message from ${message.sender.firstName} `,
-                        message: message.text.length > 50 ? message.text.substring(0, 47) + '...' : message.text,
-                    }
-                });
-
-                // Real-time: emit ONLY to the intended recipient
-                io.emit(`message:${p.userId} `, { conversationId: id, message });
-                io.emit(`notification:${p.userId} `, dbNotif);
-            }
-
-            res.status(201).json({ message });
-        } catch (error) {
-            console.error('Send message error:', error);
-            res.status(500).json({ error: 'Failed to send message' });
-        }
-    });
 
     // ─── Users / Profile Routes ───
     app.get('/api/users/search', async (req, res) => {
@@ -1411,17 +1189,32 @@ nextApp.prepare().then(() => {
     io.on('connection', (socket) => {
         console.log(`User connected: ${socket.id} `);
 
-        socket.on('join-room', (roomId: string) => {
+        socket.on('join_room', (roomId: string) => {
             socket.join(roomId);
-            console.log(`User ${socket.id} joined room ${roomId} `);
+            console.log(`User socket ${socket.id} joined room ${roomId}`);
         });
 
-        socket.on('send-message', (data: { roomId: string; message: string; senderId: string }) => {
-            io.to(data.roomId).emit('new-message', {
-                message: data.message,
-                senderId: data.senderId,
-                timestamp: new Date().toISOString(),
-            });
+        socket.on('leave_room', (roomId: string) => {
+            socket.leave(roomId);
+            console.log(`User socket ${socket.id} left room ${roomId}`);
+        });
+
+        // Chat Events
+        socket.on('send_message', (data: { roomId: string, message: any }) => {
+            // Broadcast to everyone else in the room
+            socket.to(data.roomId).emit('new_message', data.message);
+        });
+
+        socket.on('typing_start', (data: { roomId: string, userId: string, name: string }) => {
+            socket.to(data.roomId).emit('user_typing', data);
+        });
+
+        socket.on('typing_end', (data: { roomId: string, userId: string }) => {
+            socket.to(data.roomId).emit('user_stopped_typing', data);
+        });
+
+        socket.on('message_read', (data: { roomId: string, messageId: string, userId: string }) => {
+            socket.to(data.roomId).emit('message_read_update', data);
         });
 
         socket.on('booking-update', (data: { bookingId: string; status: string }) => {

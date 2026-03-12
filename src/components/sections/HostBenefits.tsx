@@ -71,7 +71,7 @@ export default function HostBenefits() {
                             </motion.p>
 
                             <div className="flex flex-wrap gap-4">
-                                <Link href="/host">
+                                <Link href="/listings/new">
                                     <LiquidButton variant="primary" size="lg">
                                         become a host
                                     </LiquidButton>

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
+import WishlistButton from '@/components/engagement/WishlistButton';
 import { useAppStore } from '@/store/app-store';
 import Link from 'next/link';
 import type { RentalItem } from '@/store/rental-store';
@@ -149,21 +150,16 @@ export default function RentalCard({ item, index = 0 }: RentalCardProps) {
                             </div>
                         )}
 
-                        {/* Availability pulse halo */}
-                        <div className="absolute top-3 right-3">
-                            <div className="relative">
-                                <div className="w-2.5 h-2.5 rounded-full bg-[#00FFB3]" style={{ boxShadow: '0 0 8px rgba(0,255,179,0.5)' }} />
-                                <div className="absolute inset-0 rounded-full bg-[#00FFB3] animate-ping opacity-40" />
-                            </div>
-                        </div>
-
-                        {/* Compare button on hover */}
+                        {/* Compare and Wishlist buttons on hover */}
                         <motion.div
-                            className="absolute bottom-3 right-3 flex items-center gap-2 z-10"
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 8 }}
+                            className="absolute top-3 right-3 flex flex-col items-center gap-2 z-10"
+                            initial={{ opacity: 0, x: 8 }}
+                            animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : 8 }}
                             transition={{ duration: 0.3 }}
                         >
+                            <div className="p-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+                                <WishlistButton listingId={item.id} size={16} />
+                            </div>
                             <CompareButton item={item as unknown as Listing} variant="icon" />
                         </motion.div>
 

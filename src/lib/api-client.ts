@@ -44,6 +44,14 @@ export const apiClient = {
             return data as T;
         }
 
+        // Handle token expiration or user not found (e.g., after DB seed/wipe)
+        if (response.status === 401) {
+            const { logout } = useAuthStore.getState();
+            logout();
+            // Optional: redirect to login or show specific toast
+            console.warn('Authentication expired or user not found. Logging out...');
+        }
+
         const errorMessage = data?.details ? `${data.error}: ${data.details}` : (data?.error || `Request failed with status ${response.status}`);
         throw new Error(errorMessage);
     },

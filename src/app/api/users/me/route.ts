@@ -29,7 +29,7 @@ export async function PATCH(req: Request) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     try {
-        const { firstName, lastName, phone, bio, avatar, address, city } = await req.json();
+        const { firstName, lastName, phone, bio, avatar, address, city, interests } = await req.json();
         const updateData: any = {};
         if (firstName !== undefined) updateData.firstName = firstName;
         if (lastName !== undefined) updateData.lastName = lastName;
@@ -38,6 +38,7 @@ export async function PATCH(req: Request) {
         if (avatar !== undefined) updateData.avatar = avatar;
         if (address !== undefined) updateData.address = address;
         if (city !== undefined) updateData.city = city;
+        if (interests !== undefined) updateData.interests = interests;
 
         const updatedUser = await prisma.user.update({
             where: { id: user.userId },

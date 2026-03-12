@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
-import { Search, Bell, MessageSquare, User as UserIcon, LogOut, Settings, LayoutDashboard, Heart, ShoppingBag, BarChart3, Menu, X } from 'lucide-react';
+import { Search, Bell, User as UserIcon, LogOut, Settings, LayoutDashboard, Heart, ShoppingBag, BarChart3, Menu, X, Trophy, MessageSquare } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
 import { useAuthStore } from '@/store/auth-store';
 import SearchBar from '@/components/hero/SearchBar';
@@ -188,13 +188,15 @@ export default function Navbar() {
                                 </Link>
                                 <Link
                                     href="/messages"
-                                    className="p-2 text-white/40 hover:text-white transition-all duration-300 rounded-xl hover:bg-white/[0.04] relative"
+                                    className="p-2 text-white/40 hover:text-[#cdf876] transition-all duration-300 rounded-xl hover:bg-white/[0.04] hidden sm:flex relative"
                                     onMouseEnter={() => setCursorVariant('hover')}
                                     onMouseLeave={() => setCursorVariant('default')}
                                     title="Messages"
                                     aria-label="View messages"
                                 >
                                     <MessageSquare size={18} />
+                                    {/* Mock notification dot for visual effect */}
+                                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#cdf876] rounded-full border border-[#020305]" style={{ boxShadow: '0 0 8px rgba(205,248,118,0.5)' }}></span>
                                 </Link>
                             </>
                         )}
@@ -329,9 +331,9 @@ export default function Navbar() {
                                             </div>
                                             <div className="space-y-0.5">
                                                 {[
+                                                    { href: `/profile/${user?.id}`, icon: Trophy, label: 'My Profile' },
                                                     { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
                                                     { href: '/rentals', icon: ShoppingBag, label: 'My Rentals' },
-                                                    { href: '/host', icon: BarChart3, label: 'Host Dashboard' },
                                                     { href: '/wishlist', icon: Heart, label: 'Wishlist' },
                                                     { href: '/settings', icon: Settings, label: 'Settings' },
                                                 ].map(item => (
@@ -409,11 +411,11 @@ export default function Navbar() {
                             >
                                 <p className="text-label mb-4">logged in as {user?.firstName}</p>
                                 {[
+                                    { href: `/profile/${user?.id}`, label: 'my profile' },
                                     { href: '/dashboard', label: 'dashboard' },
                                     { href: '/rentals', label: 'my rentals' },
-                                    { href: '/host', label: 'host dashboard' },
                                     { href: '/wishlist', label: 'wishlist' },
-                                    { href: '/messages', label: 'messages' },
+                                    { href: '/settings', label: 'settings' },
                                 ].map(item => (
                                     <a key={item.href} href={item.href} className="block text-xl font-light text-white/60 hover:text-white transition-colors" onClick={() => setMobileMenuOpen(false)}>
                                         {item.label}

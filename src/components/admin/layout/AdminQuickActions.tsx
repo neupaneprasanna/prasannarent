@@ -15,7 +15,6 @@ export const AdminQuickActions: React.FC<AdminQuickActionsProps> = ({ isOpen, on
         { label: 'Create User', icon: UserPlus, color: 'text-blue-400', shortcut: 'U' },
         { label: 'New Listing', icon: Plus, color: 'text-emerald-400', shortcut: 'L' },
         { label: 'Process Refund', icon: CreditCard, color: 'text-purple-400', shortcut: 'R' },
-        { label: 'System Alert', icon: AlertTriangle, color: 'text-orange-400', shortcut: 'A' },
         { label: 'Clear Cache', icon: Zap, color: 'text-yellow-400', shortcut: 'C' },
         { label: 'Maintenance', icon: Power, color: 'text-red-400', shortcut: 'M' },
     ];

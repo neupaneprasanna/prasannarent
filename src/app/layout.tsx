@@ -70,6 +70,7 @@ export const metadata: Metadata = {
 };
 
 import FloatingCompareBar from "@/components/listing/FloatingCompareBar";
+import FloatingActionButton from "@/components/ui/FloatingActionButton";
 
 export default function RootLayout({
   children,
@@ -87,9 +88,10 @@ export default function RootLayout({
           <ClientProviders>
             <MaintenanceGuard>
               {children}
-              <FloatingCompareBar />
             </MaintenanceGuard>
           </ClientProviders>
+          <FloatingCompareBar />
+          <FloatingActionButton />
         </div>
       </body>
     </html>

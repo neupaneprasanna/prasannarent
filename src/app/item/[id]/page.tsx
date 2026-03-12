@@ -12,7 +12,8 @@ import { fadeInUp, staggerContainer } from '@/lib/animations/motion-config';
 import { useAppStore } from '@/store/app-store';
 import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
-import { Loader2, MapPin, Star, MessageSquare, ShieldCheck, ChevronLeft, Calendar, Info, Sparkles } from 'lucide-react';
+import { useRecentlyViewedStore } from '@/store/engagement-store';
+import { Loader2, MapPin, Star, ShieldCheck, ChevronLeft, Calendar, Info, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Listing, Booking } from '@/types/rental';
 import CompareButton from '@/components/listing/CompareButton';
@@ -20,6 +21,7 @@ import ProductPageSkeleton from '@/components/ui/ProductPageSkeleton';
 import { createPortal } from 'react-dom';
 import FollowButton from '@/components/engagement/FollowButton';
 import MediaGallery from '@/components/listing/MediaGallery';
+import WishlistButton from '@/components/engagement/WishlistButton';
 
 export default function ProductPage() {
     const { id } = useParams();
@@ -53,10 +55,13 @@ export default function ProductPage() {
     const isCinemaMode = useAppStore((s) => s.isCinemaMode);
     const setCinemaMode = useAppStore((s) => s.setCinemaMode);
 
+    const { items, trackView } = useRecentlyViewedStore();
+
     useEffect(() => {
         if (id) {
             fetchItem();
             fetchReviews();
+            trackView(id as string);
         }
     }, [id]);
 
@@ -189,17 +194,6 @@ export default function ProductPage() {
 
     const images = media.filter((m: any) => m.type === 'IMAGE').map((m: any) => m.url);
     const hasImages = images.length > 0;
-
-    const handleStartConversation = () => {
-        if (!isAuthenticated) {
-            router.push('/login');
-            return;
-        }
-        if (item.owner?.id) {
-            const initialMsg = encodeURIComponent(`Hi, I'm interested in renting "${item.title}". Is it still available?`);
-            router.push(`/messages?startWith=${item.owner.id}&listing=${id}&message=${initialMsg}`);
-        }
-    };
 
     return (
         <main className="relative min-h-screen">
@@ -341,7 +335,10 @@ export default function ProductPage() {
                             <h1 className="text-2xl md:text-5xl font-bold text-white/90 leading-tight">
                                 {item.title}
                             </h1>
-                            <div className="pt-2">
+                            <div className="pt-2 flex items-center gap-3">
+                                <div className="p-3 rounded-2xl glass border border-white/5 hover:bg-white/5 transition-all">
+                                    <WishlistButton listingId={id as string} size={22} showLabel />
+                                </div>
                                 <CompareButton item={item} variant="full" />
                             </div>
                         </div>
@@ -436,13 +433,6 @@ export default function ProductPage() {
                                     </div>
                                     <p className="text-[10px] text-white/30">Verified Property Owner</p>
                                 </div>
-                                <FollowButton hostId={item.owner?.id} mini className="bg-white/5 hover:bg-[#6c5ce7] hover:text-white border border-white/10" />
-                                <button
-                                    onClick={handleStartConversation}
-                                    className="p-3 rounded-xl glass hover:bg-[#6c5ce7]/20 transition-all text-white/40 hover:text-white"
-                                >
-                                    <MessageSquare size={16} />
-                                </button>
                             </div>
                         </div>
 

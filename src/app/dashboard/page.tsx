@@ -9,20 +9,16 @@ import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Package, Calendar, DollarSign, MessageSquare, Bell, Settings, LayoutDashboard, Plus, ExternalLink, Loader2, TrendingUp, ArrowUpRight } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { Package, Calendar, Bell, Settings, LayoutDashboard, Loader2, TrendingUp, ArrowUpRight } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNotificationStore } from '@/store/notification-store';
 import { formatDistanceToNow } from 'date-fns';
-import { Listing, Booking } from '@/types/rental';
-import PricingManager from '@/components/dashboard/PricingManager';
+import { Booking } from '@/types/rental';
 import DashboardOverviewSkeleton from '@/components/ui/DashboardOverviewSkeleton';
 
 const sidebarItems = [
     { icon: <LayoutDashboard size={18} />, label: 'Overview', id: 'overview' },
-    { icon: <Package size={18} />, label: 'My Listings', id: 'listings' },
     { icon: <Calendar size={18} />, label: 'Bookings', id: 'bookings' },
-    { icon: <DollarSign size={18} />, label: 'Earnings', id: 'earnings' },
-    { icon: <MessageSquare size={18} />, label: 'Messages', id: 'messages' },
     { icon: <Bell size={18} />, label: 'Notifications', id: 'notifications', badge: true },
     { icon: <Settings size={18} />, label: 'Settings', id: 'settings' },
 ];
@@ -32,13 +28,8 @@ export default function DashboardPage() {
     const [activeSidebar, setActiveSidebar] = useState('overview');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [listings, setListings] = useState<Listing[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
-    const [bookingRequests, setBookingRequests] = useState<any[]>([]);
-    const [stats, setStats] = useState({ totalListings: 0, totalEarnings: 0, messageCount: 0, activeBookings: 0 });
-    const [revenueData, setRevenueData] = useState<any[]>([]);
-    const [activityData, setActivityData] = useState<any[]>([]);
-    const [managingPricingListing, setManagingPricingListing] = useState<Listing | null>(null);
+    const [stats, setStats] = useState({ activeBookings: 0 });
 
     const setCursorVariant = useAppStore((s) => s.setCursorVariant);
     const { user, isAuthenticated } = useAuthStore();
@@ -53,21 +44,13 @@ export default function DashboardPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [listingsRes, bookingsRes, requestsRes, statsRes, revenueRes, activityRes] = await Promise.all([
-                apiClient.get<{ listings: any[] }>('/listings/me'),
+            const [bookingsRes, statsRes] = await Promise.all([
                 apiClient.get<{ bookings: any[] }>('/bookings/me'),
-                apiClient.get<{ bookings: any[] }>('/bookings/owner'),
-                apiClient.get<any>('/dashboard/stats'),
-                apiClient.get<any[]>('/dashboard/revenue'),
-                apiClient.get<any[]>('/dashboard/activity')
+                apiClient.get<any>('/dashboard/stats')
             ]);
 
-            setListings(listingsRes.listings || []);
             setBookings(bookingsRes.bookings || []);
-            setBookingRequests(requestsRes.bookings?.filter((b: any) => b.status === 'PENDING') || []);
             setStats(statsRes);
-            setRevenueData(revenueRes);
-            setActivityData(activityRes);
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
         } finally {
@@ -75,21 +58,11 @@ export default function DashboardPage() {
         }
     };
 
-    const handleBookingAction = async (bookingId: string, action: 'approve' | 'reject') => {
-        try {
-            await apiClient.patch(`/bookings/${bookingId}/owner-action`, { action });
-            setBookingRequests(prev => prev.filter(b => b.id !== bookingId));
-            setStats(prev => ({ ...prev, activeBookings: action === 'approve' ? prev.activeBookings + 1 : prev.activeBookings }));
-        } catch (error) {
-            console.error('Failed to update booking:', error);
-        }
-    };
+
 
     const statsCards = [
-        { label: 'Total Listings', value: stats.totalListings.toString(), change: 'Real-time', icon: <Package size={20} />, gradient: 'from-[#6c5ce7]/20 to-[#a29bfe]/20' },
-        { label: 'Active Bookings', value: stats.activeBookings.toString(), change: 'Incoming', icon: <Calendar size={20} />, gradient: 'from-[#00cec9]/20 to-[#00b894]/20' },
-        { label: 'Total Earnings', value: `$${stats.totalEarnings.toLocaleString()}`, change: 'Confirmed', icon: <DollarSign size={20} />, gradient: 'from-[#fd79a8]/20 to-[#e17055]/20' },
-        { label: 'Messages', value: stats.messageCount.toString(), change: 'Total', icon: <MessageSquare size={20} />, gradient: 'from-[#fdcb6e]/20 to-[#f39c12]/20' },
+        { label: 'Active Rentals', value: stats.activeBookings?.toString() || '0', change: 'Confirmed', icon: <Calendar size={20} />, gradient: 'from-[#00cec9]/20 to-[#00b894]/20' },
+        { label: 'Upcoming', value: bookings.filter(b => b.status === 'CONFIRMED').length.toString(), change: 'Scheduled', icon: <Package size={20} />, gradient: 'from-[#6c5ce7]/20 to-[#a29bfe]/20' },
     ];
 
     if (!isAuthenticated) {
@@ -143,8 +116,8 @@ export default function DashboardPage() {
                                         : 'text-white/40 hover:text-white/80 hover:bg-white/5'
                                         }`}
                                     onClick={() => {
-                                        if (item.id === 'messages') {
-                                            router.push('/messages');
+                                        if (item.id === 'settings') {
+                                            router.push('/settings');
                                             return;
                                         }
                                         setActiveSidebar(item.id);
@@ -164,13 +137,7 @@ export default function DashboardPage() {
                             ))}
                         </div>
 
-                        <div className="mt-auto pt-8">
-                            <Link href="/listings/new">
-                                <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] hover:opacity-90 rounded-xl text-xs font-bold text-white transition-all shadow-lg shadow-[#6c5ce7]/20">
-                                    <Plus size={16} /> Create New Listing
-                                </button>
-                            </Link>
-                        </div>
+
                     </div>
                 </motion.aside>
 
@@ -233,191 +200,13 @@ export default function DashboardPage() {
                                         ))}
                                     </motion.div>
 
-                                    {bookingRequests.length > 0 && (
-                                        <motion.div
-                                            variants={fadeInUp}
-                                            initial="hidden"
-                                            animate="visible"
-                                            className="glass-card rounded-2xl p-6 border border-[#6c5ce7]/20 bg-[#6c5ce7]/5 relative overflow-hidden"
-                                        >
-                                            <div className="absolute top-0 left-0 w-1 h-full bg-[#6c5ce7]" />
-                                            <div className="flex items-center justify-between mb-6">
-                                                <div>
-                                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                                        <Bell size={20} className="text-[#6c5ce7]" />
-                                                        Pending Requests
-                                                        <span className="bg-[#6c5ce7] text-white text-[10px] px-2 py-0.5 rounded-full">{bookingRequests.length}</span>
-                                                    </h3>
-                                                    <p className="text-xs text-white/40">Approve or reject rental requests for your listings</p>
-                                                </div>
-                                            </div>
 
-                                            <div className="space-y-3">
-                                                {bookingRequests.map(req => (
-                                                    <div key={req.id} className="p-4 rounded-xl bg-black/20 border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                                        <div className="flex items-center gap-4">
-                                                            <div
-                                                                className="w-12 h-12 rounded-lg bg-cover bg-center flex-shrink-0"
-                                                                style={{
-                                                                    backgroundImage: `url(${req.listing.media?.find((m: any) => m.type === 'IMAGE')?.url ||
-                                                                        (req.listing.images && req.listing.images.length > 0 ? req.listing.images[0] : '')
-                                                                        })`
-                                                                }}
-                                                            />
-                                                            <div>
-                                                                <h4 className="text-sm font-bold text-white">{req.listing.title}</h4>
-                                                                <p className="text-xs text-white/50 flex items-center gap-2">
-                                                                    <span className="text-[#a29bfe]">{req.renter.firstName} {req.renter.lastName}</span>
-                                                                    •
-                                                                    <span>{new Date(req.startDate).toLocaleDateString()} - {new Date(req.endDate).toLocaleDateString()}</span>
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            <button onClick={() => handleBookingAction(req.id, 'reject')} className="px-4 py-2 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">Decline</button>
-                                                            <button onClick={() => handleBookingAction(req.id, 'approve')} className="px-4 py-2 rounded-lg text-xs font-bold bg-[#6c5ce7] text-white hover:bg-[#5f4dd0] transition-colors shadow-lg shadow-[#6c5ce7]/20">Approve Request</button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-                                    )}
 
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                        <motion.div className="lg:col-span-2 glass-card rounded-2xl p-6 border border-white/5 bg-black/20">
-                                            <div className="flex items-center justify-between mb-6">
-                                                <h3 className="text-lg font-bold text-white">Revenue Overview</h3>
-                                                <div className="flex gap-2">
-                                                    {['1W', '1M', '3M', '1Y'].map(range => (
-                                                        <button key={range} className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${range === '1Y' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}>{range}</button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="h-[300px] w-full">
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <AreaChart data={revenueData}>
-                                                        <defs>
-                                                            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                                                <stop offset="5%" stopColor="#6c5ce7" stopOpacity={0.3} />
-                                                                <stop offset="95%" stopColor="#6c5ce7" stopOpacity={0} />
-                                                            </linearGradient>
-                                                        </defs>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                                        <XAxis dataKey="name" stroke="rgba(255,255,255,0.2)" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }} tickLine={false} axisLine={false} />
-                                                        <YAxis stroke="rgba(255,255,255,0.2)" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
-                                                        <Tooltip contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} itemStyle={{ color: '#fff', fontSize: '12px' }} />
-                                                        <Area type="monotone" dataKey="value" stroke="#6c5ce7" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
-                                                    </AreaChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        </motion.div>
 
-                                        <motion.div className="glass-card rounded-2xl p-6 border border-white/5 bg-black/20">
-                                            <h3 className="text-lg font-bold text-white mb-6">Weekly Activity</h3>
-                                            <div className="h-[200px] w-full mb-6">
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <BarChart data={activityData}>
-                                                        <Bar dataKey="value" fill="#00cec9" radius={[4, 4, 0, 0]} barSize={20} />
-                                                        <XAxis dataKey="name" stroke="rgba(255,255,255,0.2)" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)' }} tickLine={false} axisLine={false} />
-                                                    </BarChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                            <div className="space-y-3">
-                                                <h4 className="text-xs font-semibold text-white/60 uppercase tracking-widest mb-2">Top Performer</h4>
-                                                {listings.length > 0 ? (
-                                                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-                                                        <div className="w-10 h-10 rounded-lg bg-[#6c5ce7]/20 flex items-center justify-center text-[#a29bfe] overflow-hidden">
-                                                            {(() => {
-                                                                const mainImage = listings[0].media?.find((m: any) => m.type === 'IMAGE')?.url ||
-                                                                    (listings[0].images && listings[0].images.length > 0 ? listings[0].images[0] : null);
-                                                                return mainImage ? (
-                                                                    <img src={mainImage} alt={listings[0].title} className="w-full h-full object-cover" />
-                                                                ) : (
-                                                                    <Package size={18} />
-                                                                );
-                                                            })()}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <div className="text-sm font-medium text-white">{listings[0].title}</div>
-                                                            <div className="text-[10px] text-white/40">{listings[0].views || 0} views</div>
-                                                        </div>
-                                                        <div className="text-xs text-[#00cec9] font-medium">Active</div>
-                                                    </div>
-                                                ) : <p className="text-xs text-white/20 italic text-center py-4">No listings yet</p>}
-                                            </div>
-                                        </motion.div>
-                                    </div>
                                 </div>
                             )}
 
-                            {activeSidebar === 'listings' && (
-                                <div className="space-y-6">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-xl font-bold text-white">Your Listings</h3>
-                                        <Link href="/listings/new">
-                                            <button className="flex items-center gap-2 px-4 py-2 bg-[#6c5ce7] text-white rounded-xl text-xs font-bold hover:bg-[#5f4dd0] transition-all">
-                                                <Plus size={16} /> Add New
-                                            </button>
-                                        </Link>
-                                    </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                        {listings.length === 0 ? (
-                                            <div className="col-span-full py-20 text-center glass-card rounded-2xl border-white/5">
-                                                <Package size={48} className="mx-auto text-white/5 mb-4" />
-                                                <p className="text-white/20 italic">No listings created yet</p>
-                                            </div>
-                                        ) : (
-                                            listings.map((l) => (
-                                                <motion.div
-                                                    key={l.id}
-                                                    variants={fadeInUp}
-                                                    className="glass-card rounded-2xl overflow-hidden group hover:border-[#6c5ce7]/30 transition-all"
-                                                >
-                                                    <div className="aspect-video relative overflow-hidden">
-                                                        {(() => {
-                                                            const mainImage = l.media?.find((m: any) => m.type === 'IMAGE')?.url ||
-                                                                (l.images && l.images.length > 0 ? l.images[0] : null);
-                                                            return mainImage ? (
-                                                                <img src={mainImage} alt={l.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                                            ) : (
-                                                                <div className="w-full h-full flex items-center justify-center bg-white/5"><Package size={40} className="text-white/10" /></div>
-                                                            );
-                                                        })()}
-                                                        <div className="absolute top-3 left-3 px-2 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider border border-white/10">
-                                                            {l.category}
-                                                        </div>
-                                                        <div className={`absolute top-3 right-3 px-2 py-1 rounded-lg backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider border border-white/10 ${l.status === 'ACTIVE' ? 'bg-[#00cec9]/60' : 'bg-yellow-500/60'}`}>
-                                                            {l.status}
-                                                        </div>
-                                                    </div>
-                                                    <div className="p-5">
-                                                        <div className="flex justify-between items-start mb-2">
-                                                            <h4 className="font-bold text-white group-hover:text-[#a29bfe] transition-colors">{l.title}</h4>
-                                                            <div className="text-sm font-bold text-[#a29bfe]">${l.price}</div>
-                                                        </div>
-                                                        <div className="flex items-center gap-4 text-[10px] text-white/40 mb-4">
-                                                            <span className="flex items-center gap-1"><TrendingUp size={10} /> {l.views || 0} views</span>
-                                                            <span className="flex items-center gap-1"><Calendar size={10} /> Created {new Date(l.createdAt).toLocaleDateString()}</span>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            <button className="flex-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold text-white/60 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2">
-                                                                <Settings size={14} /> Edit
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setManagingPricingListing(l)}
-                                                                className="flex-1 py-2.5 rounded-xl bg-[#6c5ce7]/10 border border-[#6c5ce7]/20 text-[10px] font-bold text-[#a29bfe] hover:bg-[#6c5ce7]/20 transition-all flex items-center justify-center gap-2"
-                                                            >
-                                                                <DollarSign size={14} /> Manage Pricing
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </motion.div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            )}
 
                             {activeSidebar === 'notifications' && (
                                 <motion.div
@@ -473,14 +262,6 @@ export default function DashboardPage() {
                     )}
                 </div>
             </div>
-            <AnimatePresence>
-                {managingPricingListing && (
-                    <PricingManager
-                        listing={managingPricingListing}
-                        onClose={() => setManagingPricingListing(null)}
-                    />
-                )}
-            </AnimatePresence>
         </main>
     );
 }

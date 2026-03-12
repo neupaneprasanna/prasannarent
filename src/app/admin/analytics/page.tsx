@@ -4,19 +4,10 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, TrendingUp, DollarSign, Users, Calendar } from 'lucide-react';
 import { AdminRevenueChart } from '@/components/admin/dashboard/AdminRevenueChart';
-import { AdminUserGrowthChart } from '@/components/admin/dashboard/AdminUserGrowthChart';
 import { AdminStatsCard } from '@/components/admin/ui/AdminStatsCard';
 
 // Mock Data
-const mockRevenueData = [
-    { date: '2025-01-01', revenue: 4000 },
-    { date: '2025-01-08', revenue: 3000 },
-    { date: '2025-01-15', revenue: 5000 },
-    { date: '2025-01-22', revenue: 2780 },
-    { date: '2025-01-29', revenue: 1890 },
-    { date: '2025-02-05', revenue: 2390 },
-    { date: '2025-02-12', revenue: 3490 },
-];
+const mockRevenueData: any[] = [];
 
 export default function AnalyticsPage() {
     const [timeRange, setTimeRange] = useState('30d');
@@ -48,42 +39,41 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <AdminStatsCard
                     title="Total Revenue"
-                    value="$124,592"
+                    value="$0"
                     icon={DollarSign}
-                    change={12.5}
-                    changeType="increase"
+                    change={0}
+                    changeType="neutral"
                     description="vs last period"
                 />
                 <AdminStatsCard
                     title="Active Users"
-                    value="8,549"
+                    value="0"
                     icon={Users}
-                    change={5.2}
-                    changeType="increase"
+                    change={0}
+                    changeType="neutral"
                     description="vs last period"
                 />
                 <AdminStatsCard
                     title="Booking Rate"
-                    value="42.8%"
+                    value="0%"
                     icon={Calendar}
-                    change={2.1}
-                    changeType="decrease"
+                    change={0}
+                    changeType="neutral"
                     description="vs last period"
                 />
                 <AdminStatsCard
                     title="Avg. Order Value"
-                    value="$342"
+                    value="$0"
                     icon={TrendingUp}
-                    change={8.4}
-                    changeType="increase"
+                    change={0}
+                    changeType="neutral"
                     description="vs last period"
                 />
             </div>
 
             {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
                 <AdminRevenueChart data={mockRevenueData} />
-                <AdminUserGrowthChart />
             </div>
 
             {/* Detailed Reports (Placeholder) */}
@@ -108,11 +98,7 @@ export default function AnalyticsPage() {
                             </tr>
                         </thead>
                         <tbody className="text-sm">
-                            {[
-                                { name: 'Luxury Villas', listings: 142, views: '45.2k', bookings: 328, revenue: '$84,200' },
-                                { name: 'Urban Apartments', listings: 315, views: '82.1k', bookings: 512, revenue: '$28,400' },
-                                { name: 'Cozy Cottages', listings: 89, views: '12.4k', bookings: 145, revenue: '$11,992' },
-                            ].map((row, idx) => (
+                            {[].map((row: any, idx) => (
                                 <tr key={idx} className="border-b border-[var(--admin-border)] hover:bg-[var(--admin-surface-hover)]">
                                     <td className="py-3 px-4 font-medium text-white">{row.name}</td>
                                     <td className="py-3 px-4 text-[var(--admin-text-secondary)]">{row.listings}</td>

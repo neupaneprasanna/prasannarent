@@ -7,19 +7,17 @@ import { useAdminAuthStore } from '@/store/admin/admin-auth-store';
 import { useAdminUIStore } from '@/store/admin/admin-data-stores';
 import {
     LayoutDashboard, Users, Building2, Calendar, CreditCard,
-    FileText, Brain, Bell, ToggleRight, Shield, BarChart3,
+    FileText, ToggleRight, Shield, BarChart3,
     ScrollText, Server, Settings, ChevronLeft, ChevronRight,
-    Search, LogOut, Menu, Command, Zap, AlertTriangle, MessageSquare
+    Search, LogOut, Menu, Command, Zap, AlertTriangle
 } from 'lucide-react';
 import { AdminBreadcrumbs } from '@/components/admin/layout/AdminBreadcrumbs';
-import { AdminNotifications } from '@/components/admin/layout/AdminNotifications';
-import { AdminActivityStream } from '@/components/admin/layout/AdminActivityStream';
 import { AdminQuickActions } from '@/components/admin/layout/AdminQuickActions';
 
 const iconMap: Record<string, React.ElementType> = {
     LayoutDashboard, Users, Building2, Calendar, CreditCard,
-    FileText, Brain, Bell, ToggleRight, Shield, BarChart3,
-    ScrollText, Server, Settings, MessageSquare,
+    FileText, ToggleRight, Shield, BarChart3,
+    ScrollText, Server, Settings,
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -30,7 +28,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const sidebarItems = useAdminAuthStore((s) => s.sidebarItems);
     const [mounted, setMounted] = useState(false);
     // Phase 3 State
-    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
     const isLoginPage = pathname === '/admin/login';
 
@@ -226,15 +223,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             <AdminQuickActions isOpen={isQuickActionsOpen} onClose={() => setIsQuickActionsOpen(false)} />
                         </div>
 
-                        {/* Notifications */}
-                        <button
-                            onClick={() => setIsNotificationsOpen(true)}
-                            className="p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/[0.06] transition-colors relative"
-                        >
-                            <Bell className="w-5 h-5" />
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
-                        </button>
-
                         {/* User Menu */}
                         <div className="flex items-center gap-3 pl-3 border-l border-white/[0.06]">
                             <div className="hidden sm:block text-right">
@@ -272,14 +260,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             </motion.div>
                         </AnimatePresence>
                     </main>
-
-                    {/* Right Sidebar: Activity Stream */}
-                    <AdminActivityStream />
                 </div>
             </div>
-
-            {/* Notification Panel */}
-            <AdminNotifications isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} />
         </div>
     );
 }
