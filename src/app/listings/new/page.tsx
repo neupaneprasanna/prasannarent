@@ -10,7 +10,8 @@ import { fadeInUp, staggerContainer } from '@/lib/animations/motion-config';
 import { useAppStore } from '@/store/app-store';
 import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
-import { Package, MapPin, DollarSign, Image as ImageIcon, ChevronRight, ChevronLeft, Check, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { Package, MapPin, DollarSign, Image as ImageIcon, ChevronRight, ChevronLeft, Check, Loader2, Upload, X as XIcon } from 'lucide-react';
 
 const steps = [
     { id: 'basic', title: 'Basic Info', icon: <Package size={20} /> },
@@ -28,6 +29,8 @@ export default function CreateListingPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [dragOver, setDragOver] = useState(false);
 
     const { isAuthenticated } = useAuthStore();
     const setCursorVariant = useAppStore((s) => s.setCursorVariant);
@@ -86,6 +89,53 @@ export default function CreateListingPage() {
             ...prev,
             customAttributes: { ...prev.customAttributes, [name]: value }
         }));
+    };
+
+    const handleMediaUpload = async (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+        setUploading(true);
+        setError('');
+        try {
+            for (const file of Array.from(files)) {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const filePath = `listings/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('avatars')
+                    .upload(filePath, file);
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(filePath);
+
+                const isVideo = file.type.startsWith('video/');
+                setFormData(prev => ({
+                    ...prev,
+                    media: [...prev.media, { url: publicUrl, type: isVideo ? 'VIDEO' : 'IMAGE', caption: '' }]
+                }));
+            }
+        } catch (err: any) {
+            console.error('Upload failed:', err);
+            setError('Failed to upload file. Please try again.');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const removeMedia = (index: number) => {
+        setFormData(prev => ({
+            ...prev,
+            media: prev.media.filter((_, i) => i !== index)
+        }));
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setDragOver(false);
+        handleMediaUpload(e.dataTransfer.files);
     };
 
     const nextStep = () => {
@@ -422,80 +472,112 @@ export default function CreateListingPage() {
                                 className="space-y-6"
                             >
                                 <h3 className="text-xl font-semibold mb-6">Product Photos</h3>
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <label className="block text-xs text-white/40 font-medium uppercase tracking-wider">Media Gallery</label>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setFormData(prev => ({
-                                                ...prev,
-                                                media: [...prev.media, { url: '', type: 'IMAGE', caption: '' }]
-                                            }))}
-                                        >
-                                            + Add Media
-                                        </Button>
+                                <div className="space-y-6">
+                                    {/* Upload Zone */}
+                                    <div
+                                        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                                        onDragLeave={() => setDragOver(false)}
+                                        onDrop={handleDrop}
+                                        onClick={() => document.getElementById('listing-media-upload')?.click()}
+                                        className={`relative p-10 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 group ${
+                                            dragOver
+                                                ? 'border-[#6c5ce7] bg-[#6c5ce7]/10 scale-[1.02]'
+                                                : 'border-white/15 hover:border-[#6c5ce7]/50 hover:bg-white/[0.02]'
+                                        }`}
+                                    >
+                                        {uploading ? (
+                                            <>
+                                                <Loader2 size={32} className="animate-spin text-[#a29bfe] mb-3" />
+                                                <p className="text-sm text-white/60">Uploading...</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300 ${
+                                                    dragOver ? 'bg-[#6c5ce7]/20 text-[#a29bfe] scale-110' : 'bg-white/5 text-white/30 group-hover:text-[#a29bfe] group-hover:bg-[#6c5ce7]/10'
+                                                }`}>
+                                                    <Upload size={28} />
+                                                </div>
+                                                <p className="text-sm font-medium text-white/70 mb-1">Drop files here or click to browse</p>
+                                                <p className="text-xs text-white/30">Supports JPG, PNG, WEBP, MP4 · Max 10MB per file</p>
+                                            </>
+                                        )}
+                                        <input
+                                            type="file"
+                                            id="listing-media-upload"
+                                            className="hidden"
+                                            accept="image/*,video/*"
+                                            multiple
+                                            onChange={(e) => handleMediaUpload(e.target.files)}
+                                        />
                                     </div>
 
-                                    {formData.media.map((item, index) => (
-                                        <div key={index} className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-                                            <div className="flex gap-3">
-                                                <select
-                                                    value={item.type}
-                                                    onChange={(e) => {
-                                                        const newMedia = [...formData.media];
-                                                        newMedia[index].type = e.target.value;
-                                                        setFormData(prev => ({ ...prev, media: newMedia }));
-                                                    }}
-                                                    className="bg-[#1a1a1a] border border-white/10 rounded-lg px-2 py-2 text-[10px] text-white outline-none focus:border-[#6c5ce7]"
-                                                >
-                                                    <option value="IMAGE">IMAGE</option>
-                                                    <option value="VIDEO">VIDEO</option>
-                                                    <option value="PANORAMA_360">360° VIEW</option>
-                                                </select>
-                                                <input
-                                                    placeholder="Media URL (direct link)"
-                                                    value={item.url}
-                                                    onChange={(e) => {
-                                                        const newMedia = [...formData.media];
-                                                        newMedia[index].url = e.target.value;
-                                                        setFormData(prev => ({ ...prev, media: newMedia }));
-                                                    }}
-                                                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#6c5ce7]"
-                                                />
-                                                <button
-                                                    onClick={() => {
-                                                        const newMedia = formData.media.filter((_, i) => i !== index);
-                                                        setFormData(prev => ({ ...prev, media: newMedia }));
-                                                    }}
-                                                    className="text-red-400/60 hover:text-red-400 p-2"
-                                                >
-                                                    ✕
-                                                </button>
+                                    {/* Uploaded Media Grid */}
+                                    {formData.media.length > 0 && (
+                                        <div>
+                                            <label className="block text-xs text-white/40 font-medium uppercase tracking-wider mb-3">Uploaded Media ({formData.media.length})</label>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                                {formData.media.map((item, index) => (
+                                                    <div key={index} className="relative group rounded-xl overflow-hidden bg-white/5 border border-white/10 aspect-square">
+                                                        {item.type === 'VIDEO' ? (
+                                                            <video src={item.url} className="w-full h-full object-cover" muted />
+                                                        ) : (
+                                                            <img src={item.url} alt={item.caption || `Media ${index + 1}`} className="w-full h-full object-cover" />
+                                                        )}
+                                                        {/* Overlay */}
+                                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); removeMedia(index); }}
+                                                                className="flex items-center gap-1 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg text-[10px] font-bold transition-all"
+                                                            >
+                                                                <XIcon size={12} /> Remove
+                                                            </button>
+                                                        </div>
+                                                        {/* Type Badge */}
+                                                        <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded-md text-[8px] font-bold uppercase tracking-wider text-white/70">
+                                                            {item.type}
+                                                        </div>
+                                                        {index === 0 && (
+                                                            <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-[#6c5ce7]/80 backdrop-blur-sm rounded-md text-[8px] font-bold uppercase tracking-wider text-white">
+                                                                Cover
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
                                             </div>
-                                            <input
-                                                placeholder="Add a caption (optional)"
-                                                value={item.caption}
-                                                onChange={(e) => {
-                                                    const newMedia = [...formData.media];
-                                                    newMedia[index].caption = e.target.value;
-                                                    setFormData(prev => ({ ...prev, media: newMedia }));
-                                                }}
-                                                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white/60 outline-none focus:border-[#6c5ce7]"
-                                            />
-                                        </div>
-                                    ))}
-
-                                    {formData.media.length === 0 && (
-                                        <div className="p-8 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center">
-                                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4 text-white/40">
-                                                <ImageIcon size={24} />
-                                            </div>
-                                            <p className="text-sm text-white/60 mb-1">No media added yet</p>
-                                            <p className="text-xs text-white/20">Add images, videos or 360 views to showcase your asset</p>
                                         </div>
                                     )}
 
+                                    {/* Captions */}
+                                    {formData.media.length > 0 && (
+                                        <div className="space-y-3">
+                                            <label className="block text-xs text-white/40 font-medium uppercase tracking-wider">Captions</label>
+                                            {formData.media.map((item, index) => (
+                                                <div key={index} className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/5 flex-shrink-0">
+                                                        {item.type === 'VIDEO' ? (
+                                                            <video src={item.url} className="w-full h-full object-cover" muted />
+                                                        ) : (
+                                                            <img src={item.url} alt="" className="w-full h-full object-cover" />
+                                                        )}
+                                                    </div>
+                                                    <input
+                                                        placeholder={`Caption for ${item.type.toLowerCase()} ${index + 1} (optional)`}
+                                                        value={item.caption}
+                                                        onChange={(e) => {
+                                                            const newMedia = [...formData.media];
+                                                            newMedia[index].caption = e.target.value;
+                                                            setFormData(prev => ({ ...prev, media: newMedia }));
+                                                        }}
+                                                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white/60 outline-none focus:border-[#6c5ce7] transition-colors"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {formData.media.length === 0 && (
+                                        <p className="text-center text-xs text-white/20 py-4">Upload at least one photo to showcase your item</p>
+                                    )}
                                 </div>
                             </motion.div>
                         )}

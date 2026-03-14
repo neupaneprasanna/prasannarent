@@ -51,7 +51,7 @@ export default function FloatingActionButton() {
             onMouseMove={handleMouseMove}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={handleMouseLeave}
-            className="fixed bottom-6 left-6 sm:bottom-10 sm:left-10 z-[100] outline-none touch-none group"
+            className="fixed bottom-6 right-6 sm:bottom-10 sm:right-10 z-[100] outline-none touch-none group"
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 0.5 }}
@@ -137,28 +137,28 @@ export default function FloatingActionButton() {
                 </div>
             </motion.div>
 
-            {/* Sliding Tooltip Context */}
+            {/* Sliding Tooltip Context - Reversed for Right Side Positioning */}
             <motion.div
-                className="absolute left-full ml-4 sm:ml-6 top-1/2 -translate-y-1/2 flex items-center pointer-events-none"
-                initial={{ opacity: 0, x: -20, filter: 'blur(8px)' }}
+                className="absolute right-full mr-4 sm:mr-6 top-1/2 -translate-y-1/2 flex flex-row-reverse items-center pointer-events-none"
+                initial={{ opacity: 0, x: 20, filter: 'blur(8px)' }}
                 animate={{ 
                     opacity: isHovered ? 1 : 0, 
-                    x: isHovered ? 0 : -20,
+                    x: isHovered ? 0 : 20,
                     filter: isHovered ? 'blur(0px)' : 'blur(8px)'
                 }}
                 transition={{ duration: 0.4, type: "spring", stiffness: 300, damping: 25 }}
             >
-                {/* Connecting Laser Line */}
-                <div className="w-3 sm:w-5 h-[1px] bg-gradient-to-r from-[#00ffb3]/50 to-transparent origin-left shadow-[0_0_8px_rgba(0,255,179,0.5)]" />
-                <div className="whitespace-nowrap px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-[#0a0a0f]/95 backdrop-blur-2xl border border-[#6c5ce7]/30 shadow-[0_0_20px_rgba(108,92,231,0.2)] flex items-center gap-2 sm:gap-3 overflow-hidden ml-[-1px]">
-                    <div className="absolute inset-0 bg-gradient-to-l from-[#6c5ce7]/20 to-transparent pointer-events-none" />
+                {/* Connecting Laser Line - Flipped origin */}
+                <div className="w-3 sm:w-5 h-[1px] bg-gradient-to-l from-[#00ffb3]/50 to-transparent origin-right shadow-[0_0_8px_rgba(0,255,179,0.5)]" />
+                <div className="whitespace-nowrap px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-[#0a0a0f]/95 backdrop-blur-2xl border border-[#6c5ce7]/30 shadow-[0_0_20px_rgba(108,92,231,0.2)] flex flex-row-reverse items-center gap-2 sm:gap-3 overflow-hidden mr-[-1px]">
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#6c5ce7]/20 to-transparent pointer-events-none" />
                     <span className="relative z-10 text-xs sm:text-sm font-bold tracking-widest text-[#e2e8f0] uppercase">List an Item</span>
                     <motion.div 
-                        animate={{ x: [0, 4, 0] }}
+                        animate={{ x: [0, -4, 0] }}
                         transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
                         className="relative z-10 text-[#00ffb3]"
                     >
-                        →
+                        ←
                     </motion.div>
                 </div>
             </motion.div>

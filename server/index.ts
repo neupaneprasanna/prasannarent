@@ -1186,23 +1186,62 @@ nextApp.prepare().then(() => {
     });
 
     // ─── WebSocket (Real-time) ───
+    // Track online users: userId -> Set of socket IDs
+    const onlineUsers = new Map<string, Set<string>>();
+
     io.on('connection', (socket) => {
-        console.log(`User connected: ${socket.id} `);
+        console.log(`User connected: ${socket.id}`);
+
+        // When a user authenticates their socket, track them and auto-join rooms
+        socket.on('authenticate', async (userId: string) => {
+            if (!userId) return;
+
+            // Store socket-to-user mapping
+            (socket as any).userId = userId;
+
+            // Track online status
+            if (!onlineUsers.has(userId)) {
+                onlineUsers.set(userId, new Set());
+            }
+            onlineUsers.get(userId)!.add(socket.id);
+
+            // Broadcast online status to all
+            io.emit('user_online', { userId });
+
+            // Auto-join all chat rooms this user belongs to
+            try {
+                const memberships = await prisma.chatMember.findMany({
+                    where: { userId },
+                    select: { chatRoomId: true }
+                });
+                memberships.forEach(m => {
+                    socket.join(m.chatRoomId);
+                });
+                console.log(`User ${userId} auto-joined ${memberships.length} chat rooms`);
+            } catch (err) {
+                console.error('Error auto-joining rooms:', err);
+            }
+
+            // Send current online users list to the newly connected user
+            const onlineUserIds = Array.from(onlineUsers.keys());
+            socket.emit('online_users', onlineUserIds);
+        });
 
         socket.on('join_room', (roomId: string) => {
             socket.join(roomId);
-            console.log(`User socket ${socket.id} joined room ${roomId}`);
         });
 
         socket.on('leave_room', (roomId: string) => {
             socket.leave(roomId);
-            console.log(`User socket ${socket.id} left room ${roomId}`);
         });
 
-        // Chat Events
+        // Chat Events - ensure chatRoomId is always included
         socket.on('send_message', (data: { roomId: string, message: any }) => {
-            // Broadcast to everyone else in the room
-            socket.to(data.roomId).emit('new_message', data.message);
+            const messageWithRoom = {
+                ...data.message,
+                chatRoomId: data.roomId
+            };
+            socket.to(data.roomId).emit('new_message', messageWithRoom);
         });
 
         socket.on('typing_start', (data: { roomId: string, userId: string, name: string }) => {
@@ -1217,12 +1256,25 @@ nextApp.prepare().then(() => {
             socket.to(data.roomId).emit('message_read_update', data);
         });
 
+        socket.on('message_deleted', (data: { roomId: string, messageId: string }) => {
+            socket.to(data.roomId).emit('message_removed', data);
+        });
+
         socket.on('booking-update', (data: { bookingId: string; status: string }) => {
             io.emit('booking-status-change', data);
         });
 
         socket.on('disconnect', () => {
-            console.log(`User disconnected: ${socket.id} `);
+            const userId = (socket as any).userId;
+            if (userId && onlineUsers.has(userId)) {
+                onlineUsers.get(userId)!.delete(socket.id);
+                if (onlineUsers.get(userId)!.size === 0) {
+                    onlineUsers.delete(userId);
+                    // Broadcast offline status
+                    io.emit('user_offline', { userId });
+                }
+            }
+            console.log(`User disconnected: ${socket.id}`);
         });
     });
 

@@ -1,783 +1,1081 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    Search, Bell, Folder, Home, Settings, Info, LogOut, 
-    MoreVertical, Plus, Send, Image as ImageIcon,
-    Bookmark, Lock, Pin, Share, CheckCheck,
-    PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
-    Sun, Moon
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import {
+    Search, Home, Send, Plus, CheckCheck, ArrowDown,
+    PanelLeftClose, PanelLeftOpen, Sun, Moon, MessageSquare,
+    Trash2, X, Settings, Info, LogOut, SlidersHorizontal,
+    Flag, Lock, Pin, ChevronDown, ChevronUp, Image as ImageIcon,
+    MoreVertical, ArrowLeft, Paperclip, FileText, Music, Video,
+    File, Loader2, Download, X as XIcon
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import Link from 'next/link';
 import { io, Socket } from 'socket.io-client';
 import { apiClient } from '@/lib/api-client';
+import { supabase } from '@/lib/supabase';
 
-// Interfaces mapping to Prisma models
-export interface ChatRoom {
+interface ChatUser {
+    id: string;
+    firstName: string;
+    lastName?: string;
+    avatar: string | null;
+    lastSeenAt?: string;
+}
+
+interface ChatMember {
+    id: string;
+    userId: string;
+    user: ChatUser;
+    lastReadAt?: string;
+}
+
+interface MessageAttachment {
+    id?: string;
+    url: string;
+    type: string;
+    name?: string;
+    size?: number;
+}
+
+interface PendingFile {
+    file: File;
+    preview?: string;
+    type: string;
+    uploading: boolean;
+    uploaded: boolean;
+    url?: string;
+}
+
+interface Message {
+    id: string;
+    content: string | null;
+    createdAt: string;
+    senderId: string;
+    isDeleted?: boolean;
+    chatRoomId?: string;
+    sender: { id: string; firstName: string; lastName?: string; avatar: string | null };
+    attachments: MessageAttachment[];
+}
+
+interface ChatRoom {
     id: string;
     isGroup: boolean;
     name?: string;
     updatedAt: string;
     members: ChatMember[];
     messages: Message[];
-}
-
-export interface ChatMember {
-    id: string;
-    userId: string;
-    isAdmin: boolean;
-    user: {
-        id: string;
-        firstName: string;
-        lastName: string;
-        avatar: string | null;
-        lastSeenAt: string;
-    };
-}
-
-export interface Message {
-    id: string;
-    content: string | null;
-    createdAt: string;
-    sender: {
-        id: string;
-        firstName: string;
-        avatar: string | null;
-    };
-    attachments: any[];
+    unreadCount: number;
 }
 
 export default function MessagesPage() {
     const { user, isAuthenticated } = useAuthStore();
-    
-    // State
     const [rooms, setRooms] = useState<ChatRoom[]>([]);
     const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [messageInput, setMessageInput] = useState('');
-    const [isHoveredSidebar, setIsHoveredSidebar] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+    const [messagesLoading, setMessagesLoading] = useState(false);
+    const [availableUsers, setAvailableUsers] = useState<ChatUser[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [sortOrder, setSortOrder] = useState<'Newest' | 'Oldest'>('Newest');
-    
-    // Resizing State
-    const [leftPanelWidth, setLeftPanelWidth] = useState(320);
-    const [rightPanelWidth, setRightPanelWidth] = useState(340);
-    const [isLeftMinimized, setIsLeftMinimized] = useState(false);
-    const [isRightMinimized, setIsRightMinimized] = useState(false);
-    const [isDraggingLeftState, setIsDraggingLeftState] = useState(false);
-    const [isDraggingRightState, setIsDraggingRightState] = useState(false);
-    const isDraggingLeft = useRef(false);
-    const isDraggingRight = useRef(false);
-
-    // Theme State
+    const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+    const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
     const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-    const isDark = theme === 'dark';
-    
-    // Refs
+    const [showScrollBtn, setShowScrollBtn] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+    const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+    const [showDetailsPanel, setShowDetailsPanel] = useState(true);
+    const [showMediaSection, setShowMediaSection] = useState(true);
+    const [sidebarMode, setSidebarMode] = useState<'messages' | 'search'>('messages');
+    const [userSearchQuery, setUserSearchQuery] = useState('');
+    const [sidebarWidth, setSidebarWidth] = useState(320);
+    const [detailsWidth, setDetailsWidth] = useState(280);
+    const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+    const [isResizingDetails, setIsResizingDetails] = useState(false);
+    const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+    const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+    const [showAttachMenu, setShowAttachMenu] = useState(false);
+    const [inputDragOver, setInputDragOver] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const isDark = theme === 'dark';
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     const activeRoomIdRef = useRef<string | null>(null);
-
-    // Keep activeRoomIdRef in sync with state
-    useEffect(() => {
-        activeRoomIdRef.current = activeRoomId;
-    }, [activeRoomId]);
-
-    // Initial hydration mount
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
     const socketRef = useRef<Socket | null>(null);
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Auto-scroll Down
+    useEffect(() => { activeRoomIdRef.current = activeRoomId; }, [activeRoomId]);
+    useEffect(() => { setIsMounted(true); }, []);
+
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+        const check = () => setIsMobile(window.innerWidth < 768);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
 
-    // Resizing Handle
+    const scrollToBottom = useCallback((smooth = true) => {
+        messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' });
+    }, []);
+
+    useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+    const handleScroll = useCallback(() => {
+        const el = messagesContainerRef.current;
+        if (!el) return;
+        setShowScrollBtn(el.scrollHeight - el.scrollTop - el.clientHeight > 150);
+    }, []);
+
+    // Resizing logic
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
-            if (isDraggingLeft.current) {
-                const newWidth = e.clientX - 64; // Subtract 64px app sidebar
-                if (newWidth > 200 && newWidth < 600) {
-                    setLeftPanelWidth(newWidth);
+            if (isResizingSidebar) {
+                // Icon nav rail is 60px wide
+                const newWidth = e.clientX - 60;
+                if (newWidth >= 240 && newWidth <= 500) {
+                    setSidebarWidth(newWidth);
                 }
-            } else if (isDraggingRight.current) {
+            }
+            if (isResizingDetails) {
                 const newWidth = window.innerWidth - e.clientX;
-                if (newWidth > 250 && newWidth < 600) {
-                    setRightPanelWidth(newWidth);
+                if (newWidth >= 240 && newWidth <= 450) {
+                    setDetailsWidth(newWidth);
                 }
             }
-            if (isDraggingLeft.current || isDraggingRight.current) {
-                // Prevent text selection while dragging
-                e.preventDefault();
-            }
         };
 
-        const handleMouseUp = () => {
-            if (isDraggingLeft.current || isDraggingRight.current) {
-                isDraggingLeft.current = false;
-                isDraggingRight.current = false;
-                setIsDraggingLeftState(false);
-                setIsDraggingRightState(false);
-            }
+        const stopResizing = () => {
+            setIsResizingSidebar(false);
+            setIsResizingDetails(false);
+            document.body.style.cursor = 'auto';
         };
 
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
+        if (isResizingSidebar || isResizingDetails) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', stopResizing);
+            document.body.style.cursor = 'col-resize';
+        }
 
         return () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', stopResizing);
+            document.body.style.cursor = 'auto';
         };
-    }, []);
+    }, [isResizingSidebar, isResizingDetails]);
 
-    // 1. Initialize Socket.IO connection and Fetch Rooms
+    // Socket.IO + initial data
     useEffect(() => {
         if (!isAuthenticated || !user) return;
-
-        // Connect Socket
-        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5000';
-        const socket = io(wsUrl, { transports: ['websocket'] });
+        const url = typeof window !== 'undefined' ? window.location.origin : '';
+        const socket = io(url, { transports: ['websocket', 'polling'] });
         socketRef.current = socket;
 
-        // Listeners for global updates or active room push events
-        socket.on('new_message', (newMessage: Message & { chatRoomId: string }) => {
-            const currentActiveRoomId = activeRoomIdRef.current;
-            // If the message is for the currently active room, append it directly
-            if (currentActiveRoomId && newMessage.chatRoomId === currentActiveRoomId) {
-                setMessages(prev => {
-                    // Prevent duplicate appends if we already have it
-                    if (prev.some(m => m.id === newMessage.id)) return prev;
-                    return [...prev, newMessage];
-                });
+        socket.on('connect', () => { socket.emit('authenticate', user.id); });
+        socket.on('online_users', (ids: string[]) => { setOnlineUserIds(new Set(ids)); });
+        socket.on('user_online', ({ userId }: { userId: string }) => {
+            setOnlineUserIds(prev => new Set(prev).add(userId));
+        });
+        socket.on('user_offline', ({ userId }: { userId: string }) => {
+            setOnlineUserIds(prev => { const s = new Set(prev); s.delete(userId); return s; });
+        });
+
+        socket.on('new_message', (msg: Message & { chatRoomId: string }) => {
+            const curRoom = activeRoomIdRef.current;
+            if (curRoom && msg.chatRoomId === curRoom) {
+                setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
             }
-            // Update the latest message snippet in the sidebar room list
-            setRooms(prevRooms => prevRooms.map(room => {
-                if (room.id === newMessage.chatRoomId) {
-                    return {
-                        ...room,
-                        updatedAt: newMessage.createdAt,
-                        messages: [newMessage]
-                    };
+            setRooms(prev => prev.map(r => {
+                if (r.id === msg.chatRoomId) {
+                    return { ...r, updatedAt: msg.createdAt, messages: [msg],
+                        unreadCount: msg.chatRoomId === curRoom ? r.unreadCount : r.unreadCount + 1 };
                 }
-                return room;
+                return r;
             }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
         });
 
-        // Load chat rooms and available users
-        const loadInitialData = async () => {
+        socket.on('user_typing', ({ roomId, name }: { roomId: string; userId: string; name: string }) => {
+            if (roomId === activeRoomIdRef.current) {
+                setTypingUsers(prev => new Map(prev).set(roomId, name));
+            }
+        });
+        socket.on('user_stopped_typing', ({ roomId }: { roomId: string }) => {
+            setTypingUsers(prev => { const m = new Map(prev); m.delete(roomId); return m; });
+        });
+        socket.on('message_removed', ({ messageId }: { messageId: string }) => {
+            setMessages(prev => prev.map(m => m.id === messageId ? { ...m, isDeleted: true, content: null } : m));
+        });
+
+        const load = async () => {
             try {
                 const [fetchedRooms, fetchedUsers] = await Promise.all([
                     apiClient.get<ChatRoom[]>('/chat/rooms'),
-                    apiClient.get<any[]>('/chat/users')
+                    apiClient.get<ChatUser[]>('/chat/users')
                 ]);
                 setRooms(fetchedRooms);
                 setAvailableUsers(fetchedUsers);
-                
-                // Subscribe to ALL existing rooms to get side-bar notifications
-                fetchedRooms.forEach(room => {
-                    socket.emit('join_room', room.id);
-                });
-
-                if (fetchedRooms.length > 0 && !activeRoomIdRef.current) {
-                    setActiveRoomId(fetchedRooms[0].id);
-                }
-            } catch (err) {
-                console.error('Failed to load initial data:', err);
-            } finally {
-                setIsLoading(false);
-            }
+            } catch (err) { console.error('Failed to load:', err); }
+            finally { setIsLoading(false); }
         };
+        load();
 
-        loadInitialData();
-
-        return () => {
-            socket.disconnect();
-            socketRef.current = null;
-        };
+        return () => { socket.disconnect(); socketRef.current = null; };
     }, [isAuthenticated, user]);
 
-    // 2. Handle room switching (join cleanly via socket and load messages)
     useEffect(() => {
-        if (!activeRoomId || !socketRef.current || !isAuthenticated) return;
-
-        let isActive = true;
-        const socket = socketRef.current;
-        
-        // We ensure we have joined the room on click, though initial load also joins it.
-        socket.emit('join_room', activeRoomId);
-
-        // Fetch Historical Messages
-        const loadMessages = async () => {
-            setIsLoading(true);
+        if (!activeRoomId || !isAuthenticated) return;
+        let active = true;
+        const load = async () => {
+            setMessagesLoading(true);
             try {
-                const history = await apiClient.get<Message[]>(`/chat/rooms/${activeRoomId}/messages`);
-                if (isActive) {
-                    setMessages(history);
-                }
-            } catch (err) {
-                console.error(`Failed to load messages for room ${activeRoomId}`, err);
-            } finally {
-                if (isActive) setIsLoading(false);
-            }
+                const res = await apiClient.get<{ messages: Message[] }>(`/chat/rooms/${activeRoomId}/messages`);
+                if (active) setMessages(res.messages);
+                await apiClient.post(`/chat/rooms/${activeRoomId}/read`, {});
+                setRooms(prev => prev.map(r => r.id === activeRoomId ? { ...r, unreadCount: 0 } : r));
+            } catch (err) { console.error('Failed to load messages:', err); }
+            finally { if (active) setMessagesLoading(false); }
         };
-
-        loadMessages();
-
-        return () => {
-            isActive = false;
-            // Optionally: socket.emit('leave_room', activeRoomId); // Though we are keeping sidebar open, so maybe don't strictly leave!
-        };
+        socketRef.current?.emit('join_room', activeRoomId);
+        load();
+        return () => { active = false; };
     }, [activeRoomId, isAuthenticated]);
 
-    // Handle sending a real message
-    const handleSendMessage = async () => {
-        if (!messageInput.trim() || !activeRoomId || !user) return;
-        
-        const tempContent = messageInput;
-        setMessageInput(''); // Optimistic clear
+    // ─── FILE UPLOAD HELPERS ───
+    const getFileType = useCallback((file: File): string => {
+        if (file.type.startsWith('image/')) return 'IMAGE';
+        if (file.type.startsWith('video/')) return 'VIDEO';
+        if (file.type.startsWith('audio/')) return 'AUDIO';
+        return 'DOCUMENT';
+    }, []);
+
+    const getFileIcon = useCallback((type: string) => {
+        switch (type) {
+            case 'IMAGE': return <ImageIcon size={16} />;
+            case 'VIDEO': return <Video size={16} />;
+            case 'AUDIO': return <Music size={16} />;
+            default: return <FileText size={16} />;
+        }
+    }, []);
+
+    const formatFileSize = useCallback((bytes: number): string => {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }, []);
+
+    const handleFileSelect = useCallback((files: FileList | null) => {
+        if (!files || files.length === 0) return;
+        const newFiles: PendingFile[] = Array.from(files).map(file => ({
+            file,
+            preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+            type: getFileType(file),
+            uploading: false,
+            uploaded: false,
+        }));
+        setPendingFiles(prev => [...prev, ...newFiles]);
+        setShowAttachMenu(false);
+    }, [getFileType]);
+
+    const removePendingFile = useCallback((index: number) => {
+        setPendingFiles(prev => {
+            const file = prev[index];
+            if (file.preview) URL.revokeObjectURL(file.preview);
+            return prev.filter((_, i) => i !== index);
+        });
+    }, []);
+
+    const uploadPendingFiles = useCallback(async (): Promise<MessageAttachment[]> => {
+        const attachments: MessageAttachment[] = [];
+        setIsUploadingFiles(true);
+
+        for (let i = 0; i < pendingFiles.length; i++) {
+            const pf = pendingFiles[i];
+            if (pf.uploaded && pf.url) {
+                attachments.push({ url: pf.url, type: pf.type, name: pf.file.name, size: pf.file.size });
+                continue;
+            }
+
+            setPendingFiles(prev => prev.map((f, idx) => idx === i ? { ...f, uploading: true } : f));
+
+            try {
+                const fileExt = pf.file.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const filePath = `chat/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('avatars')
+                    .upload(filePath, pf.file);
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(filePath);
+
+                attachments.push({ url: publicUrl, type: pf.type, name: pf.file.name, size: pf.file.size });
+                setPendingFiles(prev => prev.map((f, idx) => idx === i ? { ...f, uploading: false, uploaded: true, url: publicUrl } : f));
+            } catch (err) {
+                console.error('File upload failed:', err);
+                setPendingFiles(prev => prev.map((f, idx) => idx === i ? { ...f, uploading: false } : f));
+            }
+        }
+
+        setIsUploadingFiles(false);
+        return attachments;
+    }, [pendingFiles]);
+
+    const handleInputDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setInputDragOver(false);
+        handleFileSelect(e.dataTransfer.files);
+    }, [handleFileSelect]);
+
+    const handleSendMessage = useCallback(async () => {
+        const hasText = messageInput.trim().length > 0;
+        const hasFiles = pendingFiles.length > 0;
+        if ((!hasText && !hasFiles) || !activeRoomId || !user) return;
+
+        const content = messageInput.trim();
+        setMessageInput('');
+        socketRef.current?.emit('typing_end', { roomId: activeRoomId, userId: user.id });
 
         try {
-            // 1. Post to API
-            const sentMessage = await apiClient.post<Message & { chatRoomId: string }>(`/chat/rooms/${activeRoomId}/messages`, {
-                content: tempContent
-            });
+            let attachments: MessageAttachment[] = [];
+            if (hasFiles) {
+                attachments = await uploadPendingFiles();
+            }
 
-            // 2. Render locally immediately if we haven't already received it via sockets
-            setMessages(prev => {
-                if (prev.some(m => m.id === sentMessage.id)) return prev;
-                return [...prev, sentMessage];
-            });
+            const payload: any = {};
+            if (content) payload.content = content;
+            if (attachments.length > 0) payload.attachments = attachments;
 
-            // 3. Emit via socket to others
-            socketRef.current?.emit('send_message', { 
-                roomId: activeRoomId, 
-                message: sentMessage 
-            });
+            const msg = await apiClient.post<Message & { chatRoomId: string }>(`/chat/rooms/${activeRoomId}/messages`, payload);
+            setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+            socketRef.current?.emit('send_message', { roomId: activeRoomId, message: msg });
+            setRooms(prev => prev.map(r => r.id === activeRoomId ? { ...r, updatedAt: msg.createdAt, messages: [msg] } : r)
+                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
 
-            // 4. Update local room summary
-            setRooms(prevRooms => prevRooms.map(room => {
-                if (room.id === activeRoomId) {
-                    return { ...room, updatedAt: sentMessage.createdAt, messages: [sentMessage] };
-                }
-                return room;
-            }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
-
-        } catch (error) {
-            console.error('Failed to send message:', error);
-            // Optionally could restore tempContent into messageInput if it failed
+            // Clear pending files
+            pendingFiles.forEach(pf => { if (pf.preview) URL.revokeObjectURL(pf.preview); });
+            setPendingFiles([]);
+        } catch (err) {
+            console.error('Send failed:', err);
+            if (content) setMessageInput(content);
         }
-    };
+    }, [messageInput, activeRoomId, user, pendingFiles, uploadPendingFiles]);
 
-    // Helper: Find the target user in a 1-1 chat
-    const getTargetUser = (room: ChatRoom) => {
-        if (room.isGroup) return null; // Logic for group chat isn't implemented strictly here
-        const targetMember = room.members.find(m => m.user.id !== user?.id);
-        return targetMember?.user;
-    };
+    const handleDeleteMessage = useCallback(async (messageId: string) => {
+        if (!activeRoomId) return;
+        try {
+            await apiClient.delete(`/chat/rooms/${activeRoomId}/messages/${messageId}`);
+            setMessages(prev => prev.map(m => m.id === messageId ? { ...m, isDeleted: true, content: null } : m));
+            socketRef.current?.emit('message_deleted', { roomId: activeRoomId, messageId });
+        } catch (err) { console.error('Delete failed:', err); }
+    }, [activeRoomId]);
 
-    // Handle starting a new direct message
-    const startDirectMessage = async (targetUserId: string) => {
+    const handleTyping = useCallback(() => {
+        if (!activeRoomId || !user) return;
+        socketRef.current?.emit('typing_start', { roomId: activeRoomId, userId: user.id, name: user.firstName });
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => {
+            socketRef.current?.emit('typing_end', { roomId: activeRoomId, userId: user.id });
+        }, 2000);
+    }, [activeRoomId, user]);
+
+    const startDirectMessage = useCallback(async (targetUserId: string) => {
         try {
             const room = await apiClient.post<ChatRoom>('/chat/direct', { targetUserId });
-            setRooms(prev => {
-                const exists = prev.find(r => r.id === room.id);
-                if (exists) return prev;
-                return [room, ...prev];
-            });
+            setRooms(prev => prev.find(r => r.id === room.id) ? prev : [room, ...prev]);
             setActiveRoomId(room.id);
-        } catch (error) {
-            console.error('Failed to start chat:', error);
-        }
-    };
+            socketRef.current?.emit('join_room', room.id);
+            setSearchQuery('');
+            if (isMobile) setMobileView('chat');
+        } catch (err) { console.error('Failed to start chat:', err); }
+    }, [isMobile]);
 
+    const getTargetUser = useCallback((room: ChatRoom) => {
+        if (!user) return null;
+        return room.members.find(m => m.user.id !== user.id)?.user || null;
+    }, [user]);
 
-    if (!isMounted) {
-        return <div className="min-h-screen bg-[#020305] text-white/50 flex items-center justify-center text-sm">Loading chat interface...</div>;
-    }
+    const isUserOnline = useCallback((userId: string) => onlineUserIds.has(userId), [onlineUserIds]);
+
+    const getDateLabel = useCallback((dateStr: string) => {
+        const d = new Date(dateStr);
+        const now = new Date();
+        const diff = now.getTime() - d.getTime();
+        if (diff < 86400000 && d.getDate() === now.getDate()) return 'Today';
+        if (diff < 172800000) return 'Yesterday';
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+    }, []);
+
+    const activeRoom = useMemo(() => rooms.find(r => r.id === activeRoomId), [rooms, activeRoomId]);
+    const targetUser = useMemo(() => activeRoom ? getTargetUser(activeRoom) : null, [activeRoom, getTargetUser]);
+    const typingName = activeRoomId ? typingUsers.get(activeRoomId) : null;
+    const targetOnline = targetUser ? isUserOnline(targetUser.id) : false;
+
+    const filteredRooms = useMemo(() => searchQuery.trim()
+        ? rooms.filter(r => {
+            const t = getTargetUser(r);
+            return t && `${t.firstName} ${t.lastName || ''}`.toLowerCase().includes(searchQuery.toLowerCase());
+        })
+        : rooms, [rooms, searchQuery, getTargetUser]);
+
+    const filteredUsers = useMemo(() => {
+        // This is only used in messages sidebar - shows non-chatted users when searching
+        if (!searchQuery.trim()) return [];
+        return availableUsers.filter(u => {
+            const inRoom = rooms.some(r => r.members.some(m => m.user.id === u.id));
+            return !inRoom && `${u.firstName} ${u.lastName || ''}`.toLowerCase().includes(searchQuery.toLowerCase());
+        });
+    }, [availableUsers, rooms, searchQuery]);
+
+    // All users search (for the Search tab)
+    const allUsersFiltered = useMemo(() => {
+        if (!userSearchQuery.trim()) return availableUsers;
+        return availableUsers.filter(u =>
+            `${u.firstName} ${u.lastName || ''}`.toLowerCase().includes(userSearchQuery.toLowerCase())
+        );
+    }, [availableUsers, userSearchQuery]);
+
+    const messagesWithDates = useMemo(() => {
+        let lastDate = '';
+        return messages.map(msg => {
+            const dateLabel = getDateLabel(msg.createdAt);
+            const showDate = dateLabel !== lastDate;
+            if (showDate) lastDate = dateLabel;
+            return { msg, dateLabel, showDate };
+        });
+    }, [messages, getDateLabel]);
+
+    // Group messages by time for centered timestamps
+    const getTimeLabel = useCallback((dateStr: string) => {
+        return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }, []);
+
+    if (!isMounted) return (
+        <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0a0b1e 0%, #12103a 50%, #0d0e24 100%)' }}>
+            <div className="text-white/40 text-sm">Loading...</div>
+        </div>
+    );
 
     if (!user || !isAuthenticated) {
         return (
-            <div className="min-h-screen bg-[#020305] text-white flex flex-col items-center justify-center">
-                <p className="mb-4">Please log in to view messages.</p>
-                <Link href="/login" className="px-6 py-2 bg-[#8B5CF6] rounded-xl text-white font-medium hover:bg-[#7c3aed] transition-colors">Go to Login</Link>
+            <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: 'linear-gradient(135deg, #0a0b1e 0%, #12103a 50%, #0d0e24 100%)' }}>
+                <p className="mb-4 text-white/60">Please log in to view messages.</p>
+                <Link href="/login" className="px-6 py-2.5 bg-[#8B5CF6] rounded-full text-white font-medium hover:bg-[#7c3aed] transition-colors">Go to Login</Link>
             </div>
         );
     }
 
-    const activeRoom = rooms.find(r => r.id === activeRoomId);
-    const targetUser = activeRoom ? getTargetUser(activeRoom) : null;
+    // ─── ICON NAV RAIL ───
+    const navRail = (
+        <div className="w-[60px] flex-shrink-0 flex flex-col items-center py-6 gap-1" style={{ background: 'linear-gradient(180deg, #0e0f2a 0%, #0a0b1e 100%)' }}>
+            <Link href="/" className="p-3 rounded-2xl text-white/40 hover:text-white hover:bg-white/5 transition-all mb-2">
+                <Home size={20} />
+            </Link>
+            {/* Search all users icon */}
+            <button onClick={() => { setSidebarMode('search'); setUserSearchQuery(''); }}
+                className={`relative p-3 rounded-2xl transition-all ${sidebarMode === 'search' ? 'bg-[#8B5CF6]/20 text-[#a78bfa]' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>
+                <Search size={20} />
+                {sidebarMode === 'search' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[#8B5CF6]" />}
+            </button>
+            {/* Messages (chatted users) icon */}
+            <button onClick={() => { setSidebarMode('messages'); setSearchQuery(''); }}
+                className={`relative p-3 rounded-2xl transition-all my-1 ${sidebarMode === 'messages' ? 'bg-[#8B5CF6]/20 text-[#a78bfa]' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>
+                <MessageSquare size={20} />
+                {sidebarMode === 'messages' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[#8B5CF6]" />}
+            </button>
+            <button className="p-3 rounded-2xl text-white/40 hover:text-white hover:bg-white/5 transition-all">
+                <Settings size={20} />
+            </button>
+            <button className="p-3 rounded-2xl text-white/40 hover:text-white hover:bg-white/5 transition-all">
+                <Info size={20} />
+            </button>
+            <div className="flex-1" />
+            <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="p-3 rounded-2xl text-white/40 hover:text-white hover:bg-white/5 transition-all">
+                {isDark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <Link href="/" className="p-3 rounded-2xl text-white/40 hover:text-red-400 hover:bg-red-500/5 transition-all">
+                <LogOut size={18} />
+            </Link>
+        </div>
+    );
 
-    const uniqueRooms = Array.from(new Map(
-        rooms.map(room => {
-            const tUser = getTargetUser(room);
-            const key = tUser ? tUser.id : room.id;
-            return [key, room];
-        })
-    ).values());
-
-    const displayRooms = [...uniqueRooms].sort((a, b) => {
-        const timeA = new Date(a.updatedAt).getTime();
-        const timeB = new Date(b.updatedAt).getTime();
-        return sortOrder === 'Newest' ? timeB - timeA : timeA - timeB;
-    });
-
-    return (
-        <div className={`messaging-page-root flex h-screen overflow-hidden font-sans transition-colors duration-500 ${isDark ? 'bg-[#020305] text-white' : 'bg-gray-100 text-gray-900'}`}>
-            
-            {/* COLUMN 1: App Sidebar (Mini) */}
-            <motion.div 
-                initial={{ x: -100 }}
-                animate={{ x: 0 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className={`w-16 flex-shrink-0 flex flex-col items-center py-6 gap-6 z-20 transition-colors duration-500 ${isDark ? 'bg-[#0a0b10] border-r border-white/[0.05]' : 'bg-white border-r border-gray-200'}`}
-            >
-                {/* Apps Navigation */}
-                <Link href="/" className={`p-3 rounded-xl transition-colors group relative ${isDark ? 'hover:bg-white/[0.05]' : 'hover:bg-gray-100'}`}>
-                    <Home size={20} className={`transition-colors ${isDark ? 'text-white/40 group-hover:text-white' : 'text-gray-400 group-hover:text-gray-900'}`} />
-                </Link>
-                <button className={`p-3 rounded-xl transition-colors group relative ${isDark ? 'hover:bg-white/[0.05]' : 'hover:bg-gray-100'}`}>
-                    <Bell size={20} className={`transition-colors ${isDark ? 'text-white/40 group-hover:text-white' : 'text-gray-400 group-hover:text-gray-900'}`} />
-                </button>
-                <button className={`p-3 rounded-xl transition-colors group relative ${isDark ? 'hover:bg-white/[0.05]' : 'hover:bg-gray-100'}`}>
-                    <Folder size={20} className={`transition-colors ${isDark ? 'text-white/40 group-hover:text-white' : 'text-gray-400 group-hover:text-gray-900'}`} />
-                </button>
-                
-                <div className={`h-px w-8 my-2 ${isDark ? 'bg-white/[0.05]' : 'bg-gray-200'}`} />
-                
-                {/* Active App (Messages) */}
-                <div className="relative group">
-                    <div className="absolute inset-0 bg-[#cdf876]/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <button className={`p-3 rounded-xl relative z-10 transition-transform active:scale-95 ${isDark ? 'bg-[#cdf876]/10 text-[#cdf876] shadow-[0_0_15px_rgba(205,248,118,0.15)]' : 'bg-[#10b981]/15 text-[#10b981] shadow-sm'}`}>
-                        <Share size={20} />
+    // ─── SIDEBAR ───
+    const sidebarContent = sidebarMode === 'messages' ? (
+        // ═══ MESSAGES MODE: search only existing chats ═══
+        <div className="flex flex-col h-full" style={{ background: 'rgba(14, 15, 42, 0.6)' }}>
+            <div className="p-5 pb-3 flex-shrink-0">
+                <div className="mb-1">
+                    <h2 className="text-[17px] font-bold text-white tracking-tight">Messages</h2>
+                    {user && <p className="text-[11px] text-white/30 mt-0.5">{user.email}</p>}
+                </div>
+                <div className="relative mt-4">
+                    <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
+                    <input type="text" placeholder="Search conversations..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                        className="w-full text-[13px] rounded-2xl pl-10 pr-10 py-3 outline-none bg-[#1a1b3a]/60 text-white border border-white/[0.06] focus:border-[#8B5CF6]/40 placeholder:text-white/25 transition-all"
+                    />
+                    <button className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/50 transition-colors">
+                        {searchQuery ? <X size={14} onClick={() => setSearchQuery('')} /> : <SlidersHorizontal size={14} />}
                     </button>
-                    {/* Indicator Dot */}
-                    <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 rounded-r-full ${isDark ? 'bg-[#cdf876]' : 'bg-[#10b981]'}`} />
                 </div>
+            </div>
 
-                <div className="flex-1" />
-
-                <button className={`p-3 rounded-xl transition-colors group relative ${isDark ? 'hover:bg-white/[0.05]' : 'hover:bg-gray-100'}`}>
-                    <Settings size={20} className={`transition-colors ${isDark ? 'text-white/40 group-hover:text-white' : 'text-gray-400 group-hover:text-gray-900'}`} />
+            <div className="px-5 pt-2 pb-2 flex items-center justify-between">
+                <h3 className="text-[13px] font-bold text-white/80">Direct Message</h3>
+                <button className="flex items-center gap-1 text-[11px] text-white/30 hover:text-white/50 transition-colors">
+                    Newest <ChevronDown size={12} />
                 </button>
-                <button className={`p-3 rounded-xl transition-colors group relative ${isDark ? 'hover:bg-white/[0.05]' : 'hover:bg-gray-100'}`}>
-                    <Info size={20} className={`transition-colors ${isDark ? 'text-white/40 group-hover:text-white' : 'text-gray-400 group-hover:text-gray-900'}`} />
-                </button>
-                <button className="p-3 rounded-xl hover:bg-red-500/10 transition-colors group mt-2">
-                    <LogOut size={20} className={`transition-colors ${isDark ? 'text-white/40 group-hover:text-red-400' : 'text-gray-400 group-hover:text-red-500'}`} />
-                </button>
-            </motion.div>
+            </div>
 
-            {/* COLUMN 2: Inbox / Chat List */}
-            <motion.div 
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1, type: 'spring', stiffness: 300, damping: 30 }}
-                style={{ width: isLeftMinimized ? 0 : leftPanelWidth }}
-                className={`flex-shrink-0 flex flex-col z-10 overflow-hidden ${!isDraggingLeftState ? 'transition-[width] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]' : ''} ${isLeftMinimized ? 'border-none' : (isDark ? 'border-r border-white/[0.05]' : 'border-r border-gray-200')} ${isDark ? 'bg-[#07080c]' : 'bg-gray-50'}`}
-            >
-                <div style={{ width: leftPanelWidth }} className="h-full flex flex-col flex-shrink-0">
-                    <div className="p-6 pb-2 flex-shrink-0">
-                    <h2 className={`text-lg font-semibold tracking-tight mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Message category</h2>
-                    <p className={`text-xs mb-5 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>{user.email}</p>
-                    
-                    {/* Search */}
-                    <div className="relative group mb-6">
-                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                            <Search size={16} className={`transition-colors ${isDark ? 'text-white/30 group-focus-within:text-[#8B5CF6]' : 'text-gray-400 group-focus-within:text-indigo-600'}`} />
-                        </div>
-                        <input 
-                            type="text" 
-                            placeholder="Search Message..." 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full text-sm rounded-xl pl-9 pr-10 py-2.5 outline-none transition-all ${isDark ? 'bg-[#12131a] text-white border border-white/[0.03] focus:border-[#8B5CF6]/50 focus:bg-[#15161e] placeholder:text-white/20' : 'bg-white text-gray-900 border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 placeholder:text-gray-400'}`}
-                        />
-                        <button className={`absolute inset-y-0 right-2 flex items-center p-1.5 my-1 rounded-lg transition-colors ${isDark ? 'hover:bg-white/5 text-white/40 hover:text-white' : 'hover:bg-gray-100 text-gray-400 hover:text-gray-900'}`}>
-                            <Settings size={14} />
-                        </button>
+            <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
+                {isLoading ? (
+                    <div className="p-6 text-center text-[13px] text-white/30">Loading chats...</div>
+                ) : filteredRooms.length === 0 ? (
+                    <div className="p-8 text-center">
+                        <MessageSquare size={36} className="mx-auto mb-3 text-white/10" />
+                        <p className="text-[13px] text-white/30">{searchQuery ? 'No conversations found.' : 'No conversations yet.'}</p>
+                        <p className="text-[11px] text-white/20 mt-1">Click the <Search size={10} className="inline" /> icon to find users!</p>
                     </div>
-
-                    {/* Available Users List */}
-                    {searchQuery.trim().length > 0 && (
-                    <div className="space-y-1 mb-6 relative">
-                        {availableUsers.filter(u => `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())).map((u) => {
-                            const isSelected = !!activeRoomId && rooms.find(r => r.id === activeRoomId)?.members.some((m: any) => m.user.id === u.id);
-                            return (
-                                <button
-                                    key={u.id}
-                                    onClick={() => startDirectMessage(u.id)}
-                                    onMouseEnter={() => setIsHoveredSidebar(u.id)}
-                                    onMouseLeave={() => setIsHoveredSidebar(null)}
-                                    className={`w-full flex items-center gap-3 p-3 rounded-xl relative transition-colors ${isSelected ? '' : 'hover:text-white text-white/60'}`}
-                                >
-                                    {/* Liquid Background Hover/Active */}
-                                    {isSelected && (
-                                        <motion.div layoutId="sidebar-active" className="absolute inset-0 bg-[#8B5CF6]/10 rounded-xl" />
-                                    )}
-                                    {isHoveredSidebar === u.id && !isSelected && (
-                                        <motion.div layoutId="sidebar-hover" className="absolute inset-0 bg-white/[0.03] rounded-xl" />
-                                    )}
-                                    
-                                    <div className="w-9 h-9 rounded-full flex items-center justify-center relative z-10 shadow-lg bg-gradient-to-br from-[#8B5CF6] to-[#7c3aed] overflow-hidden">
-                                        {u.avatar ? (
-                                            <img src={u.avatar} alt={u.firstName} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <span className="text-white text-xs font-bold">{u.firstName?.charAt(0) || 'U'}</span>
-                                        )}
-                                    </div>
-                                    <div className="flex-1 text-left relative z-10">
-                                        <p className={`text-sm font-medium leading-none mb-1 ${isSelected ? (isDark ? 'text-white' : 'text-gray-900') : (isDark ? 'text-white/80' : 'text-gray-700')}`}>{u.firstName} {u.lastName}</p>
-                                        <p className={`text-[10px] leading-none ${isDark ? 'text-white/30' : 'text-gray-500'}`}>Registered User</p>
-                                    </div>
-                                    <div className={`px-2 py-1 rounded-md text-[10px] font-bold relative z-10 ${isSelected ? (isDark ? 'bg-[#8B5CF6] text-white' : 'bg-indigo-600 text-white') : (isDark ? 'bg-white/5 text-white/40' : 'bg-gray-200 text-gray-500')}`}>
-                                        <Plus size={12} />
-                                    </div>
-                                </button>
-                            );
-                        })}
-                        {availableUsers.filter(u => `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && !isLoading && (
-                            <p className={`text-xs text-center py-4 ${isDark ? 'text-white/30' : 'text-gray-500'}`}>No other users found for &quot;{searchQuery}&quot;.</p>
-                        )}
-                    </div>
-                    )}
-
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className={`text-sm font-semibold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Direct Message</h3>
-                        <button 
-                            onClick={() => setSortOrder(prev => prev === 'Newest' ? 'Oldest' : 'Newest')}
-                            className={`flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md transition-colors ${isDark ? 'text-white/50 bg-white/5 hover:bg-white/10 hover:text-white' : 'text-gray-600 bg-gray-200 hover:bg-gray-300 hover:text-gray-900'}`}>
-                            {sortOrder} <ChevronDownIcon size={12} className={`transform transition-transform ${sortOrder === 'Oldest' ? 'rotate-180' : ''}`} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Direct Messages List */}
-                <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1 custom-scrollbar">
-                    {isLoading ? (
-                         <div className={`p-4 text-center text-sm ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Loading chats...</div>
-                    ) : displayRooms.length === 0 ? (
-                        <div className={`p-4 text-center text-sm ${isDark ? 'text-white/40' : 'text-gray-500'}`}>No conversations yet.<br/>Find a host or user to chat with!</div>
-                    ) : displayRooms.map((room, i) => {
-                        const targetUserForRoom = getTargetUser(room);
-                        const latestMessage = room.messages?.[0]?.content || 'Started a conversation';
-                        
-                        return (
-                            <motion.button
-                                key={room.id}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2 + (i * 0.05) }}
-                                onClick={() => setActiveRoomId(room.id)}
-                                className={`w-full flex items-start gap-3 p-3 rounded-2xl transition-all ${activeRoomId === room.id ? (isDark ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/20' : 'bg-indigo-50 border border-indigo-200') : (isDark ? 'hover:bg-white/[0.02] border border-transparent' : 'hover:bg-white border border-transparent')}`}
-                            >
-                                <div className="relative">
-                                    {targetUserForRoom?.avatar ? (
-                                        <img src={targetUserForRoom.avatar} alt={targetUserForRoom.firstName} className="w-10 h-10 rounded-full object-cover border border-white/10" />
-                                    ) : (
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center border border-white/10">
-                                            <span className="text-sm font-bold text-white">{targetUserForRoom?.firstName?.charAt(0) || 'U'}</span>
-                                        </div>
-                                    )}
-                                    <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 rounded-full ${isDark ? 'bg-[#cdf876] border-[#07080c]' : 'bg-[#10b981] border-white'}`} />
+                ) : filteredRooms.map(room => {
+                    const t = getTargetUser(room);
+                    if (!t) return null;
+                    const lastMsg = room.messages?.[0];
+                    const preview = lastMsg?.isDeleted ? '🚫 Message deleted' : (lastMsg?.content || (lastMsg?.attachments?.length ? (lastMsg.attachments[0]?.type === 'IMAGE' ? '📷 Photo' : lastMsg.attachments[0]?.type === 'VIDEO' ? '📹 Video' : lastMsg.attachments[0]?.type === 'AUDIO' ? '🎵 Audio' : '📎 File') : 'Start chatting...'));
+                    const isActive = activeRoomId === room.id;
+                    const online = isUserOnline(t.id);
+                    return (
+                        <button key={room.id}
+                            onClick={() => { setActiveRoomId(room.id); if (isMobile) setMobileView('chat'); }}
+                            className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all group ${isActive
+                                ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 shadow-[0_0_20px_rgba(139,92,246,0.08)]'
+                                : 'hover:bg-white/[0.02] border border-transparent'
+                            }`}>
+                            <div className="relative flex-shrink-0">
+                                <div className="w-[44px] h-[44px] rounded-full overflow-hidden bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center ring-2 ring-white/5">
+                                    {t.avatar ? <img src={t.avatar} alt="" className="w-full h-full object-cover" /> :
+                                        <span className="text-[14px] font-bold text-white">{t.firstName?.charAt(0)}</span>}
                                 </div>
-                                <div className="flex-1 text-left min-w-0">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <p className={`text-sm font-medium truncate ${activeRoomId === room.id ? (isDark ? 'text-white' : 'text-indigo-900') : (isDark ? 'text-white/80' : 'text-gray-700')}`}>{targetUserForRoom?.firstName || 'User'} {targetUserForRoom?.lastName || ''}</p>
-                                        <span className={`text-[10px] whitespace-nowrap ml-2 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
-                                            {new Date(room.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-[3px] rounded-full ${online ? 'bg-[#cdf876] border-[#0e0f2a]' : 'bg-gray-500/50 border-[#0e0f2a]'}`} />
+                            </div>
+                            <div className="flex-1 text-left min-w-0">
+                                <div className="flex items-center justify-between mb-0.5">
+                                    <p className={`text-[13px] font-semibold truncate ${isActive ? 'text-white' : 'text-white/80'}`}>{t.firstName} {t.lastName || ''}</p>
+                                    <span className="text-[10px] whitespace-nowrap ml-2 text-white/25">
+                                        {new Date(room.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[11px] truncate flex-1 text-white/35">{preview}</p>
+                                    {room.unreadCount > 0 ? (
+                                        <span className="ml-2 min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#cdf876] text-[#0a0b1e] text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                                            {room.unreadCount > 99 ? '99+' : room.unreadCount}
                                         </span>
-                                    </div>
-                                    <p className={`text-xs truncate ${isDark ? 'text-white/40' : 'text-gray-500'}`}>
-                                        {latestMessage}
-                                    </p>
-                                </div>
-                            </motion.button>
-                        );
-                    })}
-                </div>
-                </div>
-            </motion.div>
-
-            {/* Left Resizer Handle */}
-            {!isLeftMinimized && (
-                <div 
-                    onMouseDown={() => { isDraggingLeft.current = true; setIsDraggingLeftState(true); }}
-                    className="w-1 cursor-col-resize hover:bg-[#8B5CF6]/50 transition-colors z-20 shrink-0 select-none ml-[-1px] relative"
-                    style={{ height: '100%' }}
-                />
-            )}
-
-            {/* COLUMN 3: Main Chat Area */}
-            <div className={`flex-1 flex flex-col relative overflow-hidden transition-colors duration-500 ${isDark ? 'bg-[#050608]' : 'bg-gray-50'}`}>
-
-                {activeRoomId && targetUser ? (
-                    <>
-                        {/* Chat Header */}
-                        <div className={`h-[76px] flex-shrink-0 border-b flex items-center justify-between px-8 backdrop-blur-xl sticky top-0 z-10 transition-colors duration-500 ${isDark ? 'bg-[#0a0b10]/80 border-white/[0.05]' : 'bg-white/80 border-black/[0.05] shadow-sm'}`}>
-                            <div className="flex items-center gap-4">
-                                <button 
-                                    onClick={() => setIsLeftMinimized(!isLeftMinimized)} 
-                                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors mr-2 ${isDark ? 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.06] text-white/60 hover:text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 border border-gray-200'}`}
-                                    title={isLeftMinimized ? "Expand Messages" : "Collapse Messages"}
-                                >
-                                    {isLeftMinimized ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-                                </button>
-                                <div className="relative">
-                                    {targetUser.avatar ? (
-                                        <img src={targetUser.avatar} alt={targetUser.firstName} className="w-11 h-11 rounded-full object-cover shadow-lg border border-white/10" />
-                                    ) : (
-                                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center border border-white/10 shadow-lg">
-                                            <span className="text-sm font-bold text-white">{targetUser.firstName?.charAt(0) || 'U'}</span>
-                                        </div>
-                                    )}
-                                    <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-2 rounded-full shadow-[0_0_8px_rgba(205,248,118,0.4)] ${isDark ? 'bg-[#cdf876] border-[#0a0b10]' : 'bg-[#10b981] border-white'}`} />
-                                </div>
-                                <div>
-                                    <h2 className={`text-base font-semibold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{targetUser.firstName} {targetUser.lastName}</h2>
-                                    <p className={`text-xs flex items-center gap-1.5 ${isDark ? 'text-white/40' : 'text-gray-500'}`}><span className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-[#cdf876]' : 'bg-[#10b981]'}`} /> Online</p>
+                                    ) : online ? (
+                                        <div className="ml-2 w-2.5 h-2.5 rounded-full bg-[#cdf876] flex-shrink-0" />
+                                    ) : null}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <button 
-                                    onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${isDark ? 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.06] text-white/50 hover:text-yellow-300' : 'bg-gray-100 border border-gray-200 hover:bg-gray-200 text-gray-500 hover:text-indigo-600'}`}
-                                    title="Toggle Theme"
-                                >
-                                    {isDark ? <Sun size={16} /> : <Moon size={16} />}
-                                </button>
-                                <button 
-                                    onClick={() => setIsRightMinimized(!isRightMinimized)}
-                                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${isDark ? 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.06] text-white/50 hover:text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 border border-gray-200'}`}
-                                    title={isRightMinimized ? "Expand Details" : "Collapse Details"}
-                                >
-                                    <MoreVertical size={16} />
-                                </button>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    ) : (
+        // ═══ SEARCH MODE: find ALL logged-in users to start new chats ═══
+        <div className="flex flex-col h-full" style={{ background: 'rgba(14, 15, 42, 0.6)' }}>
+            <div className="p-5 pb-3 flex-shrink-0">
+                <div className="mb-1">
+                    <h2 className="text-[17px] font-bold text-white tracking-tight">Find Users</h2>
+                    <p className="text-[11px] text-white/30 mt-0.5">Search all users to start a conversation</p>
+                </div>
+                <div className="relative mt-4">
+                    <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25" />
+                    <input type="text" placeholder="Search users..." value={userSearchQuery} onChange={e => setUserSearchQuery(e.target.value)}
+                        className="w-full text-[13px] rounded-2xl pl-10 pr-10 py-3 outline-none bg-[#1a1b3a]/60 text-white border border-white/[0.06] focus:border-[#8B5CF6]/40 placeholder:text-white/25 transition-all"
+                    />
+                    {userSearchQuery && (
+                        <button onClick={() => setUserSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/50 transition-colors">
+                            <X size={14} />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="px-5 pt-1 pb-2">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-[#8B5CF6]/60">
+                    {allUsersFiltered.length} user{allUsersFiltered.length !== 1 ? 's' : ''} found
+                </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
+                {allUsersFiltered.length === 0 ? (
+                    <div className="p-8 text-center">
+                        <Search size={36} className="mx-auto mb-3 text-white/10" />
+                        <p className="text-[13px] text-white/30">No users found.</p>
+                    </div>
+                ) : allUsersFiltered.map(u => {
+                    const online = isUserOnline(u.id);
+                    const alreadyChatting = rooms.some(r => r.members.some(m => m.user.id === u.id));
+                    return (
+                        <button key={u.id}
+                            onClick={() => { startDirectMessage(u.id); setSidebarMode('messages'); }}
+                            className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.03] border border-transparent transition-all group">
+                            <div className="relative flex-shrink-0">
+                                <div className="w-[44px] h-[44px] rounded-full overflow-hidden bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center ring-2 ring-white/5">
+                                    {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover" /> :
+                                        <span className="text-[14px] font-bold text-white">{u.firstName?.charAt(0)}</span>}
+                                </div>
+                                <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-[3px] rounded-full ${online ? 'bg-[#cdf876] border-[#0e0f2a]' : 'bg-gray-500/50 border-[#0e0f2a]'}`} />
                             </div>
+                            <div className="flex-1 text-left min-w-0">
+                                <p className="text-[13px] font-semibold text-white/80 truncate">{u.firstName} {u.lastName || ''}</p>
+                                <p className="text-[11px] text-white/30">
+                                    {online ? <span className="text-[#cdf876]">● Online</span> : 'Offline'}
+                                    {alreadyChatting && <span className="ml-2 text-[#8B5CF6]/60">• Already chatting</span>}
+                                </p>
+                            </div>
+                            <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="w-9 h-9 rounded-full bg-[#8B5CF6]/10 flex items-center justify-center">
+                                    <MessageSquare size={14} className="text-[#8B5CF6]" />
+                                </div>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+
+    // ─── CHAT AREA ───
+    const chatContent = activeRoomId && targetUser ? (
+        <div className="flex-1 flex flex-col h-full overflow-hidden" style={{ background: 'linear-gradient(180deg, #0d0e28 0%, #0a0b1e 100%)' }}>
+            {/* Header */}
+            <div className="h-[72px] flex-shrink-0 flex items-center justify-between px-5 border-b border-white/[0.04]" style={{ background: 'rgba(14, 15, 42, 0.5)', backdropFilter: 'blur(20px)' }}>
+                <div className="flex items-center gap-3.5">
+                    {isMobile && (
+                        <button onClick={() => setMobileView('list')} className="p-2 rounded-xl hover:bg-white/5 text-white/50 transition-all mr-1">
+                            <ArrowLeft size={18} />
+                        </button>
+                    )}
+                    <div className="relative">
+                        <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center ring-2 ring-white/10">
+                            {targetUser.avatar ? <img src={targetUser.avatar} alt="" className="w-full h-full object-cover" /> :
+                                <span className="text-[14px] font-bold text-white">{targetUser.firstName?.charAt(0)}</span>}
                         </div>
+                        <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 rounded-full ${targetOnline ? 'bg-[#cdf876] border-[#0d0e28]' : 'bg-gray-500 border-[#0d0e28]'}`} />
+                    </div>
+                    <div>
+                        <h2 className="text-[15px] font-bold text-white">{targetUser.firstName} {targetUser.lastName || ''}</h2>
+                        <p className="text-[11px]">
+                            {typingName
+                                ? <span className="text-[#cdf876]">typing...</span>
+                                : targetOnline
+                                    ? <span className="text-[#cdf876]">Online</span>
+                                    : <span className="text-white/30">Offline</span>
+                            }
+                        </p>
+                    </div>
+                </div>
+                <button onClick={() => setShowDetailsPanel(!showDetailsPanel)} className="p-2.5 rounded-xl hover:bg-white/5 text-white/40 hover:text-white/70 transition-all">
+                    <MoreVertical size={18} />
+                </button>
+            </div>
 
-                        {/* Chat Thread */}
-                        <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6 custom-scrollbar relative z-10">
-                            <div className="flex justify-center my-4 sticky top-4 z-10">
-                                <div className={`px-4 py-1.5 rounded-full backdrop-blur-md text-[10px] uppercase font-bold tracking-wider ${isDark ? 'bg-[#12131a]/80 border border-white/[0.05] text-white/30' : 'bg-white/80 border border-black/[0.05] text-gray-500 shadow-sm'}`}>
-                                    Chat History
+            {/* Messages */}
+            <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-1.5 relative">
+                {messagesLoading ? (
+                    <div className="flex-1 flex items-center justify-center"><span className="text-[13px] text-white/25">Loading messages...</span></div>
+                ) : messages.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center">
+                        <div className="w-16 h-16 rounded-full bg-[#8B5CF6]/10 flex items-center justify-center mb-4">
+                            <MessageSquare size={28} className="text-[#8B5CF6]/40" />
+                        </div>
+                        <p className="text-[13px] text-white/30">No messages yet. Say hello! 👋</p>
+                    </div>
+                ) : messagesWithDates.map(({ msg, dateLabel, showDate }, idx) => {
+                    const isMe = msg.sender.id === user.id;
+                    const timeStr = getTimeLabel(msg.createdAt);
+                    // Show time label if first msg or gap > 5 min from previous
+                    const prevMsg = idx > 0 ? messagesWithDates[idx - 1].msg : null;
+                    const showTime = !prevMsg || (new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() > 300000);
+
+                    return (
+                        <div key={msg.id || idx}>
+                            {showDate && (
+                                <div className="flex justify-center my-4">
+                                    <span className="px-5 py-1.5 rounded-full text-[11px] font-semibold tracking-wide text-white/40" style={{ background: 'rgba(30, 32, 70, 0.6)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                        {dateLabel}
+                                    </span>
                                 </div>
-                            </div>
-
-                            {messages.map((msg, idx) => {
-                                const isMe = msg.sender.id === user.id;
-
-                                return (
-                                    <motion.div 
-                                        key={msg.id || idx}
-                                        initial={{ opacity: 0, y: 10, originX: isMe ? 1 : 0 }} 
-                                        animate={{ opacity: 1, y: 0 }} 
-                                        transition={{ type: "spring", stiffness: 400, damping: 25 }} 
-                                        className={`flex items-end gap-3 max-w-[75%] ${isMe ? 'self-end flex-row-reverse' : ''}`}
-                                    >
-                                        {msg.content && (
-                                            <div className={`${isMe ? 'bg-gradient-to-br from-[#8B5CF6] to-[#7c3aed] text-white shadow-[0_10px_30px_rgba(139,92,246,0.3)] border border-[#a78bfa]/30 rounded-2xl rounded-br-sm' : isDark ? 'bg-[#12141d] border border-white/[0.03] shadow-lg rounded-2xl rounded-bl-sm text-white/90' : 'bg-white border border-gray-100 shadow-md rounded-2xl rounded-bl-sm text-gray-800'} px-5 py-3.5 text-sm leading-relaxed`} style={{wordBreak: 'break-word'}}>
-                                                {msg.content}
-                                            </div>
-                                        )}
-                                        {/* Attachments mapping (Not strictly typed here, just defensive) */}
+                            )}
+                            {showTime && (
+                                <div className="flex justify-center my-2">
+                                    <span className="text-[10px] text-white/20">{timeStr}</span>
+                                </div>
+                            )}
+                            <div className={`flex items-end gap-2.5 group ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                {msg.isDeleted ? (
+                                    <div className={`px-5 py-3 rounded-[20px] text-[13px] italic text-white/20 max-w-[70%] ${isMe ? 'rounded-br-md' : 'rounded-bl-md'}`}
+                                        style={{ background: 'rgba(30, 32, 70, 0.4)', border: '1px solid rgba(255,255,255,0.03)' }}>
+                                        Message deleted
+                                    </div>
+                                ) : isMe ? (
+                                    <>
+                                        <button onClick={() => handleDeleteMessage(msg.id)}
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-500/10 self-center">
+                                            <Trash2 size={12} className="text-red-400/60" />
+                                        </button>
+                                        <div className="flex flex-col items-end max-w-[70%]">
+                                            {/* Attachments */}
+                                            {msg.attachments && msg.attachments.length > 0 && (
+                                                <div className={`flex flex-col gap-1.5 mb-1 ${msg.attachments.length > 1 ? 'w-full' : ''}`}>
+                                                    {msg.attachments.map((att, ai) => (
+                                                        <div key={ai}>
+                                                            {att.type === 'IMAGE' ? (
+                                                                <div className="rounded-[16px] rounded-br-md overflow-hidden max-w-[280px] cursor-pointer" onClick={() => window.open(att.url, '_blank')}>
+                                                                    <img src={att.url} alt={att.name || 'Image'} className="w-full h-auto max-h-[240px] object-cover" loading="lazy" />
+                                                                </div>
+                                                            ) : att.type === 'VIDEO' ? (
+                                                                <div className="rounded-[16px] rounded-br-md overflow-hidden max-w-[280px]">
+                                                                    <video src={att.url} controls className="w-full max-h-[240px]" preload="metadata" />
+                                                                </div>
+                                                            ) : att.type === 'AUDIO' ? (
+                                                                <div className="flex items-center gap-3 px-4 py-3 rounded-[16px] rounded-br-md min-w-[200px]"
+                                                                    style={{ background: 'rgba(205, 248, 118, 0.15)', border: '1px solid rgba(205, 248, 118, 0.2)' }}>
+                                                                    <Music size={18} className="text-[#cdf876] flex-shrink-0" />
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-[11px] font-medium text-white/80 truncate">{att.name || 'Audio file'}</p>
+                                                                        {att.size && <p className="text-[9px] text-white/30">{formatFileSize(att.size)}</p>}
+                                                                        <audio src={att.url} controls className="w-full h-7 mt-1" preload="metadata" />
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <a href={att.url} target="_blank" rel="noopener noreferrer"
+                                                                    className="flex items-center gap-3 px-4 py-3 rounded-[16px] rounded-br-md min-w-[180px] hover:opacity-80 transition-opacity"
+                                                                    style={{ background: 'rgba(205, 248, 118, 0.15)', border: '1px solid rgba(205, 248, 118, 0.2)' }}>
+                                                                    <div className="w-10 h-10 rounded-xl bg-[#cdf876]/20 flex items-center justify-center flex-shrink-0">
+                                                                        <FileText size={18} className="text-[#cdf876]" />
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-[11px] font-medium text-white/80 truncate">{att.name || 'Document'}</p>
+                                                                        {att.size && <p className="text-[9px] text-white/30">{formatFileSize(att.size)}</p>}
+                                                                    </div>
+                                                                    <Download size={14} className="text-white/30 flex-shrink-0" />
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {msg.content && (
+                                                <div className="px-5 py-3 text-[13.5px] leading-relaxed rounded-[20px] rounded-br-md text-[#0a0b1e] font-medium"
+                                                    style={{ background: 'linear-gradient(135deg, #cdf876 0%, #b8e85a 100%)', boxShadow: '0 4px 20px rgba(205, 248, 118, 0.15)' }}>
+                                                    {msg.content}
+                                                </div>
+                                            )}
+                                            <span className="text-[10px] text-white/20 mt-1 flex items-center gap-1">
+                                                {timeStr} <CheckCheck size={12} className="text-[#cdf876]/60" />
+                                            </span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex flex-col items-start max-w-[70%]">
+                                        {/* Attachments */}
                                         {msg.attachments && msg.attachments.length > 0 && (
-                                            <div className="bg-[#12141d] border border-white/[0.03] p-1.5 rounded-2xl shadow-xl">
-                                                {msg.attachments.map((att: any, aIdx: number) => (
-                                                    <img key={aIdx} src={att.url || "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&q=80&w=400"} alt="attachment" className="w-64 h-40 object-cover rounded-xl" />
+                                            <div className={`flex flex-col gap-1.5 mb-1 ${msg.attachments.length > 1 ? 'w-full' : ''}`}>
+                                                {msg.attachments.map((att, ai) => (
+                                                    <div key={ai}>
+                                                        {att.type === 'IMAGE' ? (
+                                                            <div className="rounded-[16px] rounded-bl-md overflow-hidden max-w-[280px] cursor-pointer" onClick={() => window.open(att.url, '_blank')}>
+                                                                <img src={att.url} alt={att.name || 'Image'} className="w-full h-auto max-h-[240px] object-cover" loading="lazy" />
+                                                            </div>
+                                                        ) : att.type === 'VIDEO' ? (
+                                                            <div className="rounded-[16px] rounded-bl-md overflow-hidden max-w-[280px]">
+                                                                <video src={att.url} controls className="w-full max-h-[240px]" preload="metadata" />
+                                                            </div>
+                                                        ) : att.type === 'AUDIO' ? (
+                                                            <div className="flex items-center gap-3 px-4 py-3 rounded-[16px] rounded-bl-md min-w-[200px]"
+                                                                style={{ background: 'rgba(25, 27, 60, 0.8)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                                <Music size={18} className="text-[#8B5CF6] flex-shrink-0" />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-[11px] font-medium text-white/80 truncate">{att.name || 'Audio file'}</p>
+                                                                    {att.size && <p className="text-[9px] text-white/30">{formatFileSize(att.size)}</p>}
+                                                                    <audio src={att.url} controls className="w-full h-7 mt-1" preload="metadata" />
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <a href={att.url} target="_blank" rel="noopener noreferrer"
+                                                                className="flex items-center gap-3 px-4 py-3 rounded-[16px] rounded-bl-md min-w-[180px] hover:opacity-80 transition-opacity"
+                                                                style={{ background: 'rgba(25, 27, 60, 0.8)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                                <div className="w-10 h-10 rounded-xl bg-[#8B5CF6]/20 flex items-center justify-center flex-shrink-0">
+                                                                    <FileText size={18} className="text-[#8B5CF6]" />
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-[11px] font-medium text-white/80 truncate">{att.name || 'Document'}</p>
+                                                                    {att.size && <p className="text-[9px] text-white/30">{formatFileSize(att.size)}</p>}
+                                                                </div>
+                                                                <Download size={14} className="text-white/30 flex-shrink-0" />
+                                                            </a>
+                                                        )}
+                                                    </div>
                                                 ))}
                                             </div>
                                         )}
-                                        <div className={`flex flex-col mb-1 ${isMe ? 'items-end' : 'items-start'}`}>
-                                            <span className={`text-[10px] flex items-center gap-1 ${isMe ? (isDark ? 'text-[#cdf876]' : 'text-[#8B5CF6]') + ' font-medium' : (isDark ? 'text-white/20' : 'text-gray-400')}`}>
-                                                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
-                                                {isMe && <CheckCheck size={12} />}
-                                            </span>
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
-
-                            <div ref={messagesEndRef} />
-                        </div>
-
-                        {/* Message Input Area */}
-                        <div className={`p-6 border-t z-10 transition-colors ${isDark ? 'bg-[#0a0b10] border-white/[0.05]' : 'bg-white border-black/[0.05]'}`}>
-                            <div className={`max-w-4xl mx-auto relative flex items-center gap-3 p-2 rounded-2xl border transition-colors shadow-[0_4px_25px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#12141d] border-white/[0.05] focus-within:border-[#8B5CF6]/50 focus-within:bg-[#151620]' : 'bg-gray-50 border-gray-200 focus-within:border-[#8B5CF6]/30 focus-within:bg-white'}`}>
-                                <button className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors flex-shrink-0 group ${isDark ? 'bg-white/[0.03] hover:bg-white/[0.08] text-white/60 hover:text-white' : 'bg-white hover:bg-gray-100 text-gray-500 hover:text-gray-900 border border-gray-200 shadow-sm'}`}>
-                                    <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-                                </button>
-                                
-                                <input 
-                                    type="text" 
-                                    placeholder="Type a message..." 
-                                    value={messageInput}
-                                    onChange={(e) => setMessageInput(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            handleSendMessage();
-                                        }
-                                    }}
-                                    className={`flex-1 bg-transparent text-sm outline-none px-2 h-10 ${isDark ? 'text-white placeholder:text-white/20' : 'text-gray-900 placeholder:text-gray-400'}`}
-                                />
-
-                                <motion.button 
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={handleSendMessage}
-                                    disabled={!messageInput.trim()}
-                                    className={`h-10 px-5 rounded-xl font-bold text-sm tracking-wide flex items-center gap-2 transition-all shadow-md flex-shrink-0 ${messageInput.trim() ? (isDark ? 'bg-[#cdf876] text-[#07080c] shadow-[0_0_20px_rgba(205,248,118,0.3)]' : 'bg-[#10b981] text-white shadow-[0_5px_15px_rgba(16,185,129,0.3)]') : (isDark ? 'bg-white/5 text-white/30 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed')}`}
-                                >
-                                    Send <Send size={14} className={messageInput.trim() ? "translate-x-0.5" : ""} />
-                                </motion.button>
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className="flex-1 flex flex-col relative z-10 w-full h-full">
-                        <div className="h-[76px] flex-shrink-0 flex items-center justify-between px-8 sticky top-0 z-20">
-                            <div>
-                                {isLeftMinimized && (
-                                <button 
-                                    onClick={() => setIsLeftMinimized(false)} 
-                                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${isDark ? 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.06] text-white/60 hover:text-white' : 'bg-white hover:bg-gray-100 text-gray-600 border border-gray-200 shadow-sm'}`}
-                                >
-                                    <PanelLeftOpen size={16} />
-                                </button>
-                                )}
-                            </div>
-                            <div>
-                                {isRightMinimized && (
-                                <button 
-                                    onClick={() => setIsRightMinimized(false)} 
-                                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${isDark ? 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.06] text-white/60 hover:text-white' : 'bg-white hover:bg-gray-100 text-gray-600 border border-gray-200 shadow-sm'}`}
-                                >
-                                    <PanelRightOpen size={16} />
-                                </button>
+                                        {msg.content && (
+                                            <div className="px-5 py-3 text-[13.5px] leading-relaxed rounded-[20px] rounded-bl-md text-white/90"
+                                                style={{ background: 'rgba(25, 27, 60, 0.8)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 2px 12px rgba(0,0,0,0.2)' }}>
+                                                {msg.content}
+                                            </div>
+                                        )}
+                                        <span className="text-[10px] text-white/20 mt-1">{timeStr}</span>
+                                    </div>
                                 )}
                             </div>
                         </div>
-                        <div className="flex-1 flex flex-col items-center justify-center select-none pb-20 mt-[-76px]">
-                            <div className={`p-8 rounded-full mb-6 ${isDark ? 'bg-white/5' : 'bg-gray-200/50'}`}>
-                                <Share size={64} className={`${isDark ? 'text-white/20' : 'text-gray-400'}`} />
-                            </div>
-                            <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>Your Messages</h2>
-                            <p className={`text-sm ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Select a chat or start a new conversation.</p>
+                    );
+                })}
+
+                {typingName && (
+                    <div className="flex items-center gap-2 mt-2">
+                        <div className="flex gap-1.5 px-5 py-3 rounded-[20px] rounded-bl-md" style={{ background: 'rgba(25, 27, 60, 0.8)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <span className="w-2 h-2 rounded-full bg-white/30 animate-pulse" />
+                            <span className="w-2 h-2 rounded-full bg-white/30 animate-pulse [animation-delay:0.15s]" />
+                            <span className="w-2 h-2 rounded-full bg-white/30 animate-pulse [animation-delay:0.3s]" />
                         </div>
                     </div>
                 )}
+                <div ref={messagesEndRef} />
             </div>
 
-            {/* Right Resizer Handle */}
-            {!isRightMinimized && (
-                <div 
-                    onMouseDown={() => { isDraggingRight.current = true; setIsDraggingRightState(true); }}
-                    className="w-1 cursor-col-resize hover:bg-[#8B5CF6]/50 transition-colors z-20 shrink-0 select-none mr-[-1px] relative"
-                    style={{ height: '100%' }}
-                />
+            {showScrollBtn && (
+                <button onClick={() => scrollToBottom()}
+                    className="absolute bottom-28 right-8 p-3 rounded-full shadow-xl z-20 bg-[#8B5CF6] text-white hover:bg-[#7c3aed] transition-colors"
+                    style={{ boxShadow: '0 4px 20px rgba(139, 92, 246, 0.4)' }}>
+                    <ArrowDown size={16} />
+                </button>
             )}
 
-            {/* COLUMN 4: Details Panel */}
-            <motion.div 
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2, type: 'spring', stiffness: 300, damping: 30 }}
-                style={{ width: isRightMinimized ? 0 : rightPanelWidth }}
-                className={`flex-shrink-0 flex flex-col overflow-y-auto overflow-x-hidden custom-scrollbar z-10 ${isDark ? 'bg-[#07080c]' : 'bg-gray-50'} ${!isDraggingRightState ? 'transition-[width] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]' : ''} ${isRightMinimized ? 'border-none' : (isDark ? 'border-l border-white/[0.05]' : 'border-l border-gray-200')}`}
-            >
-                <div style={{ width: rightPanelWidth }} className="h-full flex flex-col flex-shrink-0">
-                {targetUser ? (
-                    <>
-                        {/* Profile Overview */}
-                        <div className={`p-8 flex flex-col items-center border-b ${isDark ? 'border-white/[0.03] bg-gradient-to-b from-white/[0.02] to-transparent' : 'border-gray-200 bg-gradient-to-b from-white to-transparent'}`}>
-                            <div className={`w-24 h-24 rounded-full overflow-hidden mb-4 border-4 shadow-[0_0_30px_rgba(139,92,246,0.15)] relative group ${isDark ? 'border-[#0a0b10]' : 'border-white'}`}>
-                                {targetUser.avatar ? (
-                                    <img src={targetUser.avatar} alt={targetUser.firstName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+            {/* Pending Files Preview */}
+            {pendingFiles.length > 0 && (
+                <div className="px-4 pt-3 pb-1 border-t border-white/[0.04]" style={{ background: 'rgba(14, 15, 42, 0.5)' }}>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Paperclip size={12} className="text-white/30" />
+                        <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">{pendingFiles.length} file{pendingFiles.length > 1 ? 's' : ''} attached</span>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                        {pendingFiles.map((pf, i) => (
+                            <div key={i} className="relative flex-shrink-0 group">
+                                {pf.type === 'IMAGE' && pf.preview ? (
+                                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10">
+                                        <img src={pf.preview} alt="" className="w-full h-full object-cover" />
+                                    </div>
                                 ) : (
-                                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                                        <span className="text-3xl font-bold text-white">{targetUser.firstName?.charAt(0) || 'U'}</span>
+                                    <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center gap-1 px-1">
+                                        {getFileIcon(pf.type)}
+                                        <p className="text-[7px] text-white/40 truncate w-full text-center">{pf.file.name.split('.').pop()?.toUpperCase()}</p>
                                     </div>
                                 )}
-                                <div className="absolute inset-0 bg-[#8B5CF6]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 mix-blend-overlay" />
-                            </div>
-                            <h2 className={`text-xl font-bold mb-1 tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{targetUser.firstName} {targetUser.lastName}</h2>
-                            <p className={`text-sm mb-6 font-medium ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Verified Renter</p>
-
-                            {/* Quick Actions */}
-                            <div className="flex gap-2 w-full justify-center">
-                                {[Bookmark, Lock, Info, Pin].map((Icon, i) => (
-                                    <motion.button 
-                                        key={i}
-                                        whileHover={{ scale: 1.1, y: -2 }}
-                                        whileTap={{ scale: 0.9 }}
-                                        className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all shadow-md hover:shadow-[0_5px_15px_rgba(139,92,246,0.15)] ${isDark ? 'bg-[#12131a] border-white/[0.03] hover:border-[#8B5CF6]/30 text-white/50 hover:text-[#8B5CF6] hover:bg-[#8B5CF6]/10' : 'bg-white border-gray-200 hover:border-indigo-300 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
-                                    >
-                                        <Icon size={16} />
-                                    </motion.button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Settings & Info Accordions */}
-                        <div className="p-6 space-y-6 flex-1">
-                            
-                            <div>
-                                <div className="flex items-center justify-between mb-4 hover:opacity-80 cursor-pointer transition-opacity">
-                                    <h3 className={`text-sm font-semibold tracking-wide ${isDark ? 'text-white' : 'text-gray-900'}`}>Shared Media</h3>
-                                    <div className={`w-6 h-6 rounded-md flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-gray-200'}`}>
-                                        <ChevronDownIcon size={14} className={`${isDark ? 'text-white/40' : 'text-gray-500'}`} />
+                                {pf.uploading && (
+                                    <div className="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center">
+                                        <Loader2 size={16} className="animate-spin text-[#8B5CF6]" />
                                     </div>
-                                </div>
-                                <div className="grid grid-cols-3 gap-2 mb-4 opacity-70">
-                                    {/* Mocked for UI */}
-                                    {[1, 2, 3].map(i => (
-                                        <div key={i} className={`aspect-square rounded-xl overflow-hidden hover:scale-105 transition-transform cursor-pointer border hover:border-[#8B5CF6]/30 ${isDark ? 'bg-white/5 border-white/[0.03]' : 'bg-gray-100 border-gray-200'}`}>
-                                            <img src={`https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=200&h=200&sig=${i}`} className="w-full h-full object-cover" alt="shared" />
-                                        </div>
-                                    ))}
-                                </div>
-                                <motion.button 
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    className={`w-full py-3 rounded-xl font-bold text-xs tracking-wide transition-all ${isDark ? 'bg-[#cdf876]/10 text-[#cdf876] shadow-[0_5px_20px_rgba(205,248,118,0.1)] hover:bg-[#cdf876]/20' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 shadow-sm'}`}
-                                >
-                                    View All
-                                </motion.button>
+                                )}
+                                <button onClick={() => removePendingFile(i)}
+                                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500/80 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 shadow-lg">
+                                    <X size={10} />
+                                </button>
+                                <p className="text-[7px] text-white/25 mt-0.5 max-w-[64px] truncate text-center">{pf.file.name}</p>
                             </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className={`p-8 text-center text-sm mt-32 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
-                        Select a chat to view user details
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Input Bar */}
+            <div
+                className={`p-4 border-t border-white/[0.04] transition-colors ${inputDragOver ? 'bg-[#8B5CF6]/10' : ''}`}
+                style={!inputDragOver ? { background: 'rgba(14, 15, 42, 0.4)' } : {}}
+                onDragOver={(e) => { e.preventDefault(); setInputDragOver(true); }}
+                onDragLeave={() => setInputDragOver(false)}
+                onDrop={handleInputDrop}
+            >
+                {inputDragOver && (
+                    <div className="flex items-center justify-center gap-2 mb-3 py-3 border-2 border-dashed border-[#8B5CF6]/40 rounded-xl">
+                        <Paperclip size={16} className="text-[#8B5CF6]" />
+                        <span className="text-[12px] text-[#a78bfa] font-medium">Drop files to attach</span>
                     </div>
                 )}
+                <div className="flex items-center gap-3">
+                    {/* Attachment button with menu */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowAttachMenu(!showAttachMenu)}
+                            className={`w-11 h-11 rounded-full flex items-center justify-center transition-all flex-shrink-0 border border-white/[0.06] ${
+                                showAttachMenu ? 'bg-[#8B5CF6]/20 text-[#a78bfa]' : 'text-white/40 hover:text-white hover:bg-white/5'
+                            }`}
+                        >
+                            {showAttachMenu ? <X size={20} /> : <Plus size={20} />}
+                        </button>
+                        {showAttachMenu && (
+                            <div className="absolute bottom-14 left-0 w-52 rounded-2xl overflow-hidden shadow-2xl z-50"
+                                style={{ background: 'rgba(20, 22, 50, 0.95)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }}>
+                                {[
+                                    { icon: <ImageIcon size={16} />, label: 'Photo', accept: 'image/*', color: 'text-emerald-400' },
+                                    { icon: <Video size={16} />, label: 'Video', accept: 'video/*', color: 'text-blue-400' },
+                                    { icon: <Music size={16} />, label: 'Audio', accept: 'audio/*', color: 'text-pink-400' },
+                                    { icon: <FileText size={16} />, label: 'Document', accept: '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar', color: 'text-amber-400' },
+                                    { icon: <File size={16} />, label: 'Any File', accept: '*', color: 'text-purple-400' },
+                                ].map((item, i) => (
+                                    <button key={i}
+                                        onClick={() => {
+                                            const input = document.createElement('input');
+                                            input.type = 'file';
+                                            input.accept = item.accept;
+                                            input.multiple = true;
+                                            input.onchange = (e) => handleFileSelect((e.target as HTMLInputElement).files);
+                                            input.click();
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors text-left"
+                                    >
+                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${item.color} bg-white/5`}>
+                                            {item.icon}
+                                        </div>
+                                        <span className="text-[13px] text-white/70 font-medium">{item.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex-1 relative">
+                        <input type="text" placeholder={pendingFiles.length > 0 ? 'Add a caption...' : 'Type a message...'} value={messageInput}
+                            onChange={e => { setMessageInput(e.target.value); handleTyping(); }}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                            className="w-full text-[13.5px] rounded-full pl-5 pr-4 py-3 outline-none bg-[#1a1b3a]/50 text-white border border-white/[0.06] focus:border-[#8B5CF6]/30 placeholder:text-white/20 transition-all"
+                        />
+                    </div>
+                    <button onClick={handleSendMessage} disabled={!messageInput.trim() && pendingFiles.length === 0}
+                        className={`h-11 px-5 rounded-full font-semibold text-[13px] flex items-center gap-2 transition-all flex-shrink-0 ${(messageInput.trim() || pendingFiles.length > 0)
+                            ? 'text-[#0a0b1e] shadow-[0_4px_20px_rgba(205,248,118,0.3)]'
+                            : 'bg-white/5 text-white/20 cursor-not-allowed'
+                        }`}
+                        style={(messageInput.trim() || pendingFiles.length > 0) ? { background: 'linear-gradient(135deg, #cdf876 0%, #b8e85a 100%)' } : {}}>
+                        {isUploadingFiles ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                        {isUploadingFiles ? 'Uploading' : 'Send'}
+                    </button>
                 </div>
-            </motion.div>
-
+            </div>
+        </div>
+    ) : (
+        <div className="flex-1 flex flex-col items-center justify-center relative" style={{ background: 'linear-gradient(180deg, #0d0e28 0%, #0a0b1e 100%)' }}>
+            {isMobile && (
+                <button onClick={() => setMobileView('list')} className="absolute top-4 left-4 p-2.5 rounded-xl bg-white/5 text-white/50">
+                    <ArrowLeft size={20} />
+                </button>
+            )}
+            <div className="w-20 h-20 rounded-full bg-[#8B5CF6]/10 flex items-center justify-center mb-5">
+                <MessageSquare size={36} className="text-[#8B5CF6]/30" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Your Messages</h2>
+            <p className="text-[13px] text-white/30">Select a conversation to start chatting.</p>
         </div>
     );
-}
 
-function ChevronDownIcon({ className, size }: { className?: string; size?: number }) {
+    // ─── RIGHT DETAILS PANEL ───
+    const detailsPanel = activeRoomId && targetUser && showDetailsPanel && !isMobile ? (
+        <div className="h-full flex flex-shrink-0">
+            {/* Resizer */}
+            <div
+                className="w-1.5 h-full cursor-col-resize hover:bg-[#8B5CF6]/30 transition-colors z-30"
+                onMouseDown={(e) => { setIsResizingDetails(true); e.preventDefault(); }}
+            />
+            <div className="flex-shrink-0 overflow-y-auto border-l border-white/[0.04]" style={{ width: `${detailsWidth}px`, background: 'rgba(14, 15, 42, 0.6)' }}>
+                <div className="flex flex-col items-center pt-8 pb-5">
+                    <div className="w-[88px] h-[88px] rounded-full overflow-hidden bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center mb-4 ring-4 ring-[#8B5CF6]/15">
+                        {targetUser.avatar ? <img src={targetUser.avatar} alt="" className="w-full h-full object-cover" /> :
+                            <span className="text-2xl font-bold text-white">{targetUser.firstName?.charAt(0)}</span>}
+                    </div>
+                    <h3 className="text-[15px] font-bold text-white">{targetUser.firstName} {targetUser.lastName || ''}</h3>
+                    <p className="text-[11px] text-white/30 mt-0.5">
+                        {targetOnline ? <span className="text-[#cdf876]">● Online</span> : 'Offline'}
+                    </p>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center justify-center gap-2 px-5 pb-5">
+                    {[
+                        { icon: <Flag size={15} />, label: 'Flag' },
+                        { icon: <Lock size={15} />, label: 'Lock' },
+                        { icon: <Info size={15} />, label: 'Info' },
+                        { icon: <Pin size={15} />, label: 'Pin' },
+                    ].map((action, i) => (
+                        <button key={i} title={action.label}
+                            className="w-11 h-11 rounded-full flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-all border border-white/[0.06]">
+                            {action.icon}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="mx-5 h-px bg-white/[0.04]" />
+
+                {/* Shared Media section */}
+                <div className="px-5 pt-4">
+                    <button onClick={() => setShowMediaSection(!showMediaSection)}
+                        className="w-full flex items-center justify-between py-2 text-[13px] font-semibold text-white/70 hover:text-white transition-colors">
+                        Shared Media
+                        {showMediaSection ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </button>
+                    {showMediaSection && (
+                        <div className="mt-2 grid grid-cols-3 gap-1.5">
+                            {[...Array(6)].map((_, i) => (
+                                <div key={i} className="aspect-square rounded-xl overflow-hidden flex items-center justify-center"
+                                    style={{ background: 'rgba(30, 32, 70, 0.5)', border: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <ImageIcon size={16} className="text-white/10" />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    ) : null;
+
+    // ─── MOBILE LAYOUT ───
+    if (isMobile) {
+        return (
+            <div className="messaging-page-root flex h-[100dvh] overflow-hidden font-sans" style={{ background: 'linear-gradient(135deg, #0a0b1e 0%, #12103a 50%, #0d0e24 100%)' }}>
+                {mobileView === 'list' ? (
+                    <div className="w-full h-full">{sidebarContent}</div>
+                ) : (
+                    <div className="w-full h-full flex flex-col relative">{chatContent}</div>
+                )}
+            </div>
+        );
+    }
+
+    // ─── DESKTOP LAYOUT ───
     return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width={size || 24}
-            height={size || 24}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-    )
+        <div className="messaging-page-root flex h-screen overflow-hidden font-sans" style={{ background: 'linear-gradient(135deg, #0a0b1e 0%, #12103a 50%, #0d0e24 100%)' }}>
+            {navRail}
+
+            <div className="flex h-full flex-shrink-0">
+                <div className="flex-shrink-0 overflow-hidden border-r border-white/[0.04]" style={{ width: `${sidebarWidth}px` }}>
+                    {sidebarContent}
+                </div>
+                {/* Resizer */}
+                <div
+                    className="w-1.5 h-full cursor-col-resize hover:bg-[#8B5CF6]/30 transition-colors z-30"
+                    onMouseDown={(e) => { setIsResizingSidebar(true); e.preventDefault(); }}
+                />
+            </div>
+
+            <div className="flex-1 flex flex-col relative overflow-hidden">
+                {chatContent}
+            </div>
+
+            {detailsPanel}
+        </div>
+    );
 }

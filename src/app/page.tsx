@@ -1,6 +1,7 @@
 'use client';
 
 import Navbar from '@/components/nav/Navbar';
+import SideNav from '@/components/nav/SideNav';
 import HeroContent from '@/components/hero/HeroContent';
 import Categories from '@/components/sections/Categories';
 import TrendingCarousel from '@/components/sections/TrendingCarousel';
@@ -24,6 +25,7 @@ export default function HomePage() {
         <main className="relative">
 
             <Navbar />
+            <SideNav />
 
             {/* Hero Section */}
             <section className="relative min-h-screen overflow-hidden">

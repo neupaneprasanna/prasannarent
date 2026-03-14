@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/nav/Navbar';
 import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -63,6 +64,7 @@ export default function SettingsPage() {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [myListings, setMyListings] = useState<UserListing[]>([]);
     const [listingsLoading, setListingsLoading] = useState(false);
+    const [avatarUploading, setAvatarUploading] = useState(false);
 
     // Profile form state
     const [firstName, setFirstName] = useState('');
@@ -211,6 +213,38 @@ export default function SettingsPage() {
     const handleMockAction = (msg: string) => {
         setSuccess(msg);
         setTimeout(() => setSuccess(''), 3000);
+    };
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            setAvatarUploading(true);
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `public/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+
+            setAvatar(publicUrl);
+            setSuccess('Avatar uploaded successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (err: any) {
+            console.error('Avatar upload failed:', err);
+            setError('Failed to upload avatar. Please try again.');
+            setTimeout(() => setError(''), 3000);
+        } finally {
+            setAvatarUploading(false);
+        }
     };
 
     const handleEditListing = (listing: UserListing) => {
@@ -430,25 +464,55 @@ export default function SettingsPage() {
                                             <Camera size={18} className="text-[#a29bfe]" /> Profile Picture
                                         </h3>
                                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 relative z-10">
-                                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#6c5ce7]/40 to-[#a29bfe]/40 flex items-center justify-center text-white text-3xl font-bold overflow-hidden border-4 border-[#030304] shadow-xl shadow-[#6c5ce7]/20 relative">
+                                            <div
+                                                className="w-24 h-24 rounded-full bg-gradient-to-br from-[#6c5ce7]/40 to-[#a29bfe]/40 flex items-center justify-center text-white text-3xl font-bold overflow-hidden border-4 border-[#030304] shadow-xl shadow-[#6c5ce7]/20 relative cursor-pointer group"
+                                                onClick={() => document.getElementById('settings-avatar-upload')?.click()}
+                                            >
                                                 {avatar ? (
                                                     <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <User size={40} className="text-white/40" />
                                                 )}
-                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-sm">
-                                                    <Edit3 size={18} className="text-white" />
-                                                </div>
+                                                {avatarUploading ? (
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full">
+                                                        <Loader2 size={24} className="animate-spin text-white" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
+                                                        <Camera size={18} className="text-white" />
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="flex-1 space-y-2 w-full sm:w-auto">
-                                                <label className="text-xs font-semibold text-white/50 block tracking-wide uppercase">Avatar URL</label>
-                                                <input
-                                                    value={avatar}
-                                                    onChange={(e) => setAvatar(e.target.value)}
-                                                    placeholder="https://example.com/your-photo.jpg"
-                                                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]/50 focus:border-transparent transition-all shadow-inner"
-                                                />
-                                                <p className="text-[10px] text-white/30">Paste a direct link to your profile image</p>
+                                            <input
+                                                type="file"
+                                                id="settings-avatar-upload"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={handleAvatarUpload}
+                                            />
+                                            <div className="flex-1 space-y-3 w-full sm:w-auto">
+                                                <div>
+                                                    <label className="text-xs font-semibold text-white/50 block tracking-wide uppercase mb-1">Profile Photo</label>
+                                                    <p className="text-[10px] text-white/30">Click the avatar or the button below to upload a new photo</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => document.getElementById('settings-avatar-upload')?.click()}
+                                                    disabled={avatarUploading}
+                                                    className="flex items-center gap-2 px-5 py-2.5 bg-[#0a0a0a] hover:bg-white/5 border border-white/10 hover:border-[#6c5ce7]/40 rounded-xl text-sm font-medium text-white/70 hover:text-white transition-all disabled:opacity-50"
+                                                >
+                                                    {avatarUploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+                                                    {avatarUploading ? 'Uploading...' : 'Upload Photo'}
+                                                </button>
+                                                {avatar && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAvatar('')}
+                                                        className="flex items-center gap-1 px-3 py-1.5 text-[10px] text-red-400/70 hover:text-red-400 transition-colors"
+                                                    >
+                                                        <X size={10} /> Remove photo
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
