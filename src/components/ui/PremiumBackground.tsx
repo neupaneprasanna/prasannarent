@@ -26,7 +26,7 @@ export default function PremiumBackground() {
             <NebulaShader />
 
             {/* Plane 1 — Particle dust field (z-index: 1 inline) */}
-            <ParticleField count={250} />
+            <ParticleField count={40} />
 
             {/* Geometric mesh pattern at 3% opacity — above canvases */}
             <div

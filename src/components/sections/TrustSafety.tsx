@@ -5,7 +5,7 @@ import { Shield, CheckCircle, Lock, Eye } from 'lucide-react';
 
 const trustFeatures = [
     {
-        icon: <Shield size={28} />,
+        icon: <Shield size={44} strokeWidth={1.5} />,
         title: 'identity verification',
         description: 'every user goes through multi-step ID verification. we check government IDs, selfie matching, and address history.',
         stat: '99.8%',
@@ -13,7 +13,7 @@ const trustFeatures = [
         color: '#00F0FF',
     },
     {
-        icon: <Lock size={28} />,
+        icon: <Lock size={44} strokeWidth={1.5} />,
         title: 'secure payments',
         description: 'payments are held in escrow until you confirm the rental. bank-level encryption protects every transaction.',
         stat: '$0',
@@ -21,7 +21,7 @@ const trustFeatures = [
         color: '#7A5CFF',
     },
     {
-        icon: <CheckCircle size={28} />,
+        icon: <CheckCircle size={44} strokeWidth={1.5} />,
         title: 'damage protection',
         description: 'every rental includes up to $10,000 in damage protection. file a claim and get reimbursed within 72 hours.',
         stat: '$10K',
@@ -29,7 +29,7 @@ const trustFeatures = [
         color: '#00FFB3',
     },
     {
-        icon: <Eye size={28} />,
+        icon: <Eye size={44} strokeWidth={1.5} />,
         title: '24/7 monitoring',
         description: 'our trust & safety team monitors rentals around the clock. instant support for any issues that arise.',
         stat: '<2min',
@@ -51,95 +51,91 @@ export default function TrustSafety() {
             />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                {/* Header */}
-                <motion.div
-                    className="text-center mb-16"
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={spring}
-                >
-                    <span className="text-label mb-4 block" style={{ color: '#00FFB3', textShadow: '0 0 20px rgba(0,255,179,0.3)' }}>
-                        trust & safety
-                    </span>
-                    <h2 className="text-section mb-4">
-                        your safety is our <span className="gradient-text">priority</span>
-                    </h2>
-                    <p className="text-body text-white/35 max-w-lg mx-auto">
-                        industry-leading protection for every rental, every time.
-                    </p>
-                </motion.div>
+                <div className="flex flex-col lg:flex-row gap-16 lg:gap-24 items-center">
+                    {/* Left Column - Large Hero Header */}
+                    <motion.div
+                        className="w-full lg:w-5/12"
+                        initial={{ opacity: 0, x: -40 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={spring}
+                    >
+                        <span className="text-label mb-6 block" style={{ color: '#00FFB3', textShadow: '0 0 20px rgba(0,255,179,0.3)' }}>
+                            trust & safety
+                        </span>
+                        <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black mb-8 leading-[1.1] text-white tracking-tighter">
+                            your safety is our <br className="hidden lg:block"/><span className="gradient-text">priority</span>
+                        </h2>
+                        <p className="text-lg text-white/40 mb-10 leading-relaxed max-w-md">
+                            industry-leading protection for every rental, every time. we use advanced AI and real human checks to keep our community safe.
+                        </p>
 
-                {/* Trust cards - 2x2 grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                    {trustFeatures.map((feature, i) => (
-                        <motion.div
-                            key={feature.title}
-                            className="group relative p-7 sm:p-9 rounded-2xl overflow-hidden"
-                            initial={{ opacity: 0, y: 40 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true, margin: '-40px' }}
-                            transition={{ ...spring, delay: i * 0.1 }}
-                            whileHover={{ y: -4, scale: 1.01 }}
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(16,17,26,0.9) 0%, rgba(10,11,16,0.8) 100%)',
-                                border: '1px solid rgba(255,255,255,0.06)',
-                                backdropFilter: 'blur(20px)',
-                                boxShadow: '0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)',
-                            }}
-                        >
-                            <div className="flex items-start gap-5">
-                                {/* Icon */}
-                                <div
-                                    className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center transition-all duration-300 group-hover:scale-110"
-                                    style={{
-                                        background: `linear-gradient(135deg, ${feature.color}18, ${feature.color}08)`,
-                                        border: `1px solid ${feature.color}20`,
-                                        color: feature.color,
-                                        boxShadow: `0 0 20px ${feature.color}10`,
-                                    }}
-                                >
-                                    {feature.icon}
+                        {/* Large trusted badge */}
+                        <div className="inline-flex items-center gap-6 py-6 px-8 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl">
+                            <Shield className="w-14 h-14 text-[#00FFB3]" />
+                            <div>
+                                <div className="text-4xl sm:text-5xl font-black text-white tracking-tighter" style={{ textShadow: '0 0 30px rgba(0,255,179,0.4)' }}>$10M+</div>
+                                <div className="text-sm text-white/50 uppercase tracking-widest font-bold mt-1">Protected Value</div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Right Column - Clean Feature List */}
+                    <div className="w-full lg:w-7/12 flex flex-col gap-10 sm:gap-14">
+                        {trustFeatures.map((feature, i) => (
+                            <motion.div
+                                key={feature.title}
+                                className="group relative flex flex-col sm:flex-row gap-6 items-start"
+                                initial={{ opacity: 0, y: 30 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true, margin: '-40px' }}
+                                transition={{ ...spring, delay: i * 0.1 }}
+                            >
+                                    {/* Left Icon & Decorative Line */}
+                                <div className="flex flex-col items-center gap-6 shrink-0">
+                                    <div
+                                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-[2rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 shadow-2xl"
+                                        style={{
+                                            background: `linear-gradient(135deg, ${feature.color}15, transparent)`,
+                                            border: `1px solid ${feature.color}40`,
+                                            color: feature.color,
+                                            boxShadow: `0 0 40px ${feature.color}20`,
+                                        }}
+                                    >
+                                        {feature.icon}
+                                    </div>
+                                    <div className="w-[2px] h-full min-h-[40px] hidden sm:block opacity-20 group-hover:opacity-60 transition-opacity"
+                                        style={{ background: `linear-gradient(to bottom, ${feature.color}, transparent)` }}
+                                    />
                                 </div>
 
-                                <div className="flex-1">
-                                    <h3 className="text-base font-medium text-white/85 mb-2 tracking-tight group-hover:text-white transition-colors">
+                                {/* Right Content Area */}
+                                <div className="flex-1 pb-4 sm:pb-0">
+                                    <h3 className="text-3xl sm:text-4xl font-black mb-4 tracking-tight text-transparent bg-clip-text transition-all duration-300"
+                                        style={{ backgroundImage: `linear-gradient(to right, #fff, ${feature.color})` }}
+                                    >
                                         {feature.title}
                                     </h3>
-                                    <p className="text-sm text-white/35 leading-relaxed mb-4">
+                                    <p className="text-lg sm:text-xl text-white/50 leading-relaxed mb-8 max-w-xl">
                                         {feature.description}
                                     </p>
 
-                                    {/* Stat badge */}
-                                    <div className="flex items-center gap-3">
-                                        <span
-                                            className="text-2xl font-light tabular-nums"
-                                            style={{ color: feature.color, textShadow: `0 0 20px ${feature.color}30` }}
-                                        >
-                                            {feature.stat}
-                                        </span>
-                                        <span className="text-xs text-white/25 uppercase tracking-wider">
-                                            {feature.statLabel}
-                                        </span>
+                                    {/* Embedded Stat */}
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-16 h-[2px] opacity-40" style={{ background: feature.color }} />
+                                        <div className="flex items-baseline gap-3">
+                                            <span className="text-4xl sm:text-5xl font-bold tabular-nums" style={{ color: feature.color, textShadow: `0 0 30px ${feature.color}40` }}>
+                                                {feature.stat}
+                                            </span>
+                                            <span className="text-sm font-bold text-white/40 uppercase tracking-widest">
+                                                {feature.statLabel}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Hover glow */}
-                            <div
-                                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-                                style={{
-                                    background: `radial-gradient(circle at 20% 50%, ${feature.color}10 0%, transparent 60%)`,
-                                }}
-                            />
-
-                            {/* Left accent line */}
-                            <div
-                                className="absolute left-0 top-[15%] bottom-[15%] w-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                                style={{ background: `linear-gradient(to bottom, transparent, ${feature.color}60, transparent)` }}
-                            />
-                        </motion.div>
-                    ))}
+                            </motion.div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Trust bar — bottom */}

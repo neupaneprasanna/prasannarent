@@ -7,25 +7,25 @@ import Link from 'next/link';
 
 const benefits = [
     {
-        icon: <DollarSign className="w-6 h-6" />,
+        icon: <DollarSign className="w-10 h-10" strokeWidth={1.5} />,
         title: 'passive income',
         description: 'turn your idle gear into a revenue stream. average hosts earn $1,200/month by listing just 5 items.',
         color: '#00FFB3'
     },
     {
-        icon: <Shield className="w-6 h-6" />,
+        icon: <Shield className="w-10 h-10" strokeWidth={1.5} />,
         title: 'host protection',
         description: 'every rental is covered by our comprehensive $10,000 guarantee. we handle the security, you keep the profit.',
         color: '#7A5CFF'
     },
     {
-        icon: <Users className="w-6 h-6" />,
+        icon: <Users className="w-10 h-10" strokeWidth={1.5} />,
         title: 'community trust',
         description: 'connect with verified renters. our rating system ensures you only host responsible people.',
         color: '#00FFE1'
     },
     {
-        icon: <Rocket className="w-6 h-6" />,
+        icon: <Rocket className="w-10 h-10" strokeWidth={1.5} />,
         title: 'easy listing',
         description: 'our AI-powered listing tool helps you write descriptions and set competitive prices in seconds.',
         color: '#FF4D9D'
@@ -84,30 +84,39 @@ export default function HostBenefits() {
                             </div>
                         </div>
 
-                        <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="grid sm:grid-cols-2 gap-8 lg:gap-12 mt-12 lg:mt-0">
                             {benefits.map((benefit, i) => (
                                 <motion.div
                                     key={benefit.title}
-                                    className="p-6 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors"
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    whileInView={{ opacity: 1, scale: 1 }}
+                                    className="flex flex-col gap-4"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
                                     viewport={{ once: true }}
                                     transition={{ delay: i * 0.1 }}
                                 >
                                     <div
-                                        className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                                        className="w-20 h-20 rounded-3xl flex items-center justify-center relative bg-[#0a0b10] z-10 shadow-xl"
                                         style={{
-                                            background: `${benefit.color}15`,
+                                            border: `1px solid ${benefit.color}40`,
                                             color: benefit.color,
-                                            boxShadow: `0 0 20px ${benefit.color}10`
+                                            boxShadow: `0 0 40px ${benefit.color}20, inset 0 0 20px ${benefit.color}10`
                                         }}
                                     >
-                                        {benefit.icon}
+                                        <div 
+                                            className="absolute inset-0 rounded-3xl opacity-40 blur-[3px]"
+                                            style={{ background: `radial-gradient(circle, ${benefit.color}40 0%, transparent 80%)` }}
+                                        />
+                                        <div className="relative z-10">{benefit.icon}</div>
                                     </div>
-                                    <h3 className="text-white/90 font-medium mb-2">{benefit.title}</h3>
-                                    <p className="text-[12px] text-white/30 leading-relaxed">
-                                        {benefit.description}
-                                    </p>
+                                    
+                                    <div>
+                                        <h3 className="text-2xl sm:text-3xl font-black text-white mb-3 tracking-tight">
+                                            {benefit.title}
+                                        </h3>
+                                        <p className="text-base sm:text-lg text-white/50 leading-relaxed">
+                                            {benefit.description}
+                                        </p>
+                                    </div>
                                 </motion.div>
                             ))}
                         </div>

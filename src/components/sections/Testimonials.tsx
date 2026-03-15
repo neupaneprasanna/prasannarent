@@ -31,68 +31,55 @@ export default function Testimonials() {
                     </p>
                 </motion.div>
 
-                {/* Testimonial cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                {/* Editorial Floating Testimonials */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 sm:gap-16 pt-10">
                     {testimonials.map((t, i) => (
                         <motion.div
                             key={t.name}
-                            className="group relative p-6 sm:p-8 rounded-2xl overflow-hidden"
+                            className={`group relative flex flex-col ${i === 1 ? 'lg:mt-16' : i === 2 ? 'lg:mt-8' : ''}`}
                             initial={{ opacity: 0, y: 40 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true, margin: '-60px' }}
-                            transition={{ ...spring, delay: i * 0.1 }}
-                            whileHover={{ y: -6 }}
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(16,17,26,0.9) 0%, rgba(10,11,16,0.8) 100%)',
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                backdropFilter: 'blur(20px)',
-                                boxShadow: '0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
-                            }}
+                            transition={{ ...spring, delay: i * 0.15 }}
                         >
-                            {/* Stars — colored */}
-                            <div className="flex gap-1 mb-6">
-                                {[...Array(t.rating)].map((_, j) => (
-                                    <svg key={j} width="16" height="16" viewBox="0 0 24 24" fill={t.color} className="opacity-80">
-                                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                                    </svg>
-                                ))}
+                            {/* Giant decorative quote mark background */}
+                            <div 
+                                className="absolute -top-16 -left-8 text-[12rem] sm:text-[14rem] font-serif leading-none opacity-[0.15] pointer-events-none select-none transition-transform duration-700 group-hover:scale-110 group-hover:-rotate-6"
+                                style={{
+                                    background: `linear-gradient(135deg, ${t.color}, transparent)`,
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent'
+                                }}
+                            >
+                                &ldquo;
                             </div>
 
-                            <p className="text-white/50 text-sm leading-relaxed mb-8 italic">
-                                &ldquo;{t.quote}&rdquo;
+                            <p className="text-white/80 text-xl sm:text-2xl font-medium leading-relaxed mb-10 relative z-10 transition-colors duration-300 group-hover:text-white">
+                                {t.quote}
                             </p>
 
-                            <div className="flex items-center gap-3">
+                            <div className="mt-auto flex items-center gap-5 relative z-10">
                                 <div
-                                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
+                                    className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold shadow-2xl transition-transform duration-500 group-hover:scale-110"
                                     style={{
-                                        background: `linear-gradient(135deg, ${t.color}40, ${t.color}15)`,
+                                        background: `linear-gradient(135deg, ${t.color}30, ${t.color}10)`,
                                         color: t.color,
-                                        border: `1px solid ${t.color}30`,
-                                        boxShadow: `0 0 15px ${t.color}15`,
+                                        border: `1px solid ${t.color}40`,
+                                        boxShadow: `0 0 30px ${t.color}20`,
                                     }}
                                 >
                                     {t.avatar}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-white/80">{t.name}</p>
-                                    <p className="text-xs text-white/30">{t.role}</p>
+                                    <p className="text-base sm:text-lg font-bold text-white tracking-wide">{t.name}</p>
+                                    <p className="text-sm text-white/50 uppercase tracking-widest">{t.role}</p>
                                 </div>
                             </div>
-
-                            {/* Hover glow */}
-                            <div
-                                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-                                style={{
-                                    background: `radial-gradient(circle at 50% 80%, ${t.color}12 0%, transparent 60%)`,
-                                    boxShadow: `inset 0 0 40px ${t.color}05`,
-                                }}
-                            />
-
-                            {/* Bottom accent */}
-                            <div
-                                className="absolute bottom-0 left-[10%] right-[10%] h-[2px] opacity-30 group-hover:opacity-100 transition-opacity duration-500"
-                                style={{ background: `linear-gradient(90deg, transparent, ${t.color}60, transparent)` }}
+                            
+                            {/* Minimal glowing accent line at the bottom */}
+                            <div 
+                                className="h-[1px] w-12 mt-8 opacity-50 group-hover:w-full group-hover:opacity-100 transition-all duration-700" 
+                                style={{ background: `linear-gradient(90deg, ${t.color}, transparent)` }} 
                             />
                         </motion.div>
                     ))}

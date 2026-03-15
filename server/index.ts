@@ -1264,6 +1264,86 @@ nextApp.prepare().then(() => {
             io.emit('booking-status-change', data);
         });
 
+        // ─── WebRTC Call Signaling ───
+        socket.on('call:initiate', (data: { targetUserId: string; callerName: string; callerAvatar: string | null; callType: 'audio' | 'video'; roomId: string }) => {
+            const callerId = (socket as any).userId;
+            if (!callerId) return;
+            const targetSockets = onlineUsers.get(data.targetUserId);
+            if (targetSockets && targetSockets.size > 0) {
+                targetSockets.forEach(sid => {
+                    io.to(sid).emit('call:incoming', {
+                        callerId,
+                        callerName: data.callerName,
+                        callerAvatar: data.callerAvatar,
+                        callType: data.callType,
+                        roomId: data.roomId,
+                    });
+                });
+            } else {
+                socket.emit('call:unavailable', { targetUserId: data.targetUserId });
+            }
+        });
+
+        socket.on('call:accept', (data: { callerId: string }) => {
+            const accepterId = (socket as any).userId;
+            const callerSockets = onlineUsers.get(data.callerId);
+            if (callerSockets) {
+                callerSockets.forEach(sid => {
+                    io.to(sid).emit('call:accepted', { accepterId });
+                });
+            }
+        });
+
+        socket.on('call:reject', (data: { callerId: string }) => {
+            const rejecterId = (socket as any).userId;
+            const callerSockets = onlineUsers.get(data.callerId);
+            if (callerSockets) {
+                callerSockets.forEach(sid => {
+                    io.to(sid).emit('call:rejected', { rejecterId });
+                });
+            }
+        });
+
+        socket.on('call:end', (data: { targetUserId: string }) => {
+            const enderId = (socket as any).userId;
+            const targetSockets = onlineUsers.get(data.targetUserId);
+            if (targetSockets) {
+                targetSockets.forEach(sid => {
+                    io.to(sid).emit('call:ended', { enderId });
+                });
+            }
+        });
+
+        socket.on('call:offer', (data: { targetUserId: string; offer: RTCSessionDescriptionInit }) => {
+            const targetSockets = onlineUsers.get(data.targetUserId);
+            if (targetSockets) {
+                const senderId = (socket as any).userId;
+                targetSockets.forEach(sid => {
+                    io.to(sid).emit('call:offer', { senderId, offer: data.offer });
+                });
+            }
+        });
+
+        socket.on('call:answer', (data: { targetUserId: string; answer: RTCSessionDescriptionInit }) => {
+            const targetSockets = onlineUsers.get(data.targetUserId);
+            if (targetSockets) {
+                const senderId = (socket as any).userId;
+                targetSockets.forEach(sid => {
+                    io.to(sid).emit('call:answer', { senderId, answer: data.answer });
+                });
+            }
+        });
+
+        socket.on('call:ice-candidate', (data: { targetUserId: string; candidate: RTCIceCandidateInit }) => {
+            const targetSockets = onlineUsers.get(data.targetUserId);
+            if (targetSockets) {
+                const senderId = (socket as any).userId;
+                targetSockets.forEach(sid => {
+                    io.to(sid).emit('call:ice-candidate', { senderId, candidate: data.candidate });
+                });
+            }
+        });
+
         socket.on('disconnect', () => {
             const userId = (socket as any).userId;
             if (userId && onlineUsers.has(userId)) {

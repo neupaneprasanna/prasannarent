@@ -16,17 +16,17 @@ const SCROLL_PALETTES = [
         { r: 0.01, g: 0.05, b: 0.03 }, // Dark forest void
         { r: 0.0, g: 0.45, b: 0.65 },  // Deep teal
     ],
-    // 50% - Half down (Quantum Pink/Magenta)
+    // 50% - Half down (Quantum Pink/Magenta/Cyan)
     [
-        { r: 0.8, g: 0.15, b: 0.5 },    // Hot Pink
-        { r: 0.06, g: 0.02, b: 0.08 },  // Deep violet base
-        { r: 0.35, g: 0.1, b: 0.7 },    // Indigo surge
+        { r: 0.9, g: 0.2, b: 0.6 },    // Bright Pink
+        { r: 0.05, g: 0.01, b: 0.1 },  // Deep Space
+        { r: 0.1, g: 0.8, b: 0.9 },    // Electric Cyan
     ],
-    // 75% - 3/4 down (Deep Ocean Blue)
+    // 75% - 3/4 down (Deep Ocean Blue/Emerald)
     [
-        { r: 0.0, g: 0.45, b: 0.95 },   // Electric Blue
-        { r: 0.01, g: 0.02, b: 0.10 },  // Dark Navy
-        { r: 0.0, g: 0.7, b: 0.85 },    // Bright Cyan
+        { r: 0.0, g: 0.4, b: 1.0 },    // Power Blue
+        { r: 0.01, g: 0.08, b: 0.05 }, // Dark Emerald Void
+        { r: 0.0, g: 0.9, b: 0.45 },   // Neon Green
     ],
     // 100% - Bottom Footer (Rich Violet Gold)
     [
@@ -127,9 +127,10 @@ export default function NebulaShader() {
                 const v = y / h;
 
                 // Nebula noise layers
-                const n1 = fbm(u * 3 + t * 0.02, v * 3 + t * 0.015, 4);
-                const n2 = fbm(u * 5 - t * 0.01 + 10, v * 5 + t * 0.008 + 10, 3);
-                const n3 = fbm(u * 2 + t * 0.005 + n1 * 0.5, v * 2 - t * 0.01 + n2 * 0.5, 3);
+                const n1 = fbm(u * 4 + t * 0.02, v * 4 + t * 0.015, 2);
+                const n2 = fbm(u * 6 - t * 0.01 + 10, v * 6 + t * 0.008 + 10, 2);
+                const n3 = fbm(u * 3 + t * 0.005 + n1 * 0.5, v * 3 - t * 0.01 + n2 * 0.5, 2);
+                const n4 = fbm(u * 8 + t * 0.03, v * 2 - t * 0.02, 1);
 
                 // Light bloom near mouse
                 const dx = u - mx;
@@ -145,9 +146,9 @@ export default function NebulaShader() {
                 const c1 = colors[1];
                 const c2 = colors[2];
 
-                let r = c1.r + (c0.r - c1.r) * n1 * 0.8 + (c2.r) * n3 * 0.4 + bloom * 0.3 + ray * 0.2;
-                let g = c1.g + (c0.g - c1.g) * n1 * 0.8 + (c2.g) * n3 * 0.4 + bloom * 0.5 + ray * 0.15;
-                let b = c1.b + (c0.b - c1.b) * n1 * 0.8 + (c2.b) * n3 * 0.4 + bloom * 0.7 + ray * 0.3;
+                let r = c1.r + (c0.r - c1.r) * n1 * 0.95 + (c2.r) * n3 * 0.55 + (c0.r * n4 * 0.25) + bloom * 0.3 + ray * 0.2;
+                let g = c1.g + (c0.g - c1.g) * n1 * 0.95 + (c2.g) * n3 * 0.55 + (c1.g * n4 * 0.25) + bloom * 0.5 + ray * 0.15;
+                let b = c1.b + (c0.b - c1.b) * n1 * 0.95 + (c2.b) * n3 * 0.55 + (c2.b * n4 * 0.25) + bloom * 0.7 + ray * 0.3;
 
                 // Depth fog — darker at center-bottom
                 const fogAmount = (1 - v) * 0.3 * (1 - Math.abs(u - 0.5) * 0.5);
@@ -173,7 +174,7 @@ export default function NebulaShader() {
         if (!canvas) return;
 
         // Very low res for performance — upscaled by CSS
-        const scale = reducedMotion.current ? 12 : 6;
+        const scale = reducedMotion.current ? 16 : 10;
         const resize = () => {
             canvas.width = Math.ceil(window.innerWidth / scale);
             canvas.height = Math.ceil(window.innerHeight / scale);
@@ -189,7 +190,7 @@ export default function NebulaShader() {
 
         // Animation loop — throttled for performance
         let lastFrame = 0;
-        const fps = reducedMotion.current ? 5 : 15; // Low FPS is fine for nebula — it's slow-moving
+        const fps = reducedMotion.current ? 3 : 8; // Low FPS is fine for nebula — it's slow-moving
         const interval = 1000 / fps;
 
         const loop = (timestamp: number) => {

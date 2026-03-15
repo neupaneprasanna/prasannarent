@@ -46,7 +46,7 @@ export default function FAQ() {
 
     return (
         <section className="section-padding relative overflow-hidden">
-            <div className="max-w-3xl mx-auto px-4 sm:px-6">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6">
                 {/* Header */}
                 <motion.div
                     className="text-center mb-14"
@@ -66,44 +66,28 @@ export default function FAQ() {
                     </p>
                 </motion.div>
 
-                {/* FAQ accordion */}
-                <div className="space-y-3">
+                {/* Simple Typography FAQ List */}
+                <div className="space-y-2 mt-12">
                     {faqs.map((faq, i) => (
-                        <motion.div
-                            key={i}
-                            className="relative rounded-xl overflow-hidden"
-                            initial={{ opacity: 0, y: 20 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true, margin: '-20px' }}
-                            transition={{ ...spring, delay: i * 0.05 }}
-                            style={{
-                                background: openIndex === i
-                                    ? 'linear-gradient(135deg, rgba(16,17,26,0.95) 0%, rgba(20,18,40,0.9) 100%)'
-                                    : 'linear-gradient(135deg, rgba(16,17,26,0.7) 0%, rgba(10,11,16,0.6) 100%)',
-                                border: `1px solid ${openIndex === i ? 'rgba(122,92,255,0.15)' : 'rgba(255,255,255,0.04)'}`,
-                                backdropFilter: 'blur(12px)',
-                                transition: 'background 0.3s ease, border-color 0.3s ease',
-                            }}
-                        >
-                            {/* Question row */}
+                        <div key={i} className="border-b border-white/5 last:border-b-0">
                             <button
                                 onClick={() => toggleFAQ(i)}
-                                className="w-full flex items-center justify-between gap-4 p-5 sm:p-6 text-left group"
+                                className="w-full flex items-center justify-between gap-6 py-8 text-left group outline-none"
                                 suppressHydrationWarning
                             >
-                                <span className={`text-sm font-medium tracking-tight transition-colors duration-300 ${openIndex === i ? 'text-white/90' : 'text-white/60 group-hover:text-white/80'}`}>
+                                <span className={`text-xl sm:text-2xl font-bold tracking-tight transition-colors duration-300 ${openIndex === i ? 'text-[#00F0FF]' : 'text-white/80 group-hover:text-white'}`}>
                                     {faq.question}
                                 </span>
                                 <motion.div
                                     animate={{ rotate: openIndex === i ? 180 : 0 }}
                                     transition={spring}
-                                    className="flex-shrink-0"
+                                    className="flex-shrink-0 ml-4"
                                 >
-                                    <ChevronDown size={18} className={`transition-colors duration-300 ${openIndex === i ? 'text-[#7A5CFF]' : 'text-white/20'}`} />
+                                    <ChevronDown size={28} className={`transition-colors duration-300 ${openIndex === i ? 'text-[#00F0FF]' : 'text-white/30 group-hover:text-white/60'}`} />
                                 </motion.div>
                             </button>
 
-                            {/* Answer */}
+                            {/* Answer Area */}
                             <AnimatePresence>
                                 {openIndex === i && (
                                     <motion.div
@@ -113,27 +97,15 @@ export default function FAQ() {
                                         transition={{ type: 'spring', stiffness: 150, damping: 22 }}
                                         className="overflow-hidden"
                                     >
-                                        <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-0">
-                                            <div className="w-12 h-[1px] mb-4" style={{ background: 'linear-gradient(90deg, rgba(122,92,255,0.4), transparent)' }} />
-                                            <p className="text-sm text-white/35 leading-relaxed">
+                                        <div className="pb-10 pr-12">
+                                            <p className="text-lg sm:text-xl text-white/50 leading-relaxed max-w-3xl">
                                                 {faq.answer}
                                             </p>
                                         </div>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
-
-                            {/* Active left accent */}
-                            {openIndex === i && (
-                                <motion.div
-                                    className="absolute left-0 top-[15%] bottom-[15%] w-[2px]"
-                                    initial={{ opacity: 0, scaleY: 0 }}
-                                    animate={{ opacity: 1, scaleY: 1 }}
-                                    exit={{ opacity: 0, scaleY: 0 }}
-                                    style={{ background: 'linear-gradient(to bottom, transparent, rgba(122,92,255,0.6), transparent)' }}
-                                />
-                            )}
-                        </motion.div>
+                        </div>
                     ))}
                 </div>
             </div>

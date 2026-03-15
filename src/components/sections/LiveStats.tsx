@@ -37,7 +37,7 @@ function AnimatedCounter({ value, prefix, suffix, color }: { value: number; pref
     }, [inView, value]);
 
     return (
-        <span ref={ref} className="tabular-nums" style={{ color, textShadow: `0 0 30px ${color}40` }}>
+        <span ref={ref} className="tabular-nums drop-shadow-2xl" style={{ color, textShadow: `0 0 40px ${color}80, 0 0 80px ${color}40` }}>
             {prefix}
             {count % 1 !== 0 ? count.toFixed(1) : count.toLocaleString()}
             {suffix}
@@ -58,55 +58,37 @@ export default function LiveStats() {
                 }}
             />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                <motion.div
-                    className="relative rounded-2xl p-8 sm:p-10 md:p-14 overflow-hidden"
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={springTransition}
-                    style={{
-                        background: 'linear-gradient(135deg, rgba(16,17,26,0.9) 0%, rgba(10,11,16,0.8) 100%)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        backdropFilter: 'blur(24px)',
-                        boxShadow: '0 8px 40px rgba(0,0,0,0.3), 0 0 60px rgba(122,92,255,0.05), inset 0 1px 0 rgba(255,255,255,0.05)',
-                    }}
-                >
-                    {/* Gradient border effect on top */}
-                    <div
-                        className="absolute top-0 left-[10%] right-[10%] h-[2px]"
-                        style={{
-                            background: 'linear-gradient(90deg, transparent, rgba(0,240,255,0.3), rgba(122,92,255,0.4), rgba(255,77,157,0.3), transparent)',
-                        }}
-                    />
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+                <div className="py-12 sm:py-20 border-y border-white/5">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-16">
                         {stats.map((stat, i) => (
                             <motion.div
                                 key={stat.label}
-                                className="text-center relative"
+                                className="text-center relative flex flex-col items-center group"
                                 initial={{ opacity: 0, y: 20 }}
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ ...springTransition, delay: i * 0.1 }}
                             >
-                                <div className="text-3xl md:text-5xl font-light mb-3 tracking-tight">
+                                <div className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-6 tracking-tighter transition-transform duration-500 group-hover:scale-110 group-hover:-translate-y-3">
                                     <AnimatedCounter value={stat.value} prefix={stat.prefix} suffix={stat.suffix} color={stat.color} />
                                 </div>
-                                <div className="text-label">{stat.label}</div>
+                                <div className="text-sm sm:text-base md:text-lg font-medium text-white/60 tracking-[0.2em] uppercase group-hover:text-white transition-colors">
+                                    {stat.label}
+                                </div>
 
-                                {/* Glow line under stat — visible */}
+                                {/* Minimal Glow dot under stat */}
                                 <div
-                                    className="w-12 h-[2px] mx-auto mt-4 rounded-full"
+                                    className="w-2 h-2 mx-auto mt-6 rounded-full opacity-30 group-hover:opacity-100 transition-all duration-500 blur-[1px]"
                                     style={{
-                                        background: `linear-gradient(90deg, transparent, ${stat.color}80, transparent)`,
-                                        boxShadow: `0 0 10px ${stat.color}30`,
+                                        backgroundColor: stat.color,
+                                        boxShadow: `0 0 15px ${stat.color}`,
                                     }}
                                 />
                             </motion.div>
                         ))}
                     </div>
-                </motion.div>
+                </div>
             </div>
         </section>
     );

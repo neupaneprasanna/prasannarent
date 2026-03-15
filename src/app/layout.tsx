@@ -78,8 +78,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`${outfit.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable} antialiased text-white grain-overlay`}
       >
         <PremiumBackground />

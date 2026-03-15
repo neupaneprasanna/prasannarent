@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
 import SearchBar from './SearchBar';
 import { useRef, useState, useEffect } from 'react';
@@ -11,17 +11,8 @@ const springTransition = { type: 'spring' as const, stiffness: 100, damping: 20 
 export default function HeroContent() {
     const containerRef = useRef<HTMLDivElement>(null);
     const [isMounted, setIsMounted] = useState(false);
-    const { scrollYProgress } = useScroll({
-        target: containerRef,
-        offset: ['start start', 'end start'],
-    });
 
     useEffect(() => setIsMounted(true), []);
-
-    // Parallax depth planes
-    const bgTextY = useTransform(scrollYProgress, [0, 1], [0, 150]);
-    const contentY = useTransform(scrollYProgress, [0, 1], [0, -60]);
-    const bgTextOpacity = useTransform(scrollYProgress, [0, 0.3], [0.15, 0]);
 
     return (
         <div ref={containerRef} className="relative flex flex-col items-center justify-center min-h-screen px-4 sm:px-6 pt-28 sm:pt-32 text-center overflow-hidden">
@@ -29,20 +20,20 @@ export default function HeroContent() {
             {/* === AMBIENT GLOW ORBS === */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full opacity-20"
-                    style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.35) 0%, transparent 70%)', filter: 'blur(90px)' }}
+                    style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.35) 0%, transparent 70%)' }}
                 />
                 <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full opacity-15"
-                    style={{ background: 'radial-gradient(circle, rgba(34,211,238,0.25) 0%, transparent 70%)', filter: 'blur(80px)' }}
+                    style={{ background: 'radial-gradient(circle, rgba(34,211,238,0.25) 0%, transparent 70%)' }}
                 />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full opacity-10"
-                    style={{ background: 'radial-gradient(ellipse, rgba(244,114,182,0.2) 0%, transparent 70%)', filter: 'blur(100px)' }}
+                    style={{ background: 'radial-gradient(ellipse, rgba(244,114,182,0.2) 0%, transparent 70%)' }}
                 />
             </div>
 
             {/* === DEPTH TEXT — "access without ownership" === */}
-            <motion.div
+            <div
                 className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
-                style={{ y: bgTextY, opacity: bgTextOpacity }}
+                style={{ opacity: 0.15 }}
             >
                 <span
                     className="text-[10vw] sm:text-[7vw] font-extralight tracking-[0.15em] whitespace-nowrap"
@@ -54,13 +45,10 @@ export default function HeroContent() {
                 >
                     access without ownership
                 </span>
-            </motion.div>
+            </div>
 
             {/* === MAIN CONTENT PLANE === */}
-            <motion.div
-                className="relative z-10 flex flex-col items-center"
-                style={{ y: contentY }}
-            >
+            <div className="relative z-10 flex flex-col items-center">
                 {/* Status badge — glassmorphism pill */}
                 <motion.div
                     initial={{ opacity: 0, y: 20, scale: 0.9 }}
@@ -96,8 +84,8 @@ export default function HeroContent() {
                         <motion.span
                             key={word}
                             className={`inline-block mr-3 sm:mr-5 ${i === 0 ? 'gradient-text-chrome' : 'text-white/80'}`}
-                            initial={{ opacity: 0, y: 40, rotateX: -15 }}
-                            animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                            initial={{ opacity: 0, y: 40 }}
+                            animate={{ opacity: 1, y: 0 }}
                             transition={{ ...springTransition, delay: 0.6 + i * 0.15 }}
                             style={i === 0 ? { textShadow: '0 0 80px rgba(255,255,255,0.15)' } : undefined}
                         >
@@ -109,8 +97,8 @@ export default function HeroContent() {
                         <motion.span
                             key={word}
                             className="inline-block mr-3 sm:mr-5 text-white/40"
-                            initial={{ opacity: 0, y: 40, rotateX: -15 }}
-                            animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                            initial={{ opacity: 0, y: 40 }}
+                            animate={{ opacity: 1, y: 0 }}
                             transition={{ ...springTransition, delay: 0.9 + i * 0.15 }}
                         >
                             {word}
@@ -191,20 +179,11 @@ export default function HeroContent() {
                         <span className="text-[#A5B4FC] font-medium">2,847+</span> people renting right now
                     </div>
                 </motion.div>
-            </motion.div>
+            </div>
 
-            {/* Scroll indicator */}
-            <motion.div
-                className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 2.5, duration: 1 }}
-            >
-                <motion.div
-                    className="flex flex-col items-center gap-2"
-                    animate={{ y: [0, 6, 0] }}
-                    transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                >
+            {/* Scroll indicator — simple CSS animation */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
+                <div className="flex flex-col items-center gap-2 animate-bounce" style={{ animationDuration: '2.5s' }}>
                     <span className="text-label text-white/20 text-[9px]">scroll</span>
                     <div className="w-5 h-8 rounded-full flex items-start justify-center p-1.5"
                         style={{
@@ -212,15 +191,13 @@ export default function HeroContent() {
                             boxShadow: '0 0 15px rgba(139,92,246,0.08)',
                         }}
                     >
-                        <motion.div
+                        <div
                             className="w-1 h-2 rounded-full bg-[#8B5CF6]"
-                            animate={{ y: [0, 10, 0] }}
-                            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
                             style={{ boxShadow: '0 0 6px rgba(139,92,246,0.6)' }}
                         />
                     </div>
-                </motion.div>
-            </motion.div>
+                </div>
+            </div>
         </div>
     );
 }

@@ -45,17 +45,18 @@ export default function WorldMap() {
                     </p>
                 </motion.div>
 
-                {/* Globe container */}
+                {/* Globe container - Floating Free */}
                 <motion.div
-                    className="capsule relative p-3 sm:p-4 md:p-8 overflow-hidden"
+                    className="relative w-full aspect-square md:aspect-[2/1] min-h-[400px] md:min-h-[500px] cursor-grab active:cursor-grabbing"
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={spring}
                 >
-                    <div className="relative w-full aspect-square md:aspect-[2/1] min-h-[400px] md:min-h-[500px] cursor-grab active:cursor-grabbing">
-                        {/* Background glow */}
-                        {!isMobile && <div className="absolute inset-0 rounded-full blur-[120px] scale-75 pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(122,92,255,0.06) 0%, transparent 70%)' }} />}
+                    {/* Background glow */}
+                    {!isMobile && <div className="absolute inset-0 rounded-full blur-[120px] scale-75 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, rgba(122,92,255,0.06) 0%, transparent 70%)' }} />}
+
+                    <div className="relative z-10 w-full h-full">
 
                         {isMobile ? (
                             <StaticGlobe />
@@ -76,18 +77,18 @@ export default function WorldMap() {
 
                         {/* Info overlay */}
                         <div className="absolute bottom-6 md:bottom-10 left-6 md:left-10 z-10 hidden md:block">
-                            <div className="capsule p-5 max-w-[220px]">
-                                <div className="text-label text-[#00FFE1] mb-2">live status</div>
-                                <div className="text-2xl font-light text-white/80 mb-1 tracking-tight">worldwide</div>
-                                <p className="text-[11px] text-white/30 leading-relaxed">
+                            <div className="capsule p-6 max-w-[320px] shadow-2xl">
+                                <div className="text-label text-[#00FFE1] mb-3">live status</div>
+                                <div className="text-3xl font-bold text-white mb-2 tracking-tight">worldwide</div>
+                                <p className="text-sm text-white/50 leading-relaxed">
                                     our network spans every timezone, offering 24/7 availability.
                                 </p>
                             </div>
                         </div>
 
                         {/* Mobile hint */}
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 md:hidden">
-                            <div className="px-4 py-2 rounded-full border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl text-[10px] text-white/30 tracking-[0.2em] uppercase flex items-center gap-2">
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 md:hidden z-20">
+                            <div className="px-4 py-2 rounded-full border border-white/[0.06] bg-[#0a0b10]/60 backdrop-blur-xl text-[10px] text-white/30 tracking-[0.2em] uppercase flex items-center gap-2">
                                 <div className="w-1 h-1 rounded-full bg-[#7A5CFF] animate-pulse" />
                                 drag to rotate
                             </div>

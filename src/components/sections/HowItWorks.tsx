@@ -8,7 +8,7 @@ const steps = [
         title: 'search & discover',
         description: 'find anything you need with our AI-powered search. browse categories or describe what you need in natural language.',
         icon: (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.35-4.35" />
             </svg>
@@ -20,7 +20,7 @@ const steps = [
         title: 'book instantly',
         description: 'select your dates, review pricing, and book in seconds. secure payments protected by our guarantee.',
         icon: (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
                 <line x1="8" y1="2" x2="8" y2="6" />
@@ -34,7 +34,7 @@ const steps = [
         title: 'enjoy & return',
         description: 'pick up or get it delivered. use it for your project, then return it. rate your experience and earn rewards.',
         icon: (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
@@ -68,71 +68,67 @@ export default function HowItWorks() {
 
                 {/* Steps */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 relative">
-                    {/* Desktop connector line — visible luminous path */}
+                    {/* Desktop continuous timeline line */}
                     <div
-                        className="hidden md:block absolute top-24 left-[calc(33.33%-1rem)] right-[calc(33.33%-1rem)] h-[2px]"
+                        className="hidden md:block absolute top-16 left-[10%] right-[10%] h-[2px] z-0"
                         style={{
-                            background: 'linear-gradient(90deg, transparent, rgba(0,240,255,0.25), rgba(122,92,255,0.3), rgba(0,255,179,0.25), transparent)',
-                            boxShadow: '0 0 12px rgba(122,92,255,0.15)',
+                            background: 'linear-gradient(90deg, transparent, rgba(0,240,255,0.4), rgba(122,92,255,0.6), rgba(0,255,179,0.4), transparent)',
+                            boxShadow: '0 0 20px rgba(122,92,255,0.3)',
                         }}
                     />
 
                     {steps.map((step, i) => (
                         <motion.div
                             key={step.number}
-                            className="group relative p-6 sm:p-8 rounded-2xl overflow-hidden"
-                            initial={{ opacity: 0, y: 40 }}
+                            className="group relative flex flex-col items-center text-center px-4 sm:px-8 py-6 z-10"
+                            initial={{ opacity: 0, y: 30 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true, margin: '-60px' }}
-                            transition={{ ...spring, delay: i * 0.12 }}
-                            whileHover={{ y: -6 }}
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(16,17,26,0.9) 0%, rgba(10,11,16,0.8) 100%)',
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                backdropFilter: 'blur(20px)',
-                                boxShadow: '0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
-                            }}
+                            transition={{ ...spring, delay: i * 0.15 }}
                         >
-                            {/* Step number — visible watermark */}
+                            {/* Number floating behind icon */}
                             <div
-                                className="absolute top-4 right-5 text-6xl font-light tracking-tight"
-                                style={{ color: `${step.color}10` }}
+                                className="absolute -top-4 text-[10rem] sm:text-[14rem] font-black leading-none tracking-tighter mix-blend-screen pointer-events-none select-none transition-all duration-700 group-hover:scale-105 group-hover:-translate-y-6"
+                                style={{
+                                    color: `${step.color}06`,
+                                    WebkitTextStroke: `2px ${step.color}15`,
+                                }}
                             >
                                 {step.number}
                             </div>
 
-                            {/* Icon with colored glow background */}
-                            <div
-                                className="w-14 h-14 rounded-xl flex items-center justify-center mb-6 transition-all duration-300"
+                            {/* Node Icon on Timeline */}
+                            <motion.div
+                                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center mb-10 relative bg-[#0a0b10] z-20"
+                                whileHover={{ scale: 1.15, rotate: [0, -10, 10, 0] }}
+                                transition={{
+                                    ...spring,
+                                    rotate: { duration: 0.4, ease: "easeInOut" }
+                                }}
                                 style={{
-                                    background: `linear-gradient(135deg, ${step.color}20, ${step.color}08)`,
-                                    border: `1px solid ${step.color}25`,
+                                    border: `2px solid ${step.color}40`,
                                     color: step.color,
-                                    boxShadow: `0 0 25px ${step.color}15, inset 0 1px 0 ${step.color}10`,
+                                    boxShadow: `0 0 40px ${step.color}20, inset 0 0 30px ${step.color}20`,
                                 }}
                             >
-                                {step.icon}
-                            </div>
+                                {/* Inner glow pulse */}
+                                <div 
+                                    className="absolute inset-0 rounded-full animate-pulse opacity-50"
+                                    style={{ background: `radial-gradient(circle, ${step.color}50 0%, transparent 70%)` }}
+                                />
+                                <div className="relative z-10">
+                                    {step.icon}
+                                </div>
+                            </motion.div>
 
-                            <h3 className="text-base font-medium text-white/85 mb-3 tracking-tight group-hover:text-white transition-colors">
+                            <h3 className="text-2xl sm:text-3xl font-bold mb-6 tracking-tight text-transparent bg-clip-text transition-all duration-300 relative z-30"
+                                style={{ backgroundImage: `linear-gradient(to right, #fff, ${step.color})` }}
+                            >
                                 {step.title}
                             </h3>
-                            <p className="text-sm text-white/35 leading-relaxed">{step.description}</p>
-
-                            {/* Hover glow — stronger */}
-                            <div
-                                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-                                style={{
-                                    background: `radial-gradient(circle at 50% 30%, ${step.color}15 0%, transparent 70%)`,
-                                    boxShadow: `inset 0 0 40px ${step.color}05`,
-                                }}
-                            />
-
-                            {/* Bottom colored accent */}
-                            <div
-                                className="absolute bottom-0 left-[10%] right-[10%] h-[2px] opacity-40 group-hover:opacity-100 transition-opacity duration-500"
-                                style={{ background: `linear-gradient(90deg, transparent, ${step.color}60, transparent)` }}
-                            />
+                            <p className="text-lg sm:text-xl text-white/50 leading-relaxed max-w-md relative z-30">
+                                {step.description}
+                            </p>
                         </motion.div>
                     ))}
                 </div>

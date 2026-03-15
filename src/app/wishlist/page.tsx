@@ -170,7 +170,7 @@ export default function WishlistPage() {
 
                             <div className="p-2 space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar">
                                 {collections.map(c => (
-                                    <button
+                                <div
                                         key={c.id}
                                         onClick={() => {
                                             setActiveCollection(c.id);
@@ -178,7 +178,7 @@ export default function WishlistPage() {
                                             setSearchQuery('');
                                             setCategoryFilter('all');
                                         }}
-                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 group ${activeCollection === c.id
+                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 group cursor-pointer ${activeCollection === c.id
                                             ? 'bg-[#6c5ce7]/10 border border-[#6c5ce7]/20'
                                             : 'hover:bg-white/5'
                                             }`}
@@ -196,12 +196,12 @@ export default function WishlistPage() {
                                                     e.stopPropagation();
                                                     deleteCollection(c.id);
                                                 }}
-                                                className="p-1 rounded text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                                className="p-1 rounded text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all font-sans cursor-pointer"
                                             >
                                                 <Trash2 size={12} />
                                             </button>
                                         )}
-                                    </button>
+                                    </div>
                                 ))}
 
                                 {collections.length === 0 && (

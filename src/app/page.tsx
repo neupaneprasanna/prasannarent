@@ -30,73 +30,68 @@ export default function HomePage() {
             {/* Hero Section */}
             <section className="relative min-h-screen overflow-hidden">
                 <HeroContent />
-                <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#050508] to-transparent pointer-events-none z-10" />
             </section>
 
-            {/* Categories */}
-            <DimensionalReveal glowColor="rgba(122,92,255,0.10)" parallaxIntensity={0.25}>
-                <Categories />
-            </DimensionalReveal>
+            {/* Categories — Raw, no wrapper needed (has its own video BG engine) */}
+            <Categories />
 
-
-
-            {/* Trending */}
-            <DimensionalReveal glowColor="rgba(0,255,179,0.08)" parallaxIntensity={0.3}>
+            {/* Trending — Editorial Split (portal entrance) */}
+            <DimensionalReveal glowColor="rgba(0,255,179,0.10)" parallaxIntensity={0.25} variant="portal">
                 <TrendingCarousel />
             </DimensionalReveal>
 
-            {/* Recently Viewed */}
-            <DimensionalReveal glowColor="rgba(161,140,255,0.1)" parallaxIntensity={0.2}>
+            {/* Recently Viewed — Rises from below */}
+            <DimensionalReveal glowColor="rgba(161,140,255,0.12)" parallaxIntensity={0.2} variant="rise">
                 <RecentlyViewedSection />
             </DimensionalReveal>
 
-            {/* Why RentVerse */}
-            <DimensionalReveal glowColor="rgba(122,92,255,0.08)" parallaxIntensity={0.2}>
+            {/* Why RentVerse — Grand cinematic reveal */}
+            <DimensionalReveal glowColor="rgba(122,92,255,0.10)" parallaxIntensity={0.25} variant="cinematic">
                 <WhyRentVerse />
             </DimensionalReveal>
 
-            {/* Stats */}
-            <DimensionalReveal glowColor="rgba(0,240,255,0.10)" parallaxIntensity={0.2}>
+            {/* Stats — Slides in from the side */}
+            <DimensionalReveal glowColor="rgba(0,240,255,0.12)" parallaxIntensity={0.2} variant="slide">
                 <LiveStats />
             </DimensionalReveal>
 
-            {/* How it Works */}
-            <DimensionalReveal glowColor="rgba(122,92,255,0.08)" parallaxIntensity={0.35}>
+            {/* How it Works — Portal emergence */}
+            <DimensionalReveal glowColor="rgba(122,92,255,0.10)" parallaxIntensity={0.35} variant="portal">
                 <HowItWorks />
             </DimensionalReveal>
 
-            {/* Trust & Safety */}
-            <DimensionalReveal glowColor="rgba(0,255,179,0.08)" parallaxIntensity={0.2}>
+            {/* Trust & Safety — Cinematic */}
+            <DimensionalReveal glowColor="rgba(0,255,179,0.10)" parallaxIntensity={0.2} variant="cinematic">
                 <TrustSafety />
             </DimensionalReveal>
 
-            {/* World Map */}
-            <DimensionalReveal glowColor="rgba(0,240,255,0.06)" parallaxIntensity={0.15}>
+            {/* World Map — Rise */}
+            <DimensionalReveal glowColor="rgba(0,240,255,0.08)" parallaxIntensity={0.15} variant="rise">
                 <WorldMap />
             </DimensionalReveal>
 
-            {/* Testimonials */}
-            <DimensionalReveal glowColor="rgba(161,140,255,0.08)" parallaxIntensity={0.2}>
+            {/* Testimonials — Portal */}
+            <DimensionalReveal glowColor="rgba(161,140,255,0.10)" parallaxIntensity={0.2} variant="portal">
                 <Testimonials />
             </DimensionalReveal>
 
-            {/* Host Benefits */}
-            <DimensionalReveal glowColor="rgba(0,255,179,0.06)" parallaxIntensity={0.2}>
+            {/* Host Benefits — Slide */}
+            <DimensionalReveal glowColor="rgba(0,255,179,0.08)" parallaxIntensity={0.2} variant="slide">
                 <HostBenefits />
             </DimensionalReveal>
 
-            {/* FAQ */}
-            <DimensionalReveal glowColor="rgba(0,240,255,0.06)" parallaxIntensity={0.15}>
+            {/* FAQ — Cinematic */}
+            <DimensionalReveal glowColor="rgba(0,240,255,0.08)" parallaxIntensity={0.15} variant="cinematic">
                 <FAQ />
             </DimensionalReveal>
 
-            {/* CTA */}
-            <DimensionalReveal glowColor="rgba(122,92,255,0.12)" parallaxIntensity={0.3}>
+            {/* CTA — Grand portal */}
+            <DimensionalReveal glowColor="rgba(122,92,255,0.15)" parallaxIntensity={0.3} variant="portal">
                 <CTASection />
             </DimensionalReveal>
 
-            {/* Footer */}
-            <DimensionalReveal showGlow={false} parallaxIntensity={0.1}>
+            {/* Footer — Gentle rise */}
+            <DimensionalReveal showGlow={false} parallaxIntensity={0.1} variant="rise">
                 <Footer />
             </DimensionalReveal>
         </main>

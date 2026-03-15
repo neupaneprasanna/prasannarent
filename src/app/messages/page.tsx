@@ -7,13 +7,16 @@ import {
     Trash2, X, Settings, Info, LogOut, SlidersHorizontal,
     Flag, Lock, Pin, ChevronDown, ChevronUp, Image as ImageIcon,
     MoreVertical, ArrowLeft, Paperclip, FileText, Music, Video,
-    File, Loader2, Download, X as XIcon
+    File, Loader2, Download, X as XIcon, Phone
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import Link from 'next/link';
 import { io, Socket } from 'socket.io-client';
 import { apiClient } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
+import { CallProvider, useCall } from '@/components/call/CallProvider';
+import CallUI from '@/components/call/CallUI';
+import VoiceRecorder from '@/components/call/VoiceRecorder';
 
 interface ChatUser {
     id: string;
@@ -679,9 +682,17 @@ export default function MessagesPage() {
                         </p>
                     </div>
                 </div>
-                <button onClick={() => setShowDetailsPanel(!showDetailsPanel)} className="p-2.5 rounded-xl hover:bg-white/5 text-white/40 hover:text-white/70 transition-all">
-                    <MoreVertical size={18} />
-                </button>
+                <div className="flex items-center gap-1">
+                    <CallButtons
+                        targetUserId={targetUser.id}
+                        targetName={`${targetUser.firstName} ${targetUser.lastName || ''}`}
+                        targetAvatar={targetUser.avatar}
+                        roomId={activeRoomId!}
+                    />
+                    <button onClick={() => setShowDetailsPanel(!showDetailsPanel)} className="p-2.5 rounded-xl hover:bg-white/5 text-white/40 hover:text-white/70 transition-all">
+                        <MoreVertical size={18} />
+                    </button>
+                </div>
             </div>
 
             {/* Messages */}
@@ -956,15 +967,27 @@ export default function MessagesPage() {
                             className="w-full text-[13.5px] rounded-full pl-5 pr-4 py-3 outline-none bg-[#1a1b3a]/50 text-white border border-white/[0.06] focus:border-[#8B5CF6]/30 placeholder:text-white/20 transition-all"
                         />
                     </div>
-                    <button onClick={handleSendMessage} disabled={!messageInput.trim() && pendingFiles.length === 0}
-                        className={`h-11 px-5 rounded-full font-semibold text-[13px] flex items-center gap-2 transition-all flex-shrink-0 ${(messageInput.trim() || pendingFiles.length > 0)
-                            ? 'text-[#0a0b1e] shadow-[0_4px_20px_rgba(205,248,118,0.3)]'
-                            : 'bg-white/5 text-white/20 cursor-not-allowed'
-                        }`}
-                        style={(messageInput.trim() || pendingFiles.length > 0) ? { background: 'linear-gradient(135deg, #cdf876 0%, #b8e85a 100%)' } : {}}>
-                        {isUploadingFiles ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                        {isUploadingFiles ? 'Uploading' : 'Send'}
-                    </button>
+                    {(messageInput.trim() || pendingFiles.length > 0) ? (
+                        <button onClick={handleSendMessage}
+                            className="h-11 px-5 rounded-full font-semibold text-[13px] flex items-center gap-2 transition-all flex-shrink-0 text-[#0a0b1e] shadow-[0_4px_20px_rgba(205,248,118,0.3)]"
+                            style={{ background: 'linear-gradient(135deg, #cdf876 0%, #b8e85a 100%)' }}>
+                            {isUploadingFiles ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                            {isUploadingFiles ? 'Uploading' : 'Send'}
+                        </button>
+                    ) : (
+                        <VoiceRecorder
+                            onSend={async (attachment) => {
+                                if (!activeRoomId || !user) return;
+                                try {
+                                    const msg = await apiClient.post<Message & { chatRoomId: string }>(`/chat/rooms/${activeRoomId}/messages`, { attachments: [attachment] });
+                                    setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+                                    socketRef.current?.emit('send_message', { roomId: activeRoomId, message: msg });
+                                    setRooms(prev => prev.map(r => r.id === activeRoomId ? { ...r, updatedAt: msg.createdAt, messages: [msg] } : r)
+                                        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+                                } catch (err) { console.error('Voice send failed:', err); }
+                            }}
+                        />
+                    )}
                 </div>
             </div>
         </div>
@@ -1045,37 +1068,66 @@ export default function MessagesPage() {
     // ─── MOBILE LAYOUT ───
     if (isMobile) {
         return (
-            <div className="messaging-page-root flex h-[100dvh] overflow-hidden font-sans" style={{ background: 'linear-gradient(135deg, #0a0b1e 0%, #12103a 50%, #0d0e24 100%)' }}>
-                {mobileView === 'list' ? (
-                    <div className="w-full h-full">{sidebarContent}</div>
-                ) : (
-                    <div className="w-full h-full flex flex-col relative">{chatContent}</div>
-                )}
-            </div>
+            <CallProvider socketRef={socketRef} userId={user.id} userName={user.firstName || ''} userAvatar={user.avatar || null}>
+                <CallUI />
+                <div className="messaging-page-root flex h-[100dvh] overflow-hidden font-sans" style={{ background: 'linear-gradient(135deg, #0a0b1e 0%, #12103a 50%, #0d0e24 100%)' }}>
+                    {mobileView === 'list' ? (
+                        <div className="w-full h-full">{sidebarContent}</div>
+                    ) : (
+                        <div className="w-full h-full flex flex-col relative">{chatContent}</div>
+                    )}
+                </div>
+            </CallProvider>
         );
     }
 
     // ─── DESKTOP LAYOUT ───
     return (
-        <div className="messaging-page-root flex h-screen overflow-hidden font-sans" style={{ background: 'linear-gradient(135deg, #0a0b1e 0%, #12103a 50%, #0d0e24 100%)' }}>
-            {navRail}
+        <CallProvider socketRef={socketRef} userId={user.id} userName={user.firstName || ''} userAvatar={user.avatar || null}>
+            <CallUI />
+            <div className="messaging-page-root flex h-screen overflow-hidden font-sans" style={{ background: 'linear-gradient(135deg, #0a0b1e 0%, #12103a 50%, #0d0e24 100%)' }}>
+                {navRail}
 
-            <div className="flex h-full flex-shrink-0">
-                <div className="flex-shrink-0 overflow-hidden border-r border-white/[0.04]" style={{ width: `${sidebarWidth}px` }}>
-                    {sidebarContent}
+                <div className="flex h-full flex-shrink-0">
+                    <div className="flex-shrink-0 overflow-hidden border-r border-white/[0.04]" style={{ width: `${sidebarWidth}px` }}>
+                        {sidebarContent}
+                    </div>
+                    {/* Resizer */}
+                    <div
+                        className="w-1.5 h-full cursor-col-resize hover:bg-[#8B5CF6]/30 transition-colors z-30"
+                        onMouseDown={(e) => { setIsResizingSidebar(true); e.preventDefault(); }}
+                    />
                 </div>
-                {/* Resizer */}
-                <div
-                    className="w-1.5 h-full cursor-col-resize hover:bg-[#8B5CF6]/30 transition-colors z-30"
-                    onMouseDown={(e) => { setIsResizingSidebar(true); e.preventDefault(); }}
-                />
-            </div>
 
-            <div className="flex-1 flex flex-col relative overflow-hidden">
-                {chatContent}
-            </div>
+                <div className="flex-1 flex flex-col relative overflow-hidden">
+                    {chatContent}
+                </div>
 
-            {detailsPanel}
-        </div>
+                {detailsPanel}
+            </div>
+        </CallProvider>
+    );
+}
+
+// ─── Call Buttons Sub-component ───
+function CallButtons({ targetUserId, targetName, targetAvatar, roomId }: { targetUserId: string; targetName: string; targetAvatar: string | null; roomId: string }) {
+    const call = useCall();
+    return (
+        <>
+            <button
+                onClick={() => call.startCall(targetUserId, targetName, targetAvatar, 'audio', roomId)}
+                className="p-2.5 rounded-xl hover:bg-white/5 text-white/40 hover:text-[#cdf876] transition-all"
+                title="Audio call"
+            >
+                <Phone size={18} />
+            </button>
+            <button
+                onClick={() => call.startCall(targetUserId, targetName, targetAvatar, 'video', roomId)}
+                className="p-2.5 rounded-xl hover:bg-white/5 text-white/40 hover:text-[#8B5CF6] transition-all"
+                title="Video call"
+            >
+                <Video size={18} />
+            </button>
+        </>
     );
 }

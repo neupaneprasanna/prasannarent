@@ -5,21 +5,17 @@ import { motion } from 'framer-motion';
 /**
  * Template — Route-level transition wrapper
  * 
- * Re-mounts on every route change in Next.js App Router,
- * providing consistent entry animations for every page.
+ * Simplified: removed filter blur animation which forced full-page rasterization.
  */
 export default function Template({ children }: { children: React.ReactNode }) {
     return (
         <motion.div
-            initial={{ opacity: 0, y: 15, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{
-                type: 'spring',
-                stiffness: 100,
-                damping: 20,
-                mass: 0.8,
+                duration: 0.35,
+                ease: [0.25, 0.1, 0.25, 1],
             }}
-            style={{ willChange: 'transform, opacity, filter' }}
             className="min-h-screen"
         >
             {children}
