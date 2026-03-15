@@ -1,7 +1,9 @@
 'use client';
 
+import React from 'react';
 import Navbar from '@/components/nav/Navbar';
 import SideNav from '@/components/nav/SideNav';
+import ScrollZigzagLine from '@/components/motion/ScrollZigzagLine';
 import HeroContent from '@/components/hero/HeroContent';
 import Categories from '@/components/sections/Categories';
 import TrendingCarousel from '@/components/sections/TrendingCarousel';
@@ -23,6 +25,8 @@ import RecentlyViewedSection from '@/components/sections/RecentlyViewedSection';
 export default function HomePage() {
     return (
         <main className="relative">
+            <ScrollZigzagLine />
+
 
             <Navbar />
             <SideNav />
