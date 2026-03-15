@@ -37,7 +37,7 @@ function AnimatedCounter({ value, prefix, suffix, color }: { value: number; pref
     }, [inView, value]);
 
     return (
-        <span ref={ref} className="tabular-nums drop-shadow-2xl" style={{ color, textShadow: `0 0 40px ${color}80, 0 0 80px ${color}40` }}>
+        <span ref={ref} className="tabular-nums font-bold" style={{ color }}>
             {prefix}
             {count % 1 !== 0 ? count.toFixed(1) : count.toLocaleString()}
             {suffix}

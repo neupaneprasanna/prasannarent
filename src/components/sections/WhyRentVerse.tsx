@@ -94,12 +94,11 @@ export default function WhyRentVerse() {
                                 <div className="flex flex-col sm:flex-row gap-6 sm:gap-10 items-start sm:items-center">
                                     {/* Icon Container - Floating */}
                                     <div
-                                        className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-[2rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-2xl"
+                                        className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-[2rem] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-lg"
                                         style={{
-                                            background: `linear-gradient(135deg, ${feature.color}15, ${feature.color}05)`,
+                                            backgroundColor: `${feature.color}15`,
                                             border: `1px solid ${feature.color}40`,
                                             color: feature.color,
-                                            boxShadow: `0 0 40px ${feature.color}20, inset 0 0 20px ${feature.color}10`,
                                         }}
                                     >
                                         {feature.icon}

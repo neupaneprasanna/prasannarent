@@ -55,7 +55,7 @@ export default function TrendingCarousel() {
                     viewport={{ once: true }}
                     transition={spring}
                 >
-                    <span className="text-label text-[#00FFB3] mb-4 block tracking-[0.3em] uppercase" style={{ textShadow: '0 0 20px rgba(0,255,179,0.3)' }}>trending showcase</span>
+                    <span className="text-label text-[#00FFB3] mb-4 block tracking-[0.3em] uppercase">trending showcase</span>
                     <h2 className="text-5xl sm:text-6xl md:text-7xl font-display font-medium tracking-tighter">
                         elite <span className="text-white/30 italic font-light">selection</span>
                     </h2>

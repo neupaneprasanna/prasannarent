@@ -74,7 +74,7 @@ export default function TrustSafety() {
                         <div className="inline-flex items-center gap-6 py-6 px-8 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl">
                             <Shield className="w-14 h-14 text-[#00FFB3]" />
                             <div>
-                                <div className="text-4xl sm:text-5xl font-black text-white tracking-tighter" style={{ textShadow: '0 0 30px rgba(0,255,179,0.4)' }}>$10M+</div>
+                                <div className="text-4xl sm:text-5xl font-black text-white tracking-tighter">$10M+</div>
                                 <div className="text-sm text-white/50 uppercase tracking-widest font-bold mt-1">Protected Value</div>
                             </div>
                         </div>

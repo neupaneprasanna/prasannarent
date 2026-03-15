@@ -50,7 +50,7 @@ export default function Categories() {
                     transition={spring}
                 >
                    <div>
-                        <span className="text-label mb-4 block" style={{ color: '#00F0FF', textShadow: '0 0 20px rgba(0,240,255,0.3)' }}>categories</span>
+                        <span className="text-label mb-4 block" style={{ color: '#00F0FF' }}>categories</span>
                         <h2 className="text-section mb-4">
                             explore <span className="gradient-text">dimensions</span>
                         </h2>
@@ -109,12 +109,6 @@ export default function Categories() {
                                               : 'from-[#020305] via-black/60 to-black/30 opacity-100'
                                         }`} 
                                     />
-                                    
-                                    {/* Subliminal active glow */}
-                                    <div 
-                                        className={`absolute inset-0 transition-opacity duration-[1000ms] mix-blend-screen pointer-events-none ${isActive ? 'opacity-100' : 'opacity-0'}`}
-                                        style={{ boxShadow: `inset 0 0 100px ${category.glow}40` }}
-                                    />
                                 </div>
 
                                 {/* Shared Interface Elements */}
@@ -125,12 +119,9 @@ export default function Categories() {
                                         <div 
                                             className={`font-display tracking-tighter transition-all duration-700 select-none ${
                                                 isActive 
-                                                  ? 'text-5xl lg:text-7xl opacity-40 text-white font-medium drop-shadow-lg scale-100 origin-top-left' 
-                                                  : 'text-4xl lg:text-3xl text-transparent opacity-70 scale-90 origin-top-left'
+                                                  ? 'text-5xl lg:text-7xl opacity-40 text-white font-medium scale-100 origin-top-left' 
+                                                  : 'text-4xl lg:text-3xl text-white opacity-20 scale-90 origin-top-left'
                                             }`}
-                                            style={{
-                                                WebkitTextStroke: isActive ? 'none' : '1px rgba(255,255,255,0.5)',
-                                            }}
                                         >
                                             {num}
                                         </div>

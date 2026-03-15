@@ -57,17 +57,11 @@ export default function HeroContent() {
                     className="mb-8"
                 >
                     <span
-                        className="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full text-label"
-                        style={{
-                            background: 'rgba(139,92,246,0.1)',
-                            border: '1px solid rgba(139,92,246,0.2)',
-                            backdropFilter: 'blur(20px)',
-                            boxShadow: '0 0 30px rgba(139,92,246,0.08), inset 0 1px 0 rgba(255,255,255,0.05)',
-                        }}
+                        className="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full text-label border border-purple-500/20 bg-purple-500/10"
                     >
                         <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#34D399] opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#34D399]" style={{ boxShadow: '0 0 12px rgba(52,211,153,0.6)' }} />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#34D399]" />
                         </span>
                         <span className="text-[#A5B4FC]">the future of renting</span>
                     </span>
@@ -87,7 +81,6 @@ export default function HeroContent() {
                             initial={{ opacity: 0, y: 40 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ ...springTransition, delay: 0.6 + i * 0.15 }}
-                            style={i === 0 ? { textShadow: '0 0 80px rgba(255,255,255,0.15)' } : undefined}
                         >
                             {word}
                         </motion.span>
@@ -167,8 +160,7 @@ export default function HeroContent() {
                                 className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] text-white/60 font-medium"
                                 style={{
                                     background: `linear-gradient(135deg, rgba(139,92,246,0.4) 0%, rgba(165,180,252,0.2) 100%)`,
-                                    border: '2px solid rgba(2,3,5,0.8)',
-                                    boxShadow: '0 0 10px rgba(139,92,246,0.15)',
+                                    border: '2px solid rgba(2,3,5,0.8)'
                                 }}
                             >
                                 {String.fromCharCode(65 + i)}
