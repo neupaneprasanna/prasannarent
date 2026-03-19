@@ -37,7 +37,9 @@ const positionTransforms: Record<number, { transform: string; zIndex: number; fi
 export default function SpatialImmersion() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [activeIndex, setActiveIndex] = useState(2);
+  const [isHovering, setIsHovering] = useState(false);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -49,6 +51,20 @@ export default function SpatialImmersion() {
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
+
+  // Auto-advance loop — pauses while user is hovering a card
+  useEffect(() => {
+    if (isHovering) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+    intervalRef.current = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % 5);
+    }, 2200);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isHovering]);
 
   const stars = Array.from({ length: 40 }).map((_, i) => ({
     id: i,
@@ -69,11 +85,14 @@ export default function SpatialImmersion() {
 
   const handleCardHover = (index: number) => {
     if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+    setIsHovering(true);
     setActiveIndex(index);
   };
 
-  const handleMouseLeave = () => {
-    hoverTimeout.current = setTimeout(() => setActiveIndex(2), 600);
+  const handleClusterLeave = () => {
+    hoverTimeout.current = setTimeout(() => {
+      setIsHovering(false);
+    }, 400);
   };
 
   return (
@@ -160,6 +179,7 @@ export default function SpatialImmersion() {
         <div
           className="relative w-full max-w-5xl h-[360px] flex items-center justify-center mb-16"
           style={{ perspective: "1200px" }}
+          onMouseLeave={handleClusterLeave}
         >
           <div
             className="relative w-[280px] h-[360px]"
@@ -188,7 +208,6 @@ export default function SpatialImmersion() {
                     transition: "transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.55s ease, box-shadow 0.55s ease, z-index 0s",
                   }}
                   onMouseEnter={() => handleCardHover(i)}
-                  onMouseLeave={handleMouseLeave}
                 >
                   {/* Gradient photo area */}
                   <div className={`h-3/5 w-full bg-gradient-to-br ${card.gradient} relative flex items-center justify-center overflow-hidden`}>
