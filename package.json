@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx server/index.ts",
+    "dev": "PORT=5000 tsx server/index.ts",
     "build": "next build",
-    "start": "NODE_ENV=production tsx server/index.ts",
+    "start": "NODE_ENV=production PORT=5000 tsx server/index.ts",
     "lint": "eslint",
     "server": "tsx server/index.ts",
     "postinstall": "prisma generate"

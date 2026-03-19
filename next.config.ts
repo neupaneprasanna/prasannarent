@@ -11,16 +11,6 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
     ],
   },
-  turbopack: {
-    // Explicitly set the root to the project directory to fix workspace inference issues
-    root: process.cwd(),
-    rules: {
-      '*.svg': {
-        loaders: ['@svgr/webpack'],
-        as: '*.js',
-      },
-    },
-  },
 };
 
 export default withBundleAnalyzer({
