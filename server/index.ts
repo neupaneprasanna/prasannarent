@@ -34,7 +34,7 @@ const __dirname = path.dirname(__filename);
 console.log("Server script starting...");
 
 const dev = process.env.NODE_ENV !== 'production';
-const nextApp = next({ dev, dir: path.resolve(__dirname, '..') });
+const nextApp = next({ dev, dir: process.cwd() });
 const handle = nextApp.getRequestHandler();
 
 const PORT = process.env.PORT || 5000;
@@ -173,7 +173,7 @@ nextApp.prepare().then(() => {
     app.use('/api/admin', createAdminRouter());
 
     // ─── Engagement Routes (Wishlist, Recently Viewed, Follow, Dashboards) ───
-    app.use('/api/engagement', authenticateToken, createEngagementRouter(prisma));
+    app.use('/api/engagement', authenticateToken, createEngagementRouter());
     
     // Chat & Messaging API
     app.use('/api/chat', authenticateToken, chatRoutes);
@@ -538,7 +538,7 @@ nextApp.prepare().then(() => {
 
     app.patch('/api/listings/:id', authenticateToken, async (req: AuthRequest, res) => {
         try {
-            const { id } = req.params;
+            const id = req.params.id as string;
             const listing = await prisma.listing.findUnique({ where: { id } });
             if (!listing) return res.status(404).json({ error: 'Listing not found' });
             if (listing.ownerId !== req.user!.userId) return res.status(403).json({ error: 'Forbidden' });
@@ -556,7 +556,7 @@ nextApp.prepare().then(() => {
             if (priceUnit !== undefined) updateData.priceUnit = priceUnit;
 
             const updated = await prisma.listing.update({
-                where: { id },
+                where: { id: id as string },
                 data: updateData,
                 include: { media: { orderBy: { order: 'asc' } }, pricing: true }
             });

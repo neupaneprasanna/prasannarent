@@ -5,7 +5,7 @@ import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'fra
 import Navbar from '@/components/nav/Navbar';
 import { useAuthStore } from '@/store/auth-store';
 import { useWishlistStore } from '@/store/engagement-store';
-import { Heart, Plus, Trash2, ArrowRight, Loader2, MapPin, Star, Search, Filter, X, FolderOpen, ArrowUpDown, GripHorizontal } from 'lucide-react';
+import { Heart, Plus, Trash2, ArrowRight, Loader2, MapPin, Star, Search, Filter, X, FolderOpen, ArrowUpDown, GripHorizontal, Share2, Globe, Lock } from 'lucide-react';
 import Link from 'next/link';
 
 type SortOption = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'rating';
@@ -20,7 +20,11 @@ export default function WishlistPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newName, setNewName] = useState('');
     const [newEmoji, setNewEmoji] = useState('📁');
+    const [isPublic, setIsPublic] = useState(false);
     const [hoveredCollection, setHoveredCollection] = useState<string | null>(null);
+
+    const [editingNoteFor, setEditingNoteFor] = useState<string | null>(null);
+    const [noteText, setNoteText] = useState('');
 
     // Filters & Sorting
     const [searchQuery, setSearchQuery] = useState('');
@@ -33,8 +37,6 @@ export default function WishlistPage() {
     const [activeContextMenu, setActiveContextMenu] = useState<string | null>(null);
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
-    const { scrollYProgress } = useScroll({ container: scrollContainerRef });
-    const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
     useEffect(() => {
         if (isAuthenticated) fetchCollections();
@@ -87,9 +89,10 @@ export default function WishlistPage() {
 
     const handleCreate = async () => {
         if (!newName.trim()) return;
-        await createCollection(newName.trim(), newEmoji);
+        await createCollection(newName.trim(), newEmoji, isPublic);
         setNewName('');
         setNewEmoji('📁');
+        setIsPublic(false);
         setShowCreateModal(false);
     };
 
@@ -197,15 +200,20 @@ export default function WishlistPage() {
                                                         </div>
                                                     </div>
 
-                                                    {!c.isDefault && (
-                                                        <motion.button
-                                                            whileHover={{ scale: 1.1, color: '#ef4444' }} whileTap={{ scale: 0.9 }}
-                                                            onClick={(e) => { e.stopPropagation(); deleteCollection(c.id); }}
-                                                            className={`p-3 rounded-full bg-white/5 backdrop-blur-md transition-all duration-300 ${isHovered || isActive ? 'opacity-100' : 'opacity-0'} text-white/30`}
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </motion.button>
-                                                    )}
+                                                    <div className="flex items-center gap-3">
+                                                        {c.isPublic && (
+                                                            <Globe size={14} className="text-white/30" />
+                                                        )}
+                                                        {!c.isDefault && (
+                                                            <motion.button
+                                                                whileHover={{ scale: 1.1, color: '#ef4444' }} whileTap={{ scale: 0.9 }}
+                                                                onClick={(e) => { e.stopPropagation(); deleteCollection(c.id); }}
+                                                                className={`p-3 rounded-full bg-white/5 backdrop-blur-md transition-all duration-300 ${isHovered || isActive ? 'opacity-100' : 'opacity-0'} text-white/30`}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </motion.button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </motion.div>
                                         );
@@ -249,12 +257,25 @@ export default function WishlistPage() {
                                     </button>
                                 )}
                             </div>
-                            <button 
-                                onClick={() => setShowFilters(!showFilters)}
-                                className={`flex items-center gap-2 px-4 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-colors ${showFilters ? 'bg-white text-black' : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
-                            >
-                                <Filter size={14} /> Filters
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {activeCollectionData && activeCollectionData.isPublic && (
+                                    <button 
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(`${window.location.origin}/wishlist/${activeCollectionData.id}`);
+                                            alert('Link copied to clipboard!');
+                                        }}
+                                        className="flex items-center gap-2 px-4 py-3 rounded-full text-xs font-bold uppercase tracking-widest bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                                    >
+                                        <Share2 size={14} /> Share
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    className={`flex items-center gap-2 px-4 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-colors ${showFilters ? 'bg-white text-black' : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
+                                >
+                                    <Filter size={14} /> Filters
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -375,7 +396,15 @@ export default function WishlistPage() {
                                                                             exit={{ opacity: 0, scale: 0.9, x: 10 }}
                                                                             className="absolute right-12 top-0 w-48 bg-[#0F111A] border border-white/10 rounded-2xl p-2 shadow-2xl backdrop-blur-2xl"
                                                                         >
-                                                                            <p className="px-3 py-2 text-[9px] font-mono uppercase tracking-[0.2em] text-white/40">Move to...</p>
+                                                                            <div className="space-y-1 mb-2">
+                                                                                <button 
+                                                                                    onClick={() => { setEditingNoteFor(item.listingId); setNoteText(item.note || ''); setActiveContextMenu(null); }}
+                                                                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors text-left"
+                                                                                >
+                                                                                    <span className="text-white/50">✏️</span> <span>Edit Note</span>
+                                                                                </button>
+                                                                            </div>
+                                                                            <p className="px-3 py-2 text-[9px] font-mono uppercase tracking-[0.2em] text-white/40 border-t border-white/5 pt-2 mt-1">Move to...</p>
                                                                             <div className="space-y-1">
                                                                                 {collections.filter(c => c.id !== activeCollection).map(c => (
                                                                                     <button 
@@ -400,6 +429,15 @@ export default function WishlistPage() {
                                                             </button>
                                                         </motion.div>
                                                     </div>
+
+                                                    {/* Note Box */}
+                                                    {item.note && (
+                                                        <div className="absolute top-20 left-4 right-16 z-10 pointer-events-none">
+                                                            <div className="px-3 py-2 bg-black/60 backdrop-blur-md rounded-xl text-[10px] font-medium text-white/80 border border-white/10 italic">
+                                                                "{item.note}"
+                                                            </div>
+                                                        </div>
+                                                    )}
 
                                                     {/* Footer Info */}
                                                     <div className="absolute bottom-6 left-6 right-6 pointer-events-none">
@@ -476,6 +514,20 @@ export default function WishlistPage() {
                                         ))}
                                     </div>
                                 </div>
+                                <div className="flex items-center justify-between border border-white/10 rounded-xl p-4 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setIsPublic(!isPublic)}>
+                                    <div>
+                                        <p className="text-white text-sm font-bold flex items-center gap-2">
+                                            {isPublic ? <Globe size={14} /> : <Lock size={14} />} 
+                                            {isPublic ? 'Public Collection' : 'Private Collection'}
+                                        </p>
+                                        <p className="text-white/40 text-xs mt-1">
+                                            {isPublic ? 'Anyone with the link can view this collection.' : 'Only you can see this collection.'}
+                                        </p>
+                                    </div>
+                                    <div className={`w-10 h-6 rounded-full relative transition-colors ${isPublic ? 'bg-white' : 'bg-white/20'}`}>
+                                        <div className={`absolute top-1 bottom-1 w-4 rounded-full bg-black transition-all ${isPublic ? 'left-5' : 'left-1 bg-white'}`} />
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="flex gap-4 mt-10">
@@ -487,6 +539,49 @@ export default function WishlistPage() {
                                     className="flex-[2] py-4 rounded-full text-xs font-bold uppercase tracking-widest bg-white text-black disabled:opacity-50 hover:bg-white/90 transition-colors shadow-[0_0_30px_rgba(255,255,255,0.2)]"
                                 >
                                     Create Collection
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Edit Note Modal */}
+            <AnimatePresence>
+                {editingNoteFor && activeCollection && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+                        onClick={() => setEditingNoteFor(null)}
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.95, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, y: -20, opacity: 0 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                            className="bg-[#0A0A0A] border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                            <h3 className="font-display text-2xl font-bold text-white mb-6">Item Note</h3>
+                            
+                            <textarea
+                                value={noteText} onChange={e => setNoteText(e.target.value)}
+                                placeholder="Why are you saving this item?"
+                                className="w-full h-32 bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors resize-none"
+                                autoFocus
+                            />
+
+                            <div className="flex gap-4 mt-8">
+                                <button onClick={() => setEditingNoteFor(null)} className="flex-1 py-3 rounded-full text-xs font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors">
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={async () => {
+                                        await useWishlistStore.getState().addItem(activeCollection, editingNoteFor, noteText);
+                                        setEditingNoteFor(null);
+                                    }}
+                                    className="flex-[2] py-3 rounded-full text-xs font-bold uppercase tracking-widest bg-white text-black hover:bg-white/90 transition-colors"
+                                >
+                                    Save Note
                                 </button>
                             </div>
                         </motion.div>

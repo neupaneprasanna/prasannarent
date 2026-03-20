@@ -87,22 +87,17 @@ export default function DimensionalReveal({
     const rotateY   = useTransform(smooth, [0, 1], [cfg.fromRotateY, 0]);
     const rotateZ   = useTransform(smooth, [0, 1], [cfg.fromRotateZ, 0]);
 
-    // Blur based on how "far away" the section is (only for scale-heavy variants)
-    const blurPx    = useTransform(smooth, [0, 0.7], [
-        cfg.fromScale < 0.8 ? 14 : cfg.fromScale < 0.9 ? 7 : 0,
-        0,
-    ]);
-    const filter    = useTransform(blurPx, (v) => `blur(${v}px)`);
-
     const perspectiveStyle = cfg.perspective > 0
         ? { perspective: `${cfg.perspective}px`, perspectiveOrigin: '50% 50%' }
         : {};
 
     return (
         <div ref={ref} id={id} className={`relative ${className}`} style={perspectiveStyle}>
-            <motion.div style={{ opacity, y, x, scale, rotateX, rotateY, rotateZ, filter, willChange: 'transform, opacity, filter' }}>
+            {/* Removed dynamic blur filter and active willChange binding for massive GPU memory and scroll performance boost */}
+            <motion.div style={{ opacity, y, x, scale, rotateX, rotateY, rotateZ }}>
                 {children}
             </motion.div>
         </div>
     );
 }
+

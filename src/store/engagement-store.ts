@@ -10,6 +10,7 @@ interface WishlistCollection {
     name: string;
     emoji: string;
     isDefault: boolean;
+    isPublic: boolean;
     items: WishlistItem[];
     _count: { items: number };
     createdAt: string;
@@ -19,6 +20,7 @@ interface WishlistItem {
     id: string;
     collectionId: string;
     listingId: string;
+    note: string | null;
     listing: {
         id: string;
         title: string;
@@ -39,9 +41,10 @@ interface WishlistStore {
     savedListingIds: Set<string>;
 
     fetchCollections: () => Promise<void>;
-    createCollection: (name: string, emoji?: string) => Promise<void>;
+    createCollection: (name: string, emoji?: string, isPublic?: boolean) => Promise<void>;
+    updateCollection: (collectionId: string, data: { name?: string, emoji?: string, isPublic?: boolean }) => Promise<void>;
     deleteCollection: (collectionId: string) => Promise<void>;
-    addItem: (collectionId: string, listingId: string) => Promise<void>;
+    addItem: (collectionId: string, listingId: string, note?: string) => Promise<void>;
     removeItem: (collectionId: string, listingId: string) => Promise<void>;
     quickSave: (listingId: string) => Promise<void>;
     quickUnsave: (listingId: string) => Promise<void>;
@@ -67,12 +70,21 @@ export const useWishlistStore = create<WishlistStore>((set, get) => ({
         }
     },
 
-    createCollection: async (name: string, emoji?: string) => {
+    createCollection: async (name: string, emoji?: string, isPublic?: boolean) => {
         try {
-            await apiClient.post('/engagement/wishlist/collections', { name, emoji });
+            await apiClient.post('/engagement/wishlist/collections', { name, emoji, isPublic });
             await get().fetchCollections();
         } catch (error) {
             console.error('Failed to create collection:', error);
+        }
+    },
+
+    updateCollection: async (collectionId: string, data: { name?: string, emoji?: string, isPublic?: boolean }) => {
+        try {
+            await apiClient.patch(`/engagement/wishlist/collections/${collectionId}`, data);
+            await get().fetchCollections();
+        } catch (error) {
+            console.error('Failed to update collection:', error);
         }
     },
 
@@ -85,9 +97,9 @@ export const useWishlistStore = create<WishlistStore>((set, get) => ({
         }
     },
 
-    addItem: async (collectionId: string, listingId: string) => {
+    addItem: async (collectionId: string, listingId: string, note?: string) => {
         try {
-            await apiClient.post(`/engagement/wishlist/${collectionId}/items`, { listingId });
+            await apiClient.post(`/engagement/wishlist/${collectionId}/items`, { listingId, note });
             set(s => ({ savedListingIds: new Set([...s.savedListingIds, listingId]) }));
             await get().fetchCollections();
         } catch (error) {

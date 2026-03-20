@@ -346,10 +346,12 @@ model WishlistCollection {
   name      String  @default("Saved Items")
   emoji     String  @default("heart")
   isDefault Boolean @default(false)
+  isPublic  Boolean @default(false)
 
   items WishlistItem[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
 }
@@ -360,6 +362,7 @@ model WishlistItem {
   collection   WishlistCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   listingId    String
   listing      Listing            @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  note         String?
   addedAt      DateTime           @default(now())
 
   @@unique([collectionId, listingId])

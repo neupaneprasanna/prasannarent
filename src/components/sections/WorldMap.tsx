@@ -1,7 +1,8 @@
 'use client';
 
 import { motion, AnimatePresence, useInView } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+
 import { useIsMobile } from '@/hooks/use-is-mobile';
 import dynamic from 'next/dynamic';
 import { Canvas } from '@react-three/fiber';
@@ -65,17 +66,7 @@ export default function WorldMap() {
         : CITIES;
 
     return (
-        <section ref={sectionRef} className="relative py-16 sm:py-24 overflow-hidden bg-[#020206]">
-
-            {/* Background grid */}
-            <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
-                style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
-
-            {/* Background glow blobs */}
-            <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full pointer-events-none"
-                style={{ background: 'radial-gradient(circle, rgba(0,240,255,0.04) 0%, transparent 70%)', filter: 'blur(60px)' }} />
-            <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full pointer-events-none"
-                style={{ background: 'radial-gradient(circle, rgba(122,92,255,0.05) 0%, transparent 70%)', filter: 'blur(60px)' }} />
+        <section ref={sectionRef} className="relative py-16 sm:py-24 overflow-hidden bg-transparent">
 
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
 
@@ -123,10 +114,11 @@ export default function WorldMap() {
                             whileInView={{ opacity: 1, scale: 1 }}
                             viewport={{ once: true }}
                             transition={{ ...spring, delay: 0.05 * i }}
-                            className="relative rounded-2xl border border-white/5 bg-white/[0.02] p-4 sm:p-5 overflow-hidden group hover:border-white/15 transition-colors duration-300"
+                            className="relative rounded-2xl border border-white/10 bg-[#0f111a]/80 backdrop-blur-md p-4 sm:p-5 overflow-hidden group hover:border-white/20 hover:bg-[#181b26]/90 transition-all duration-300 shadow-xl"
                         >
-                            <div className="absolute top-0 left-0 w-full h-[1px]" style={{ background: `linear-gradient(90deg, transparent, ${color}40, transparent)` }} />
+                            <div className="absolute top-0 left-0 w-full h-[1px]" style={{ background: `linear-gradient(90deg, transparent, ${color}60, transparent)` }} />
                             <div className="flex items-start justify-between mb-3">
+
                                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}15` }}>
                                     <Icon className="w-4 h-4" style={{ color }} />
                                 </div>
@@ -141,27 +133,31 @@ export default function WorldMap() {
                 </motion.div>
 
                 {/* ── Main 2-column layout ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
 
                     {/* LEFT: City leaderboard */}
                     <motion.div
-                        className="lg:col-span-2 flex flex-col gap-3"
+                        className="lg:col-span-4 xl:col-span-3 flex flex-col p-5 rounded-3xl bg-[#0f111a]/95 backdrop-blur-xl border border-white/10 relative z-10 shadow-[0_8px_32px_rgba(0,0,0,0.5),_inset_0_1px_0_rgba(255,255,255,0.05)]"
                         initial={{ opacity: 0, x: -40 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
                         transition={{ ...spring, delay: 0.15 }}
                     >
+                        {/* Ambient panel glow */}
+
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-[#00F0FF] opacity-[0.05] blur-3xl pointer-events-none" />
+                        
                         {/* Panel header */}
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-black uppercase tracking-widest text-white/50">Top Cities</span>
-                            <div className="flex items-center gap-1.5">
-                                <motion.div className="w-1.5 h-1.5 rounded-full bg-[#00FFB3]"
+                        <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
+                            <span className="text-xs font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#00F0FF] to-[#00FFB3]">Top Hotspots</span>
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#00FFB3]/10 border border-[#00FFB3]/20 shadow-[0_0_10px_rgba(0,255,179,0.15)]">
+                                <motion.div className="w-1.5 h-1.5 rounded-full bg-[#00FFB3] shadow-[0_0_5px_#00FFB3]"
                                     animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.4, repeat: Infinity }} />
-                                <span className="text-[9px] uppercase tracking-wider text-[#00FFB3]/70">live</span>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-[#00FFB3]">live</span>
                             </div>
                         </div>
 
-                        <div className="space-y-1.5">
+                        <div className="space-y-2 relative z-10">
                             {CITIES.map((city, i) => {
                                 const maxCount = 5200;
                                 const numCount = parseFloat(city.count) * 1000;
@@ -182,10 +178,11 @@ export default function WorldMap() {
                                         transition={{ delay: 0.04 * i, duration: 0.4 }}
                                         className="group relative rounded-xl border transition-all duration-300 cursor-pointer overflow-hidden"
                                         style={{
-                                            borderColor: isHovered ? `${color}40` : 'rgba(255,255,255,0.05)',
-                                            backgroundColor: isHovered ? `${color}08` : 'rgba(255,255,255,0.02)',
+                                            borderColor: isHovered ? `${color}60` : 'rgba(255,255,255,0.08)',
+                                            backgroundColor: isHovered ? `${color}15` : 'rgba(255,255,255,0.03)',
                                         }}
                                         onMouseEnter={() => setHoveredCity(i)}
+
                                         onMouseLeave={() => setHoveredCity(null)}
                                     >
                                         {/* Animated progress bar background */}
@@ -228,7 +225,7 @@ export default function WorldMap() {
 
                     {/* RIGHT: Globe */}
                     <motion.div
-                        className="lg:col-span-3 relative rounded-3xl overflow-hidden border border-white/5 bg-[#04040c]"
+                        className="lg:col-span-8 xl:col-span-9 relative rounded-3xl overflow-hidden bg-transparent"
                         style={{ minHeight: isMobile ? 320 : 580 }}
                         initial={{ opacity: 0, scale: 0.95 }}
                         whileInView={{ opacity: 1, scale: 1 }}
@@ -267,16 +264,22 @@ export default function WorldMap() {
                             {isMobile ? (
                                 <StaticGlobe />
                             ) : (
-                                <Canvas>
-                                    <PerspectiveCamera makeDefault position={[0, 0, 7]} fov={42} />
-                                    <OrbitControls
-                                        enableZoom={false}
-                                        enablePan={false}
-                                        minPolarAngle={Math.PI / 4}
-                                        maxPolarAngle={Math.PI / 1.5}
-                                    />
-                                    <Globe focusLng={focusLng} />
+                                <Canvas shadows dpr={[1, 2]}>
+                                    <React.Suspense fallback={null}>
+                                        <PerspectiveCamera makeDefault position={[0, 0, 7]} fov={42} />
+                                        <OrbitControls
+                                            enableZoom={false}
+                                            enablePan={false}
+                                            enableRotate={true}
+                                            minPolarAngle={Math.PI / 6}
+                                            maxPolarAngle={Math.PI / 1.2}
+                                            dampingFactor={0.05}
+                                            enableDamping={true}
+                                        />
+                                        <Globe focusLng={focusLng} />
+                                    </React.Suspense>
                                 </Canvas>
+
                             )}
                         </div>
                     </motion.div>
@@ -299,16 +302,17 @@ export default function WorldMap() {
                             transition={{ delay: 0.06 * i }}
                             whileHover={{ scale: 1.03 }}
                             onClick={() => setActiveRegion(activeRegion === region.name ? null : region.name)}
-                            className="relative rounded-2xl border p-4 cursor-pointer overflow-hidden transition-all duration-300"
+                            className="relative rounded-2xl border p-4 cursor-pointer overflow-hidden transition-all duration-300 shadow-lg"
                             style={{
-                                borderColor: activeRegion === region.name ? `${region.color}50` : 'rgba(255,255,255,0.05)',
-                                backgroundColor: activeRegion === region.name ? `${region.color}08` : 'rgba(255,255,255,0.02)',
+                                borderColor: activeRegion === region.name ? `${region.color}80` : 'rgba(255,255,255,0.1)',
+                                backgroundColor: activeRegion === region.name ? `${region.color}15` : '#0f111a',
                             }}
                         >
                             <div className="absolute top-0 left-0 w-full h-[1px]"
-                                style={{ background: `linear-gradient(90deg, transparent, ${region.color}40, transparent)` }} />
+                                style={{ background: `linear-gradient(90deg, transparent, ${region.color}70, transparent)` }} />
 
                             <div className="text-xl mb-2">{region.icon}</div>
+
                             <div className="text-xs font-black uppercase tracking-wider text-white/60 mb-1">{region.name}</div>
                             <div className="text-lg font-black" style={{ color: region.color }}>
                                 {isInView && <AnimatedCounter target={region.count} suffix="+" duration={1600 + i * 150} />}

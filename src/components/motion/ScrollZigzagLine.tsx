@@ -8,11 +8,9 @@ export default function ScrollZigzagLine() {
     const pathRef = useRef<SVGPathElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const x = useMotionValue(-100);
-    const y = useMotionValue(-100);
-
     const [pathString, setPathString] = useState('');
     const [pathReady, setPathReady] = useState(false);
+
 
     const pathLengthRef = useRef<number>(0);
 
@@ -48,16 +46,14 @@ export default function ScrollZigzagLine() {
             }
 
             setPathString(p);
-            x.set(width / 2);
-            y.set(0);
             
+            setPathString(p);
             setTimeout(() => {
-                if (pathRef.current) {
-                    pathLengthRef.current = pathRef.current.getTotalLength();
-                }
                 setPathReady(true);
             }, 50);
         };
+
+
 
         calculatePath();
 
@@ -72,16 +68,10 @@ export default function ScrollZigzagLine() {
             window.removeEventListener('resize', calculatePath);
             observer.disconnect();
         };
-    }, [x, y]);
+    }, []);
 
-    useMotionValueEvent(scrollYProgress, "change", (latest) => {
-        if (pathRef.current && pathReady && pathLengthRef.current > 0) {
-            // Use cached length, math is much faster than DOM read
-            const point = pathRef.current.getPointAtLength(Math.max(0, Math.min(1, latest)) * pathLengthRef.current);
-            x.set(point.x);
-            y.set(point.y);
-        }
-    });
+    // Utilizing hardware-accelerated offset-distance instead of CPU DOM calculations!
+    const offsetDistance = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
     const borderRadius = useTransform(scrollYProgress, 
         [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
@@ -109,15 +99,17 @@ export default function ScrollZigzagLine() {
     const particleScale = useTransform(scale, (s: number) => s * 1.5);
 
     return (
-        <div ref={containerRef} className="absolute inset-0 w-full h-full pointer-events-none z-50 overflow-hidden">
+        <div ref={containerRef} className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-hidden opacity-100">
+
+
             <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
                 {pathString && (
                     <path
                         d={pathString}
                         fill="none"
-                        stroke="rgba(255,255,255,0.05)"
-                        strokeWidth="2"
-                        strokeDasharray="10 10"
+                        stroke="rgba(255,255,255,0.15)"
+                        strokeWidth="4"
+                        strokeDasharray="15 15"
                     />
                 )}
                 {pathString && (
@@ -126,7 +118,7 @@ export default function ScrollZigzagLine() {
                         d={pathString}
                         fill="none"
                         stroke="url(#gradient)"
-                        strokeWidth="4"
+                        strokeWidth="8"
                         style={{ pathLength: scrollYProgress as any }}
                     />
                 )}
@@ -141,28 +133,29 @@ export default function ScrollZigzagLine() {
                 </defs>
             </svg>
 
-            {pathReady && (
+            {/* Render the tracking dot using pure CSS Motion Paths for buttery performance */}
+            {pathReady && pathString && (
                 <motion.div
-                    className="absolute top-0 left-0 w-10 h-10 -ml-5 -mt-5 flex items-center justify-center mix-blend-screen will-change-transform"
+                    className="absolute top-0 left-0 w-12 h-12 flex items-center justify-center mix-blend-screen will-change-transform drop-shadow-[0_0_20px_rgba(0,255,179,0.8)]"
                     style={{
-                        x,
-                        y,
+                        offsetPath: `path('${pathString}')`,
+                        offsetDistance,
+                        offsetRotate: "0deg",
                         borderRadius,
                         rotate,
                         backgroundColor,
-                        scale
+                        scale,
                     }}
                 >
-                    {/* GPU-accelerated glow instead of boxShadow */}
-                    <div className="absolute inset-0 -m-4 bg-inherit rounded-full blur-xl opacity-60 will-change-transform" />
+                    <div className="absolute inset-0 -m-4 bg-inherit rounded-full blur-xl opacity-80 will-change-transform" />
 
                     <motion.div 
-                        className="w-full h-full bg-white opacity-80 z-10"
+                        className="w-full h-full bg-white opacity-100 z-10"
                         style={{ borderRadius }}
                     />
                     
                     <motion.div 
-                        className="absolute inset-0 border-2 border-white opacity-50 z-20"
+                        className="absolute inset-0 border-[3px] border-white opacity-80 z-20"
                         style={{ borderRadius, scale: particleScale }}
                         animate={{ rotate: 360 }}
                         transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
@@ -170,5 +163,7 @@ export default function ScrollZigzagLine() {
                 </motion.div>
             )}
         </div>
+
+
     );
 }

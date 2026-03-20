@@ -1,9 +1,16 @@
 'use client';
 
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Sphere, useTexture, Html, Line } from '@react-three/drei';
+import { Sphere, useTexture, Html, Line, Stars } from '@react-three/drei';
 import * as THREE from 'three';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
+
+// ─── Global State ───────────────────────────────────────────────────────────
+const GLOBAL_STATE = { hoveredPins: 0, openPins: 0 };
+
+
+
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -88,13 +95,14 @@ function ConnectionArc({ fromIdx, toIdx, color, speed }: { fromIdx: number; toId
             <Line points={arcPoints} color={color} lineWidth={0.8} transparent opacity={0.22} />
             <mesh ref={particleRef}>
                 <sphereGeometry args={[0.022, 8, 8]} />
-                <meshBasicMaterial color={color} />
+                <meshBasicMaterial color={new THREE.Color(color).multiplyScalar(4)} toneMapped={false} />
             </mesh>
             {/* Glow orb */}
             <mesh ref={particleRef} scale={3}>
                 <sphereGeometry args={[0.022, 8, 8]} />
-                <meshBasicMaterial color={color} transparent opacity={0.1} />
+                <meshBasicMaterial color={color} transparent opacity={0.3} toneMapped={false} />
             </mesh>
+
         </group>
     );
 }
@@ -105,39 +113,113 @@ function HotspotPin({ city }: { city: CityData }) {
     const ringRef = useRef<THREE.Mesh>(null);
     const pos = useMemo(() => latLngToVec3(city.lat, city.lng, 2.54), [city.lat, city.lng]);
 
+    const [hovered, setHovered] = useState(false);
+    const [open, setOpen] = useState(false);
+
+    useEffect(() => {
+        GLOBAL_STATE.hoveredPins += hovered ? 1 : -1;
+        return () => { if (hovered) GLOBAL_STATE.hoveredPins--; };
+    }, [hovered]);
+
+    useEffect(() => {
+        GLOBAL_STATE.openPins += open ? 1 : -1;
+        return () => { if (open) GLOBAL_STATE.openPins--; };
+    }, [open]);
+
     useFrame((state) => {
         if (ringRef.current) {
             const pulse = Math.sin(state.clock.elapsedTime * 2.5) * 0.5 + 0.5;
-            ringRef.current.scale.setScalar(1 + pulse * 1.8);
-            (ringRef.current.material as THREE.MeshBasicMaterial).opacity = 0.25 - pulse * 0.22;
+            const targetScale = (hovered || open) ? 2.5 : 1 + pulse * 1.8;
+            ringRef.current.scale.x += (targetScale - ringRef.current.scale.x) * 0.1;
+            ringRef.current.scale.y += (targetScale - ringRef.current.scale.y) * 0.1;
+            ringRef.current.scale.z += (targetScale - ringRef.current.scale.z) * 0.1;
+            (ringRef.current.material as THREE.MeshBasicMaterial).opacity = (hovered || open) ? 0.8 : 0.25 - pulse * 0.22;
         }
     });
 
     return (
         <group position={pos}>
-            {/* Core dot */}
-            <mesh>
-                <sphereGeometry args={[0.028, 12, 12]} />
-                <meshBasicMaterial color="#00FFB3" />
+            {/* Massive Invisible 3D Hitbox for effortless clicking */}
+            <mesh visible={false} 
+                onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer'; }}
+                onPointerOut={(e) => { e.stopPropagation(); setHovered(false); document.body.style.cursor = 'auto'; }}
+                onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+            >
+                <sphereGeometry args={[0.09, 16, 16]} />
             </mesh>
+
+            {/* Core dot */}
+            <mesh scale={(hovered || open) ? 1.5 : 1}>
+                <sphereGeometry args={[0.028, 12, 12]} />
+                <meshBasicMaterial color={[0, 4, 2]} toneMapped={false} />
+            </mesh>
+
             {/* Pulse ring */}
             <mesh ref={ringRef}>
                 <ringGeometry args={[0.03, 0.055, 24]} />
-                <meshBasicMaterial color="#00FFB3" transparent opacity={0.3} side={THREE.DoubleSide} />
+                <meshBasicMaterial color={[0, 4, 2]} transparent opacity={0.4} side={THREE.DoubleSide} toneMapped={false} />
             </mesh>
-            {/* HTML label */}
-            <Html distanceFactor={9} position={[0, 0.12, 0]}>
-                <div className="pointer-events-none select-none" style={{ whiteSpace: 'nowrap', transform: 'translateX(-50%)' }}>
-                    <div className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest"
-                        style={{ backgroundColor: 'rgba(0,0,0,0.7)', border: '1px solid rgba(0,255,179,0.3)', color: '#00FFB3', backdropFilter: 'blur(4px)' }}>
+
+            {/* HTML label and popups */}
+            <Html distanceFactor={9} position={[0, 0.12, 0]} zIndexRange={[100, 0]}>
+                {/* Clickable City Name DOM Label */}
+                <div 
+                    className="select-none transition-transform cursor-pointer" 
+                    style={{ transform: `translateX(-50%) ${(hovered || open) ? 'scale(1.2)' : 'scale(1)'}`, pointerEvents: 'auto' }}
+                    onPointerEnter={() => setHovered(true)}
+                    onPointerLeave={() => setHovered(false)}
+                    onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+                >
+                    <div className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest transition-colors hover:bg-black/90 hover:border-[#00FFB3]/80"
+                         style={{ backgroundColor: 'rgba(0,0,0,0.7)', border: '1px solid rgba(0,255,179,0.3)', color: '#00FFB3', backdropFilter: 'blur(4px)' }}>
                         {city.city}
                         <span className="ml-1 opacity-50">{city.count}</span>
                     </div>
                 </div>
+
+                {/* Expanded Detailed Hologram Card */}
+                {open && (
+                    <div 
+                        className="absolute top-8 left-1/2 -translate-x-1/2 w-[240px] p-4 rounded-xl border border-[#00FFB3]/40 text-white select-none transition-all shadow-[0_0_50px_rgba(0,255,179,0.2)] overflow-hidden"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        style={{ pointerEvents: 'auto', background: 'linear-gradient(135deg, rgba(2,3,5,0.95), rgba(15,17,26,0.98))', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+                    >
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="font-black text-lg text-transparent bg-clip-text bg-gradient-to-r from-[#00F0FF] to-[#00FFB3]">{city.city}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-bold uppercase text-white/50 bg-white/10 px-1.5 py-0.5 rounded shadow-[0_0_10px_rgba(255,255,255,0.1)]">{city.region}</span>
+                                <button className="w-5 h-5 flex items-center justify-center rounded-full bg-white/5 hover:bg-rose-500/20 text-white/50 hover:text-rose-400 transition-colors" onClick={(e) => { e.stopPropagation(); setOpen(false); }}>✕</button>
+                            </div>
+                        </div>
+                        <div className="text-[11.5px] text-white/70 mb-4 border-b border-white/10 pb-4 leading-relaxed">
+                            A highly active metropolitan hub for <strong className="text-white">Camera Gear & VR Tech</strong> rentals. 
+                        </div>
+                        <div className="flex justify-between items-end mb-5">
+                            <div className="flex flex-col">
+                                <span className="text-[9px] uppercase tracking-widest text-[#00FFB3]/60 mb-1">Active Listings</span>
+                                <span className="text-2xl font-black text-[#00FFB3]">{city.count}</span>
+                            </div>
+                            <div className="flex gap-1.5 mb-1.5">
+                                <div className="w-2 h-2 rounded-full bg-[#00FFB3] animate-pulse shadow-[0_0_8px_#00FFB3]" />
+                                <div className="w-2 h-2 rounded-full bg-[#00FFB3] shadow-[0_0_8px_#00FFB3]" style={{ animationDelay: '0.2s' }} />
+                                <div className="w-2 h-2 rounded-full bg-[#00F0FF]/30" />
+                            </div>
+                        </div>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); alert(`Navigating to ${city.city} Vault...`); }}
+                            className="w-full py-2.5 rounded bg-gradient-to-r from-[#00F0FF]/15 to-[#00FFB3]/15 hover:from-[#00F0FF]/30 hover:to-[#00FFB3]/30 text-[#00FFB3] text-[11px] uppercase font-black tracking-widest transition-all cursor-pointer border border-[#00FFB3]/30 hover:border-[#00FFB3]"
+                        >
+                            Access Vault ↗
+                        </button>
+                    </div>
+                )}
             </Html>
         </group>
     );
 }
+
+
+
 
 // ─── Globe mesh ──────────────────────────────────────────────────────────────
 
@@ -159,6 +241,14 @@ export default function Globe({ focusLng }: GlobeProps) {
         'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png',
     ]);
 
+    // Enhance normal map depth for realistic mountains
+    useEffect(() => {
+        if (normalMap) {
+            normalMap.colorSpace = THREE.LinearSRGBColorSpace;
+        }
+    }, [normalMap]);
+
+
     useEffect(() => {
         if (focusLng == null) return;
         // Compute the Y rotation needed to center the city
@@ -172,10 +262,12 @@ export default function Globe({ focusLng }: GlobeProps) {
     useFrame((_, delta) => {
         if (!globeRef.current) return;
 
-        if (isAutoRotating.current) {
+        const isUserInteracting = GLOBAL_STATE.hoveredPins > 0 || GLOBAL_STATE.openPins > 0;
+
+        if (isAutoRotating.current && !isUserInteracting) {
             globeRef.current.rotation.y += delta * 0.055;
             targetY.current = globeRef.current.rotation.y;
-        } else {
+        } else if (!isUserInteracting) {
             globeRef.current.rotation.y += (targetY.current - globeRef.current.rotation.y) * 0.04;
         }
 
@@ -185,32 +277,70 @@ export default function Globe({ focusLng }: GlobeProps) {
         }
     });
 
+
     return (
         <group ref={globeRef}>
-            {/* Lights — bright daytime setup */}
-            <ambientLight intensity={1.4} />
-            <directionalLight position={[5, 3, 5]} intensity={2.5} color="#fff8f0" />
-            <pointLight position={[-6, 4, 6]} intensity={1.2} color="#ffffff" />
-            <pointLight position={[8, -2, 4]} intensity={0.6} color="#e0f0ff" />
+            {/* Lights — Cinematic real-space lighting setup */}
+            <ambientLight intensity={0.05} color="#ffffff" />
+            <directionalLight 
+                position={[12, 5, 5]} 
+                intensity={4.0} 
+                color="#fff5e6" 
+                castShadow 
+                shadow-bias={-0.0001} 
+                shadow-mapSize-width={2048} 
+                shadow-mapSize-height={2048} 
+            />
+            {/* Physical glowing Sun mesh matching the directional light */}
+            <mesh position={[60, 25, 25]}>
+                <sphereGeometry args={[3, 32, 32]} />
+                <meshBasicMaterial color={[15, 12, 8]} toneMapped={false} />
+            </mesh>
 
-            {/* Earth */}
-            <Sphere args={[2.5, 72, 72]}>
-                <meshPhongMaterial map={dayMap} normalMap={normalMap} specularMap={specularMap} shininess={8} />
+            {/* Subtle blue fill light for the dark side of the earth */}
+            <pointLight position={[-15, -5, -15]} intensity={0.6} color="#1e3a8a" />
+
+            {/* Hyper-realistic Starfield */}
+            <Stars radius={80} depth={50} count={4000} factor={6} saturation={0.8} fade speed={1.5} />
+
+            {/* Post-Processing Effects Engine */}
+            <EffectComposer>
+                <Bloom mipmapBlur luminanceThreshold={0.7} luminanceSmoothing={0.5} intensity={1.5} />
+            </EffectComposer>
+
+            {/* Earth - using Standard Material for stable PBR */}
+            <Sphere args={[2.5, 64, 64]} receiveShadow castShadow>
+
+                <meshStandardMaterial 
+                    map={dayMap} 
+                    normalMap={normalMap} 
+                    normalScale={new THREE.Vector2(2.5, 2.5)}
+                    metalnessMap={specularMap}
+                    roughness={0.6}
+                    metalness={0.8}
+                />
             </Sphere>
 
-            {/* Clouds */}
-            <Sphere ref={cloudsRef} args={[2.53, 64, 64]}>
-                <meshPhongMaterial map={cloudsMap} transparent opacity={0.35} depthWrite={false} />
+            {/* Clouds - casting drop shadows onto the Earth */}
+            <Sphere ref={cloudsRef} args={[2.525, 64, 64]} receiveShadow castShadow>
+                <meshStandardMaterial 
+                    map={cloudsMap} 
+                    transparent 
+                    opacity={0.6} 
+                    depthWrite={false} 
+                    color="#ffffff" 
+                    roughness={1}
+                />
             </Sphere>
 
-            {/* Atmosphere inner glow */}
-            <Sphere args={[2.62, 48, 48]}>
-                <meshBasicMaterial color="#3b82f6" transparent opacity={0.04} side={THREE.BackSide} />
+            {/* Atmosphere inner glow (Additive) */}
+            <Sphere args={[2.6, 64, 64]}>
+                <meshBasicMaterial color="#3b82f6" transparent opacity={0.15} side={THREE.BackSide} blending={THREE.AdditiveBlending} />
             </Sphere>
 
-            {/* Atmosphere outer glow */}
-            <Sphere args={[2.85, 48, 48]}>
-                <meshBasicMaterial color="#6366f1" transparent opacity={0.06} side={THREE.BackSide} />
+            {/* Atmosphere outer glow (Additive) */}
+            <Sphere args={[2.8, 64, 64]}>
+                <meshBasicMaterial color="#1e40af" transparent opacity={0.1} side={THREE.BackSide} blending={THREE.AdditiveBlending} />
             </Sphere>
 
             {/* Connection arcs */}

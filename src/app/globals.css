@@ -555,6 +555,3 @@ html.lenis body {
    ADMIN DESIGN SYSTEM IMPORT
    ═══════════════════════════════════════════ */
 @import '../styles/admin-design-system.css';
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
