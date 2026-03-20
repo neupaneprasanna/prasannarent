@@ -1,6 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useInView } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
 
 const testimonials = [
     { name: 'Sarah Mitchell', role: 'photographer', quote: 'rented a Sony A7IV for a weekend shoot. seamless experience, gear arrived in perfect condition. this platform is a game-changer.', avatar: 'S', rating: 5, color: '#00F0FF' },
@@ -9,6 +10,55 @@ const testimonials = [
 ];
 
 const spring = { type: 'spring' as const, stiffness: 100, damping: 20 };
+
+function TypewriterQuote({ quote, color, delayMs = 0 }: { quote: string, color: string, delayMs: number }) {
+    const [displayedText, setDisplayedText] = useState('');
+    const [isTyping, setIsTyping] = useState(false);
+    const [hasStarted, setHasStarted] = useState(false);
+    const ref = useRef(null);
+    const inView = useInView(ref, { once: true, margin: "-100px" });
+
+    useEffect(() => {
+        if (!inView) return;
+        
+        let timeout: ReturnType<typeof setTimeout>;
+        let interval: ReturnType<typeof setInterval>;
+        
+        timeout = setTimeout(() => {
+            setHasStarted(true);
+            setIsTyping(true);
+            let i = 0;
+            interval = setInterval(() => {
+                setDisplayedText(quote.slice(0, i + 1));
+                i++;
+                if (i >= quote.length) {
+                    setIsTyping(false);
+                    clearInterval(interval);
+                }
+            }, 30); // 30ms per character typing speed
+        }, delayMs);
+
+        return () => {
+             clearTimeout(timeout);
+             clearInterval(interval);
+        };
+    }, [inView, quote, delayMs]);
+
+    return (
+        <span ref={ref} className="relative block">
+            {/* Invisible ghost text to hold exact container layout height so cards don't jitter during typing! */}
+            <span className="opacity-0 pointer-events-none select-none">{quote}</span>
+            {/* Absolutely positioned typing overlay */}
+            <span className="absolute top-0 left-0 w-full text-left">
+                {displayedText}
+                <span 
+                    className={`inline-block w-[3px] h-[0.9em] ml-1 translate-y-[2px] opacity-80 ${hasStarted && isTyping ? 'animate-pulse' : 'hidden'}`}
+                    style={{ backgroundColor: color, boxShadow: `0 0 10px ${color}` }}
+                />
+            </span>
+        </span>
+    );
+}
 
 export default function Testimonials() {
     return (
@@ -55,7 +105,7 @@ export default function Testimonials() {
                             </div>
 
                             <p className="text-white/80 text-xl sm:text-2xl font-medium leading-relaxed mb-10 relative z-10 transition-colors duration-300 group-hover:text-white">
-                                {t.quote}
+                                <TypewriterQuote quote={t.quote} color={t.color} delayMs={i * 500 + 300} />
                             </p>
 
                             <div className="mt-auto flex items-center gap-5 relative z-10">
