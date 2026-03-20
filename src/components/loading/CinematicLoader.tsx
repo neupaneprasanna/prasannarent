@@ -11,6 +11,15 @@ export default function CinematicLoader() {
     const [progress, setProgress] = useState(0);
 
     useEffect(() => {
+        // Check if this is the first time the user has visited the website in this session
+        const hasVisited = sessionStorage.getItem('rentverse_visited');
+        
+        if (hasVisited) {
+            setLoading(false);
+            setIntroComplete(true);
+            return;
+        }
+
         if (!isLoading) return;
 
         const interval = setInterval(() => {
@@ -20,6 +29,7 @@ export default function CinematicLoader() {
                     setTimeout(() => {
                         setLoading(false);
                         setIntroComplete(true);
+                        sessionStorage.setItem('rentverse_visited', 'true');
                     }, 1000); 
                     return 100;
                 }

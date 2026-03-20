@@ -78,7 +78,7 @@ export default function RecentlyViewedSection() {
                                     className="h-full"
                                 >
                                     <Link 
-                                        href={`/listings/${item.id}`}
+                                        href={`/item/${item.id}`}
                                         className="group relative flex h-full w-[85vw] sm:w-[500px] shrink-0 bg-[#050608] rounded-3xl overflow-hidden border border-white/10 hover:border-[#a29bfe]/40 transition-colors duration-500 shadow-xl"
                                     >
                                         

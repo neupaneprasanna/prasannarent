@@ -6,6 +6,7 @@ import type { RentalItem } from '@/store/rental-store';
 import { apiClient } from '@/lib/api-client';
 import { Loader2, ArrowRight, ArrowUpRight, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const spring = { type: 'spring' as const, stiffness: 100, damping: 20 };
 
@@ -76,6 +77,7 @@ function circularPos(i: number, activeIndex: number, n: number): number {
 }
 
 export default function TrendingCarousel() {
+    const router = useRouter();
     const [items, setItems] = useState<RentalItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [activeIndex, setActiveIndex] = useState(0);
@@ -124,6 +126,10 @@ export default function TrendingCarousel() {
         selectionTimer.current = setTimeout(() => {
             setActiveIndex(i);
         }, 180);
+    };
+
+    const handleCardClick = (id: string) => {
+        router.push(`/item/${id}`);
     };
 
     const handleClusterLeave = () => {
@@ -227,6 +233,7 @@ export default function TrendingCarousel() {
                                     return (
                                         <div
                                             key={item.id}
+                                            onClick={() => handleCardClick(item.id)}
                                             className="absolute inset-0 rounded-2xl flex flex-col overflow-hidden cursor-pointer"
                                             style={{
                                                 transform: slot.transform,
@@ -309,7 +316,7 @@ export default function TrendingCarousel() {
                                                     </span>
                                                     {isCenter && (
                                                         <Link
-                                                            href={`/listings/${item.id}`}
+                                                            href={`/item/${item.id}`}
                                                             className="w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-300 hover:scale-110"
                                                             style={{
                                                                 backgroundColor: `${cfg.accent}18`,
