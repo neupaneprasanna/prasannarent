@@ -128,7 +128,7 @@ export default function TrendingCarousel() {
     const activeCfg = activeItem ? getCategoryConfig(activeItem.category) : categoryConfig.default;
 
     return (
-        <section className="py-24 sm:py-32 relative overflow-hidden" id="trending">
+        <section className="py-8 sm:py-12 relative overflow-hidden" id="trending">
 
             {/* Dynamic background glow that shifts with the active item */}
             <AnimatePresence mode="wait">
@@ -151,7 +151,7 @@ export default function TrendingCarousel() {
 
                 {/* Header */}
                 <motion.div
-                    className="flex flex-col items-center text-center mb-16 sm:mb-20"
+                    className="flex flex-col items-center text-center mb-8 sm:mb-10"
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
