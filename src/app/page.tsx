@@ -87,10 +87,8 @@ export default function HomePage() {
             {/* ∿ seam: Trust & Safety → World Map */}
             <WorldDivider color="#0EA5E9" label="worldwide" />
 
-            {/* ─── World 7: World Map — shattered-glass compound rotation ─── */}
-            <DimensionalReveal variant="fracture">
-                <WorldMap />
-            </DimensionalReveal>
+            {/* ─── World 7: World Map — no CSS-3D wrapper (Three.js canvas breaks inside perspective transforms) ─── */}
+            <WorldMap />
 
             {/* ∿ seam: World Map → Testimonials */}
             <WorldDivider color="#A855F7" label="testimonials" />

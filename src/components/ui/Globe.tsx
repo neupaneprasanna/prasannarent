@@ -187,11 +187,11 @@ export default function Globe({ focusLng }: GlobeProps) {
 
     return (
         <group ref={globeRef}>
-            {/* Lights */}
-            <ambientLight intensity={0.6} />
-            <pointLight position={[8, 6, 8]} intensity={2.0} color="#ffffff" />
-            <pointLight position={[-8, -4, -8]} intensity={0.4} color="#7A5CFF" />
-            <pointLight position={[0, 8, 0]} intensity={0.3} color="#00F0FF" />
+            {/* Lights — bright daytime setup */}
+            <ambientLight intensity={1.4} />
+            <directionalLight position={[5, 3, 5]} intensity={2.5} color="#fff8f0" />
+            <pointLight position={[-6, 4, 6]} intensity={1.2} color="#ffffff" />
+            <pointLight position={[8, -2, 4]} intensity={0.6} color="#e0f0ff" />
 
             {/* Earth */}
             <Sphere args={[2.5, 72, 72]}>
