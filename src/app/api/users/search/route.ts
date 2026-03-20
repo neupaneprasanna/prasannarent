@@ -5,24 +5,32 @@ export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
         const q = searchParams.get('q');
-        if (!q) return NextResponse.json({ users: [] });
+
+        // If q is provided, search by firstName/lastName, otherwise get recent users
+        const whereClause = {
+            banned: false,
+            ...(q ? {
+                OR: [
+                    { firstName: { contains: q, mode: 'insensitive' as const } },
+                    { lastName: { contains: q, mode: 'insensitive' as const } },
+                    { email: { contains: q, mode: 'insensitive' as const } }
+                ]
+            } : {})
+        };
 
         const users = await prisma.user.findMany({
-            where: {
-                OR: [
-                    { firstName: { contains: q, mode: 'insensitive' } },
-                    { lastName: { contains: q, mode: 'insensitive' } },
-                ],
-            },
+            where: whereClause,
             select: {
                 id: true,
                 firstName: true,
                 lastName: true,
                 avatar: true,
                 verified: true,
-                city: true
+                city: true,
+                lastSeenAt: true
             },
-            take: 10
+            take: 30,
+            orderBy: q ? { firstName: 'asc' } : { createdAt: 'desc' }
         });
 
         return NextResponse.json({ users });

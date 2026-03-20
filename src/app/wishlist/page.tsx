@@ -341,7 +341,7 @@ export default function WishlistPage() {
                                                 transition={{ duration: 0.6, delay: i * 0.05, ease: [0.19, 1, 0.22, 1] }}
                                                 onMouseEnter={() => { setHoveredCard(item.listingId); }}
                                                 onMouseLeave={() => { setHoveredCard(null); }}
-                                                className="group relative"
+                                                className={`group relative ${isCardHovered || activeContextMenu === item.listingId ? 'z-[60]' : 'z-0'}`}
                                                 style={{ perspective: 1000 }}
                                             >
                                                 {/* Card Outer */}
@@ -375,9 +375,9 @@ export default function WishlistPage() {
                                                         {/* Actions Container - slides in on hover */}
                                                         <motion.div 
                                                             initial={{ x: 20, opacity: 0 }}
-                                                            animate={{ x: isCardHovered ? 0 : 20, opacity: isCardHovered ? 1 : 0 }}
+                                                            animate={{ x: isCardHovered || activeContextMenu === item.listingId ? 0 : 20, opacity: isCardHovered || activeContextMenu === item.listingId ? 1 : 0 }}
                                                             transition={{ duration: 0.3 }}
-                                                            className="flex flex-col gap-2 pointer-events-auto"
+                                                            className="flex flex-col gap-2 pointer-events-auto ml-auto"
                                                         >
                                                             {/* Dropdown container */}
                                                             <div className="relative">
@@ -398,7 +398,7 @@ export default function WishlistPage() {
                                                                         >
                                                                             <div className="space-y-1 mb-2">
                                                                                 <button 
-                                                                                    onClick={() => { setEditingNoteFor(item.listingId); setNoteText(item.note || ''); setActiveContextMenu(null); }}
+                                                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingNoteFor(item.listingId); setNoteText(item.note || ''); setActiveContextMenu(null); }}
                                                                                     className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors text-left"
                                                                                 >
                                                                                     <span className="text-white/50">✏️</span> <span>Edit Note</span>
@@ -409,7 +409,7 @@ export default function WishlistPage() {
                                                                                 {collections.filter(c => c.id !== activeCollection).map(c => (
                                                                                     <button 
                                                                                         key={c.id}
-                                                                                        onClick={() => handleMoveItem(item.listingId, c.id)}
+                                                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMoveItem(item.listingId, c.id); }}
                                                                                         className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors text-left"
                                                                                     >
                                                                                         <span>{c.emoji}</span> <span className="truncate">{c.name}</span>

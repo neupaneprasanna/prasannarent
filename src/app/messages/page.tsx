@@ -212,12 +212,13 @@ export default function MessagesPage() {
 
         const load = async () => {
             try {
-                const [fetchedRooms, fetchedUsers] = await Promise.all([
-                    apiClient.get<ChatRoom[]>('/chat/rooms'),
-                    apiClient.get<ChatUser[]>('/chat/users')
+                // Fetch rooms from the Express equivalent if it's there, but users from the pure Next.js API
+                const [fetchedRooms, usersRes] = await Promise.all([
+                    apiClient.get<ChatRoom[]>('/chat/rooms').catch(() => []), 
+                    apiClient.get<{users: ChatUser[]}>('/users/search')
                 ]);
                 setRooms(fetchedRooms);
-                setAvailableUsers(fetchedUsers);
+                setAvailableUsers(usersRes.users ? usersRes.users.filter((u: any) => u.id !== user.id) : []);
             } catch (err) { console.error('Failed to load:', err); }
             finally { setIsLoading(false); }
         };
@@ -243,6 +244,21 @@ export default function MessagesPage() {
         load();
         return () => { active = false; };
     }, [activeRoomId, isAuthenticated]);
+
+    // Live search for available users from server
+    useEffect(() => {
+        if (!isAuthenticated || !user) return;
+        const timeout = setTimeout(async () => {
+            try {
+                const q = userSearchQuery.trim();
+                const fetchedUsers = await apiClient.get<{users: ChatUser[]}>(`/users/search${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+                if (fetchedUsers && fetchedUsers.users) {
+                    setAvailableUsers(fetchedUsers.users.filter((u: any) => u.id !== user.id));
+                }
+            } catch (err) { console.error('Failed to search users:', err); }
+        }, 300);
+        return () => clearTimeout(timeout);
+    }, [userSearchQuery, isAuthenticated, user]);
 
     // ─── FILE UPLOAD HELPERS ───
     const getFileType = useCallback((file: File): string => {
@@ -435,12 +451,8 @@ export default function MessagesPage() {
     }, [availableUsers, rooms, searchQuery]);
 
     // All users search (for the Search tab)
-    const allUsersFiltered = useMemo(() => {
-        if (!userSearchQuery.trim()) return availableUsers;
-        return availableUsers.filter(u =>
-            `${u.firstName} ${u.lastName || ''}`.toLowerCase().includes(userSearchQuery.toLowerCase())
-        );
-    }, [availableUsers, userSearchQuery]);
+    // Server-side filtering handles the search now, returning exact matches for name and email
+    const allUsersFiltered = availableUsers;
 
     const messagesWithDates = useMemo(() => {
         let lastDate = '';
