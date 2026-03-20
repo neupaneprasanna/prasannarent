@@ -10,7 +10,6 @@ import TrendingCarousel from '@/components/sections/TrendingCarousel';
 import LiveStats from '@/components/sections/LiveStats';
 import HowItWorks from '@/components/sections/HowItWorks';
 import WhyRentVerse from '@/components/sections/WhyRentVerse';
-
 import TrustSafety from '@/components/sections/TrustSafety';
 import Testimonials from '@/components/sections/Testimonials';
 import WorldMap from '@/components/sections/WorldMap';
@@ -19,83 +18,117 @@ import FAQ from '@/components/sections/FAQ';
 import CTASection from '@/components/sections/CTASection';
 import Footer from '@/components/sections/Footer';
 import DimensionalReveal from '@/components/motion/DimensionalReveal';
+import WorldDivider from '@/components/motion/WorldDivider';
 import RecentlyViewedSection from '@/components/sections/RecentlyViewedSection';
-
 
 export default function HomePage() {
     return (
         <main className="relative">
             <ScrollZigzagLine />
-
-
             <Navbar />
             <SideNav />
 
-            {/* Hero Section */}
+            {/* ─── World 0: Hero ─── */}
             <section className="relative min-h-screen overflow-hidden">
                 <HeroContent />
             </section>
 
-            {/* Categories — Raw, no wrapper needed (has its own video BG engine) */}
+            {/* ─── Categories (own cinematic BG engine) ─── */}
             <Categories />
 
-            {/* Trending — Editorial Split (portal entrance) */}
-            <DimensionalReveal glowColor="rgba(0,255,179,0.10)" parallaxIntensity={0.25} variant="portal">
+            {/* ∿ seam: Categories → Trending */}
+            <WorldDivider color="#00FFB3" label="trending" />
+
+            {/* ─── World 1: Trending — dive through a portal gate ─── */}
+            <DimensionalReveal variant="portal">
                 <TrendingCarousel />
             </DimensionalReveal>
 
-            {/* Recently Viewed — Rises from below */}
-            <DimensionalReveal glowColor="rgba(161,140,255,0.12)" parallaxIntensity={0.2} variant="rise">
+            {/* ∿ seam: Trending → Recently Viewed */}
+            <WorldDivider color="#A78BFA" />
+
+            {/* ─── World 2: Recently Viewed — rises from below ─── */}
+            <DimensionalReveal variant="rise">
                 <RecentlyViewedSection />
             </DimensionalReveal>
 
-            {/* Why RentVerse — Grand cinematic reveal */}
-            <DimensionalReveal glowColor="rgba(122,92,255,0.10)" parallaxIntensity={0.25} variant="cinematic">
+            {/* ∿ seam: Recently Viewed → Why RentVerse */}
+            <WorldDivider color="#7A5CFF" label="why rentverse" />
+
+            {/* ─── World 3: Why RentVerse — 3-D page-turn from the left ─── */}
+            <DimensionalReveal variant="warp">
                 <WhyRentVerse />
             </DimensionalReveal>
 
-            {/* Stats — Slides in from the side */}
-            <DimensionalReveal glowColor="rgba(0,240,255,0.12)" parallaxIntensity={0.2} variant="slide">
+            {/* ∿ seam: Why RentVerse → Live Stats */}
+            <WorldDivider color="#00F0FF" label="live stats" />
+
+            {/* ─── World 4: Live Stats — erupts upward with perspective tilt ─── */}
+            <DimensionalReveal variant="surge">
                 <LiveStats />
             </DimensionalReveal>
 
-            {/* How it Works — Portal emergence */}
-            <DimensionalReveal glowColor="rgba(122,92,255,0.10)" parallaxIntensity={0.35} variant="portal">
+            {/* ∿ seam: Stats → How It Works */}
+            <WorldDivider color="#6366F1" label="how it works" />
+
+            {/* ─── World 5: How It Works — narrow slit opens like a tunnel ─── */}
+            <DimensionalReveal variant="tunnel">
                 <HowItWorks />
             </DimensionalReveal>
 
-            {/* Trust & Safety — Cinematic */}
-            <DimensionalReveal glowColor="rgba(0,255,179,0.10)" parallaxIntensity={0.2} variant="cinematic">
+            {/* ∿ seam: How It Works → Trust & Safety */}
+            <WorldDivider color="#10B981" label="trust & safety" />
+
+            {/* ─── World 6: Trust & Safety — sweeps in from the right like a planet ─── */}
+            <DimensionalReveal variant="orbit">
                 <TrustSafety />
             </DimensionalReveal>
 
-            {/* World Map — Rise */}
-            <DimensionalReveal glowColor="rgba(0,240,255,0.08)" parallaxIntensity={0.15} variant="rise">
+            {/* ∿ seam: Trust & Safety → World Map */}
+            <WorldDivider color="#0EA5E9" label="worldwide" />
+
+            {/* ─── World 7: World Map — shattered-glass compound rotation ─── */}
+            <DimensionalReveal variant="fracture">
                 <WorldMap />
             </DimensionalReveal>
 
-            {/* Testimonials — Portal */}
-            <DimensionalReveal glowColor="rgba(161,140,255,0.10)" parallaxIntensity={0.2} variant="portal">
+            {/* ∿ seam: World Map → Testimonials */}
+            <WorldDivider color="#A855F7" label="testimonials" />
+
+            {/* ─── World 8: Testimonials — cinematic pull from the left ─── */}
+            <DimensionalReveal variant="cinematic">
                 <Testimonials />
             </DimensionalReveal>
 
-            {/* Host Benefits — Slide */}
-            <DimensionalReveal glowColor="rgba(0,255,179,0.08)" parallaxIntensity={0.2} variant="slide">
+            {/* ∿ seam: Testimonials → Host Benefits */}
+            <WorldDivider color="#F59E0B" label="host benefits" />
+
+            {/* ─── World 9: Host Benefits — hard slide from the right ─── */}
+            <DimensionalReveal variant="slide">
                 <HostBenefits />
             </DimensionalReveal>
 
-            {/* FAQ — Cinematic */}
-            <DimensionalReveal glowColor="rgba(0,240,255,0.08)" parallaxIntensity={0.15} variant="cinematic">
+            {/* ∿ seam: Host Benefits → FAQ */}
+            <WorldDivider color="#F43F5E" label="faq" />
+
+            {/* ─── World 10: FAQ — diagonal lateral drift ─── */}
+            <DimensionalReveal variant="drift">
                 <FAQ />
             </DimensionalReveal>
 
-            {/* CTA — Grand portal */}
-            <DimensionalReveal glowColor="rgba(122,92,255,0.15)" parallaxIntensity={0.3} variant="portal">
+            {/* ∿ seam: FAQ → CTA */}
+            <WorldDivider color="#8B5CF6" label="get started" />
+
+            {/* ─── World 11: CTA — grand portal zoom ─── */}
+            <DimensionalReveal variant="portal">
                 <CTASection />
             </DimensionalReveal>
 
-            {/* Footer — Gentle rise */}
-            <DimensionalReveal showGlow={false} parallaxIntensity={0.1} variant="rise">
+            {/* ∿ seam: CTA → Footer */}
+            <WorldDivider color="#00FFB3" />
+
+            {/* ─── World 12: Footer — gentle rise ─── */}
+            <DimensionalReveal variant="rise">
                 <Footer />
             </DimensionalReveal>
         </main>
