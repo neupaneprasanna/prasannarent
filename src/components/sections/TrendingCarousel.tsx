@@ -1,168 +1,179 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { RentalItem } from '@/store/rental-store';
 import { apiClient } from '@/lib/api-client';
-import { Loader2, ArrowRight, ArrowUpRight, Star } from 'lucide-react';
+import { Loader2, ArrowRight, ArrowUpRight, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
 const spring = { type: 'spring' as const, stiffness: 100, damping: 20 };
 
-const positionStyles: Record<number, {
-    transform: string;
-    zIndex: number;
-    filter: string;
-    shadow: string;
-    opacity: number;
-}> = {
+const CARD_W = 300;
+const CARD_H = 420;
+
+type SlotStyle = { transform: string; zIndex: number; brightness: number; shadow: string; opacity: number };
+
+const slotStyles: Record<number, SlotStyle> = {
     [-2]: {
-        transform: 'translate3d(-310px, -24px, -240px) rotateY(18deg) scale(0.72)',
-        zIndex: 1,
-        filter: 'brightness(0.45) contrast(1.1)',
-        shadow: '0 20px 40px rgba(0,0,0,0.6)',
-        opacity: 1,
+        transform: `translate3d(-420px, -32px, -280px) rotateY(22deg) scale(0.68)`,
+        zIndex: 1, brightness: 0.35, opacity: 0.8,
+        shadow: '0 20px 50px rgba(0,0,0,0.7)',
     },
     [-1]: {
-        transform: 'translate3d(-160px, -12px, -120px) rotateY(7deg) scale(0.86)',
-        zIndex: 2,
-        filter: 'brightness(0.65) contrast(1.1)',
-        shadow: '0 24px 48px rgba(0,0,0,0.55)',
-        opacity: 1,
+        transform: `translate3d(-210px, -14px, -130px) rotateY(9deg) scale(0.84)`,
+        zIndex: 2, brightness: 0.6, opacity: 1,
+        shadow: '0 24px 56px rgba(0,0,0,0.65)',
     },
     [0]: {
-        transform: 'translate3d(0, 0, 0) scale(1)',
-        zIndex: 5,
-        filter: 'none',
-        shadow: '0 30px 60px rgba(0,0,0,0.65), 0 0 50px rgba(0,255,179,0.12), inset 0 1px 0 rgba(255,255,255,0.15)',
-        opacity: 1,
+        transform: `translate3d(0, 0, 0) scale(1.0)`,
+        zIndex: 5, brightness: 1, opacity: 1,
+        shadow: '0 40px 80px rgba(0,0,0,0.75)',
     },
     [1]: {
-        transform: 'translate3d(160px, -12px, -120px) rotateY(-7deg) scale(0.86)',
-        zIndex: 2,
-        filter: 'brightness(0.65) contrast(1.1)',
-        shadow: '0 24px 48px rgba(0,0,0,0.55)',
-        opacity: 1,
+        transform: `translate3d(210px, -14px, -130px) rotateY(-9deg) scale(0.84)`,
+        zIndex: 2, brightness: 0.6, opacity: 1,
+        shadow: '0 24px 56px rgba(0,0,0,0.65)',
     },
     [2]: {
-        transform: 'translate3d(310px, -24px, -240px) rotateY(-18deg) scale(0.72)',
-        zIndex: 1,
-        filter: 'brightness(0.45) contrast(1.1)',
-        shadow: '0 20px 40px rgba(0,0,0,0.6)',
-        opacity: 1,
+        transform: `translate3d(420px, -32px, -280px) rotateY(-22deg) scale(0.68)`,
+        zIndex: 1, brightness: 0.35, opacity: 0.8,
+        shadow: '0 20px 50px rgba(0,0,0,0.7)',
     },
 };
 
-const categoryGradient = (category: string): string => {
-    const cat = category?.toLowerCase() ?? '';
-    if (cat.includes('electron') || cat.includes('tech') || cat.includes('camera')) return 'from-blue-600/55 to-cyan-500/20';
-    if (cat.includes('vehicle') || cat.includes('car') || cat.includes('bike')) return 'from-violet-600/60 to-fuchsia-600/25';
-    if (cat.includes('outdoor') || cat.includes('camp') || cat.includes('sport')) return 'from-emerald-600/55 to-teal-500/20';
-    if (cat.includes('music') || cat.includes('audio') || cat.includes('dj')) return 'from-purple-600/55 to-pink-500/20';
-    if (cat.includes('tool') || cat.includes('equipment')) return 'from-orange-600/55 to-amber-500/20';
-    if (cat.includes('fashion') || cat.includes('cloth')) return 'from-rose-600/55 to-pink-500/20';
-    return 'from-indigo-600/55 to-blue-500/20';
+type CategoryKey = 'vehicles' | 'electronics' | 'outdoors' | 'music' | 'tools' | 'fashion' | 'sports' | 'cameras' | 'default';
+
+const categoryConfig: Record<CategoryKey, { gradient: string; glow: string; accent: string }> = {
+    vehicles:    { gradient: 'from-red-900/60 via-orange-900/30 to-black',    glow: 'rgba(239,68,68,0.5)',    accent: '#ef4444' },
+    electronics: { gradient: 'from-blue-900/60 via-cyan-900/30 to-black',     glow: 'rgba(59,130,246,0.5)',   accent: '#3b82f6' },
+    outdoors:    { gradient: 'from-emerald-900/60 via-teal-900/30 to-black',   glow: 'rgba(16,185,129,0.5)',   accent: '#10b981' },
+    music:       { gradient: 'from-purple-900/60 via-fuchsia-900/30 to-black', glow: 'rgba(168,85,247,0.5)',   accent: '#a855f7' },
+    tools:       { gradient: 'from-orange-900/60 via-amber-900/30 to-black',   glow: 'rgba(249,115,22,0.5)',   accent: '#f97316' },
+    fashion:     { gradient: 'from-rose-900/60 via-pink-900/30 to-black',      glow: 'rgba(244,63,94,0.5)',    accent: '#f43f5e' },
+    sports:      { gradient: 'from-lime-900/60 via-green-900/30 to-black',     glow: 'rgba(132,204,22,0.5)',   accent: '#84cc16' },
+    cameras:     { gradient: 'from-indigo-900/60 via-violet-900/30 to-black',  glow: 'rgba(99,102,241,0.5)',   accent: '#6366f1' },
+    default:     { gradient: 'from-slate-800/60 via-slate-900/30 to-black',    glow: 'rgba(0,255,179,0.35)',   accent: '#00FFB3' },
 };
+
+function getCategoryConfig(category: string) {
+    const cat = (category ?? '').toLowerCase();
+    if (cat.includes('vehicle') || cat.includes('car') || cat.includes('bike') || cat.includes('auto')) return categoryConfig.vehicles;
+    if (cat.includes('electron') || cat.includes('tech') || cat.includes('computer')) return categoryConfig.electronics;
+    if (cat.includes('outdoor') || cat.includes('camp') || cat.includes('hike')) return categoryConfig.outdoors;
+    if (cat.includes('music') || cat.includes('audio') || cat.includes('dj') || cat.includes('instrument')) return categoryConfig.music;
+    if (cat.includes('tool') || cat.includes('power')) return categoryConfig.tools;
+    if (cat.includes('fashion') || cat.includes('cloth') || cat.includes('apparel')) return categoryConfig.fashion;
+    if (cat.includes('sport') || cat.includes('fitness') || cat.includes('gym')) return categoryConfig.sports;
+    if (cat.includes('camera') || cat.includes('photo') || cat.includes('video')) return categoryConfig.cameras;
+    return categoryConfig.default;
+}
+
+// Returns the wrapped position of item `i` relative to `activeIndex` in a circular array of length `n`
+function circularPos(i: number, activeIndex: number, n: number): number {
+    const raw = ((i - activeIndex) % n + n) % n;
+    return raw > n / 2 ? raw - n : raw;
+}
 
 export default function TrendingCarousel() {
     const [items, setItems] = useState<RentalItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [activeIndex, setActiveIndex] = useState(0);
     const [isHovering, setIsHovering] = useState(false);
-    const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
-        const fetchPopular = async () => {
-            try {
-                const data = await apiClient.get<{ listings: any[] }>('/listings', {
-                    params: { popular: 'true' }
-                });
+        apiClient.get<{ listings: any[] }>('/listings', { params: { popular: 'true' } })
+            .then(data => {
                 const mapped = data.listings.map(l => ({
                     ...l,
-                    owner: {
-                        name: l.owner.firstName,
-                        avatar: l.owner.avatar || '',
-                        verified: l.owner.verified
-                    }
+                    owner: { name: l.owner.firstName, avatar: l.owner.avatar || '', verified: l.owner.verified }
                 }));
-                const uniqueItems = Array.from(new Map(mapped.map(item => [item.id, item])).values());
-                setItems(uniqueItems.slice(0, 8));
-            } catch (error) {
-                console.error('Failed to fetch popular items:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchPopular();
+                const unique = Array.from(new Map(mapped.map(x => [x.id, x])).values());
+                setItems(unique.slice(0, 8));
+            })
+            .catch(err => console.error('Failed to fetch listings:', err))
+            .finally(() => setIsLoading(false));
     }, []);
 
-    // Auto-advance loop — pauses on hover
+    const advance = useCallback((dir: 1 | -1) => {
+        if (items.length === 0) return;
+        setActiveIndex(prev => ((prev + dir) % items.length + items.length) % items.length);
+    }, [items.length]);
+
+    // Auto-loop — pauses while hovering
     useEffect(() => {
         if (isHovering || items.length === 0) {
             if (intervalRef.current) clearInterval(intervalRef.current);
             return;
         }
-        intervalRef.current = setInterval(() => {
-            setActiveIndex(prev => (prev + 1) % items.length);
-        }, 2400);
-        return () => {
-            if (intervalRef.current) clearInterval(intervalRef.current);
-        };
-    }, [isHovering, items.length]);
+        intervalRef.current = setInterval(() => advance(1), 2200);
+        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    }, [isHovering, items.length, advance]);
 
-    const handleCardHover = (index: number) => {
-        if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+    const handleCardHover = (i: number) => {
+        if (hoverTimer.current) clearTimeout(hoverTimer.current);
         setIsHovering(true);
-        setActiveIndex(index);
+        setActiveIndex(i);
     };
 
     const handleClusterLeave = () => {
-        hoverTimeout.current = setTimeout(() => setIsHovering(false), 400);
+        if (hoverTimer.current) clearTimeout(hoverTimer.current);
+        hoverTimer.current = setTimeout(() => setIsHovering(false), 350);
     };
 
-    // Compute which items are visible (positions -2 to +2 relative to activeIndex)
-    const visibleItems = items.map((item, i) => {
-        const pos = i - activeIndex;
-        // Wrap around for looping
-        const n = items.length;
-        let wrapped = ((pos % n) + n) % n;
-        if (wrapped > n / 2) wrapped -= n;
-        const clampedPos = Math.max(-2, Math.min(2, wrapped));
-        return { item, i, pos: wrapped, clampedPos, isVisible: Math.abs(wrapped) <= 2 };
-    });
-
+    const n = items.length;
     const activeItem = items[activeIndex];
+    const activeCfg = activeItem ? getCategoryConfig(activeItem.category) : categoryConfig.default;
 
     return (
-        <section className="py-24 sm:py-32 relative" id="trending">
+        <section className="py-24 sm:py-32 relative overflow-hidden" id="trending">
+
+            {/* Dynamic background glow that shifts with the active item */}
+            <AnimatePresence mode="wait">
+                {activeItem && (
+                    <motion.div
+                        key={activeIndex}
+                        className="absolute inset-0 pointer-events-none"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 1.2 }}
+                        style={{
+                            background: `radial-gradient(ellipse 60% 50% at 50% 60%, ${activeCfg.glow}, transparent 70%)`,
+                        }}
+                    />
+                )}
+            </AnimatePresence>
+
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 relative z-10">
 
                 {/* Header */}
                 <motion.div
-                    className="flex flex-col items-center text-center mb-16 sm:mb-24"
+                    className="flex flex-col items-center text-center mb-16 sm:mb-20"
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={spring}
                 >
-                    <span className="text-label text-[#00FFB3] mb-4 block tracking-[0.3em] uppercase">trending showcase</span>
+                    <span className="text-xs text-[#00FFB3] mb-4 block tracking-[0.35em] uppercase font-bold">trending showcase</span>
                     <h2 className="text-5xl sm:text-6xl md:text-7xl font-display font-medium tracking-tighter">
-                        elite <span className="text-white/30 italic font-light">selection</span>
+                        elite <span className="text-white/25 italic font-light">selection</span>
                     </h2>
                 </motion.div>
 
                 {/* Loading */}
                 {isLoading ? (
-                    <div className="flex items-center justify-center py-32">
+                    <div className="flex items-center justify-center py-40">
                         <div className="flex flex-col items-center gap-4">
                             <Loader2 className="w-10 h-10 text-[#00FFB3] animate-spin" />
-                            <span className="text-label text-white/40 tracking-[0.2em]">loading selection</span>
+                            <span className="text-xs text-white/40 tracking-[0.2em] uppercase">loading selection</span>
                         </div>
                     </div>
                 ) : items.length === 0 ? (
-                    <div className="flex items-center justify-center py-32">
-                        <p className="text-white/30 text-sm tracking-widest uppercase">No listings available yet</p>
+                    <div className="flex items-center justify-center py-40">
+                        <p className="text-white/30 text-sm tracking-widest uppercase">No listings yet</p>
                     </div>
                 ) : (
                     <motion.div
@@ -170,87 +181,131 @@ export default function TrendingCarousel() {
                         initial={{ opacity: 0, y: 40 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        transition={{ ...spring, delay: 0.1 }}
+                        transition={{ ...spring, delay: 0.12 }}
                     >
-                        {/* Spatial Card Arc */}
+                        {/* ── Carousel Stage ── */}
                         <div
-                            className="relative w-full flex items-center justify-center mb-10"
-                            style={{ height: 420, perspective: '1200px' }}
+                            className="relative flex items-center justify-center w-full mb-8"
+                            style={{ height: CARD_H + 80, perspective: '1400px' }}
                             onMouseLeave={handleClusterLeave}
                         >
-                            <div
-                                className="relative"
-                                style={{ width: 300, height: 400, transformStyle: 'preserve-3d' }}
+                            {/* Prev / Next arrows */}
+                            <button
+                                onClick={() => { advance(-1); setIsHovering(false); }}
+                                className="absolute left-4 sm:left-8 z-20 w-11 h-11 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/30 flex items-center justify-center transition-all duration-300 group"
+                                aria-label="Previous"
                             >
-                                {visibleItems.filter(v => v.isVisible).map(({ item, i, clampedPos }) => {
-                                    const style = positionStyles[clampedPos as keyof typeof positionStyles];
-                                    const isCenter = clampedPos === 0;
-                                    const gradient = categoryGradient(item.category);
+                                <ChevronLeft className="w-5 h-5 text-white/50 group-hover:text-white transition-colors" />
+                            </button>
+                            <button
+                                onClick={() => { advance(1); setIsHovering(false); }}
+                                className="absolute right-4 sm:right-8 z-20 w-11 h-11 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/30 flex items-center justify-center transition-all duration-300 group"
+                                aria-label="Next"
+                            >
+                                <ChevronRight className="w-5 h-5 text-white/50 group-hover:text-white transition-colors" />
+                            </button>
+
+                            {/* Card cluster — overflow visible so side cards show */}
+                            <div style={{ position: 'relative', width: CARD_W, height: CARD_H, transformStyle: 'preserve-3d', overflow: 'visible' }}>
+                                {items.map((item, i) => {
+                                    const pos = circularPos(i, activeIndex, n);
+                                    if (Math.abs(pos) > 2) return null;
+                                    const slot = slotStyles[pos as keyof typeof slotStyles];
+                                    const isCenter = pos === 0;
+                                    const cfg = getCategoryConfig(item.category);
                                     const imgSrc = item.images?.[0];
 
                                     return (
                                         <div
                                             key={item.id}
-                                            className="absolute inset-0 rounded-2xl border border-white/10 flex flex-col overflow-hidden cursor-pointer group"
+                                            className="absolute inset-0 rounded-2xl flex flex-col overflow-hidden cursor-pointer"
                                             style={{
-                                                transform: style.transform,
-                                                zIndex: style.zIndex,
-                                                opacity: style.opacity,
-                                                filter: style.filter,
-                                                boxShadow: style.shadow,
-                                                backgroundColor: 'rgba(5, 5, 12, 0.85)',
-                                                backdropFilter: 'blur(16px)',
-                                                transition: 'transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.55s ease, box-shadow 0.55s ease, opacity 0.4s ease',
+                                                transform: slot.transform,
+                                                zIndex: slot.zIndex,
+                                                opacity: slot.opacity,
+                                                filter: `brightness(${slot.brightness}) ${isCenter ? 'saturate(1.15)' : 'saturate(0.8)'}`,
+                                                boxShadow: isCenter
+                                                    ? `${slot.shadow}, 0 0 60px ${cfg.glow}, 0 0 120px ${cfg.glow.replace('0.5', '0.2')}`
+                                                    : slot.shadow,
+                                                border: isCenter
+                                                    ? `1px solid ${cfg.accent}55`
+                                                    : '1px solid rgba(255,255,255,0.07)',
+                                                backgroundColor: 'rgba(4,4,10,0.92)',
+                                                backdropFilter: 'blur(20px)',
+                                                transition: 'transform 0.6s cubic-bezier(0.34,1.4,0.64,1), filter 0.6s ease, opacity 0.5s ease, box-shadow 0.6s ease, border-color 0.6s ease',
+                                                willChange: 'transform',
                                             }}
                                             onMouseEnter={() => handleCardHover(i)}
                                         >
-                                            {/* Image / Gradient Area */}
-                                            <div className={`h-[60%] w-full relative overflow-hidden flex items-center justify-center ${!imgSrc ? `bg-gradient-to-br ${gradient}` : ''}`}>
+                                            {/* ── Photo / Gradient area ── */}
+                                            <div className="relative flex-none overflow-hidden" style={{ height: '60%' }}>
                                                 {imgSrc ? (
                                                     <img
                                                         src={imgSrc}
                                                         alt={item.title}
-                                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                                        className="w-full h-full object-cover transition-transform duration-700"
+                                                        style={{ transform: isCenter ? 'scale(1.04)' : 'scale(1)' }}
                                                     />
                                                 ) : (
-                                                    <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
+                                                    <div className={`absolute inset-0 bg-gradient-to-br ${cfg.gradient}`} />
                                                 )}
-                                                {/* Subtle noise overlay */}
-                                                <div className="absolute inset-0 opacity-15 mix-blend-overlay pointer-events-none"
-                                                    style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
-                                                {/* Category badge */}
+                                                {/* Overlay gradient at bottom */}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-[#04040a] via-transparent to-transparent" />
+
+                                                {/* Top badges — only on center */}
                                                 {isCenter && (
-                                                    <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest bg-black/50 backdrop-blur-md border border-[#00FFB3]/30 text-[#00FFB3]">
-                                                        {item.category}
-                                                    </div>
-                                                )}
-                                                {/* Rating */}
-                                                {isCenter && item.rating && (
-                                                    <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
-                                                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                                                        <span className="text-[10px] font-bold text-white">{item.rating}</span>
-                                                    </div>
+                                                    <>
+                                                        <div
+                                                            className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest backdrop-blur-md border"
+                                                            style={{ backgroundColor: `${cfg.accent}22`, borderColor: `${cfg.accent}55`, color: cfg.accent }}
+                                                        >
+                                                            {item.category}
+                                                        </div>
+                                                        {item.rating != null && (
+                                                            <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10">
+                                                                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                                                                <span className="text-[10px] font-bold text-white">{item.rating}</span>
+                                                            </div>
+                                                        )}
+                                                        {/* Accent scan line */}
+                                                        <div
+                                                            className="absolute bottom-0 left-0 right-0 h-[2px]"
+                                                            style={{ background: `linear-gradient(90deg, transparent, ${cfg.accent}, transparent)`, opacity: 0.9 }}
+                                                        />
+                                                    </>
                                                 )}
                                             </div>
 
-                                            {/* Content Area */}
-                                            <div className="h-[40%] p-4 flex flex-col justify-between bg-black/50 relative">
-                                                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-                                                <h3 className={`font-medium leading-tight truncate transition-colors duration-300 ${isCenter ? 'text-base text-white' : 'text-sm text-white/60'}`}>
+                                            {/* ── Content area ── */}
+                                            <div className="flex flex-col justify-between p-4 flex-1 relative">
+                                                {/* Top accent line */}
+                                                <div
+                                                    className="absolute top-0 left-6 right-6 h-[1px]"
+                                                    style={{ background: `linear-gradient(90deg, transparent, ${isCenter ? cfg.accent + '40' : 'rgba(255,255,255,0.08)'}, transparent)` }}
+                                                />
+                                                <h3 className={`font-semibold leading-tight truncate transition-all duration-500 ${isCenter ? 'text-white text-[1.05rem]' : 'text-white/50 text-sm'}`}>
                                                     {item.title}
                                                 </h3>
-                                                <div className="flex items-center justify-between">
-                                                    <span className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all duration-300 ${
-                                                        isCenter
-                                                            ? 'bg-[#00FFB3]/15 text-[#00FFB3] border border-[#00FFB3]/25'
-                                                            : 'bg-white/5 text-white/40 border border-white/10'
-                                                    }`}>
-                                                        ${item.price}/{item.priceUnit?.toLowerCase() ?? 'day'}
+                                                <div className="flex items-center justify-between mt-3">
+                                                    <span
+                                                        className="px-3 py-1.5 rounded-lg text-xs font-black tracking-wide transition-all duration-500"
+                                                        style={{
+                                                            backgroundColor: isCenter ? `${cfg.accent}20` : 'rgba(255,255,255,0.05)',
+                                                            color: isCenter ? cfg.accent : 'rgba(255,255,255,0.35)',
+                                                            border: `1px solid ${isCenter ? cfg.accent + '35' : 'rgba(255,255,255,0.08)'}`,
+                                                        }}
+                                                    >
+                                                        ${item.price}<span className="font-normal opacity-60">/{item.priceUnit?.toLowerCase() ?? 'day'}</span>
                                                     </span>
                                                     {isCenter && (
                                                         <Link
                                                             href={`/listings/${item.id}`}
-                                                            className="w-8 h-8 rounded-full bg-white/10 hover:bg-[#00FFB3] hover:text-black flex items-center justify-center border border-white/10 transition-all duration-300"
+                                                            className="w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-300 hover:scale-110"
+                                                            style={{
+                                                                backgroundColor: `${cfg.accent}18`,
+                                                                borderColor: `${cfg.accent}40`,
+                                                                color: cfg.accent,
+                                                            }}
                                                             onClick={e => e.stopPropagation()}
                                                         >
                                                             <ArrowUpRight className="w-4 h-4" />
@@ -264,47 +319,57 @@ export default function TrendingCarousel() {
                             </div>
                         </div>
 
-                        {/* Active item title */}
-                        <motion.div
-                            key={activeItem?.id}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3 }}
-                            className="text-center mb-6 h-8"
-                        >
+                        {/* ── Active item meta ── */}
+                        <AnimatePresence mode="wait">
                             {activeItem && (
-                                <p className="text-white/50 text-sm tracking-widest uppercase font-mono">
+                                <motion.div
+                                    key={activeIndex}
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -6 }}
+                                    transition={{ duration: 0.25 }}
+                                    className="flex flex-col items-center gap-1 mb-7 h-10"
+                                >
                                     {activeItem.owner?.name && (
-                                        <span>Owner: <span className="text-white/80">{activeItem.owner.name}</span></span>
+                                        <p className="text-[11px] font-mono tracking-[0.25em] uppercase text-white/35">
+                                            Owner: <span className="text-white/65">{activeItem.owner.name}</span>
+                                        </p>
                                     )}
-                                </p>
+                                    <p className="text-[11px] font-mono tracking-[0.2em] uppercase" style={{ color: activeCfg.accent + 'aa' }}>
+                                        {String(activeIndex + 1).padStart(2, '0')} / {String(n).padStart(2, '0')}
+                                    </p>
+                                </motion.div>
                             )}
-                        </motion.div>
+                        </AnimatePresence>
 
-                        {/* Dot indicators */}
-                        <div className="flex items-center gap-2 mb-12">
-                            {items.map((_, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => { setActiveIndex(i); setIsHovering(false); }}
-                                    className="rounded-full transition-all duration-400"
-                                    style={{
-                                        width: i === activeIndex ? 24 : 6,
-                                        height: 6,
-                                        backgroundColor: i === activeIndex ? '#00FFB3' : 'rgba(255,255,255,0.15)',
-                                    }}
-                                    aria-label={`Go to item ${i + 1}`}
-                                />
-                            ))}
+                        {/* ── Progress dots ── */}
+                        <div className="flex items-center gap-[7px] mb-12">
+                            {items.map((_, i) => {
+                                const isActive = i === activeIndex;
+                                return (
+                                    <button
+                                        key={i}
+                                        onClick={() => { setActiveIndex(i); setIsHovering(false); }}
+                                        aria-label={`Go to item ${i + 1}`}
+                                        className="rounded-full transition-all duration-400"
+                                        style={{
+                                            width: isActive ? 28 : 6,
+                                            height: 6,
+                                            backgroundColor: isActive ? activeCfg.accent : 'rgba(255,255,255,0.12)',
+                                            boxShadow: isActive ? `0 0 8px ${activeCfg.accent}` : 'none',
+                                        }}
+                                    />
+                                );
+                            })}
                         </div>
 
-                        {/* View all link */}
+                        {/* ── View all ── */}
                         <Link
                             href="/explore"
-                            className="text-xs font-bold text-white/40 hover:text-white transition-colors flex items-center gap-2 uppercase tracking-widest border border-white/10 hover:border-white/30 px-6 py-3 rounded-full"
+                            className="group text-xs font-bold text-white/40 hover:text-white transition-all duration-300 flex items-center gap-2 uppercase tracking-widest border border-white/10 hover:border-white/30 px-7 py-3.5 rounded-full hover:bg-white/5"
                         >
                             view all top rentals
-                            <ArrowRight className="w-4 h-4" />
+                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
                         </Link>
                     </motion.div>
                 )}
