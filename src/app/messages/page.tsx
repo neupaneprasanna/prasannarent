@@ -212,14 +212,14 @@ export default function MessagesPage() {
 
         const load = async () => {
             try {
-                // Fetch rooms from the Express equivalent if it's there, but users from the pure Next.js API
+                // Fetch rooms and users from the Next.js API endpoints
                 const [fetchedRooms, usersRes] = await Promise.all([
-                    apiClient.get<ChatRoom[]>('/chat/rooms').catch(() => []), 
+                    apiClient.get<ChatRoom[]>('/chat/rooms'), 
                     apiClient.get<{users: ChatUser[]}>('/users/search')
                 ]);
                 setRooms(fetchedRooms);
                 setAvailableUsers(usersRes.users ? usersRes.users.filter((u: any) => u.id !== user.id) : []);
-            } catch (err) { console.error('Failed to load:', err); }
+            } catch (err) { console.error('Failed to load initial data:', err); }
             finally { setIsLoading(false); }
         };
         load();
@@ -405,12 +405,20 @@ export default function MessagesPage() {
     const startDirectMessage = useCallback(async (targetUserId: string) => {
         try {
             const room = await apiClient.post<ChatRoom>('/chat/direct', { targetUserId });
-            setRooms(prev => prev.find(r => r.id === room.id) ? prev : [room, ...prev]);
+            setRooms(prev => {
+                const exists = prev.find(r => r.id === room.id);
+                if (exists) return prev;
+                return [room, ...prev];
+            });
             setActiveRoomId(room.id);
             socketRef.current?.emit('join_room', room.id);
             setSearchQuery('');
             if (isMobile) setMobileView('chat');
-        } catch (err) { console.error('Failed to start chat:', err); }
+            return room;
+        } catch (err) { 
+            console.error('Failed to start chat:', err); 
+            return null;
+        }
     }, [isMobile]);
 
     const getTargetUser = useCallback((room: ChatRoom) => {
@@ -636,8 +644,16 @@ export default function MessagesPage() {
                     const alreadyChatting = rooms.some(r => r.members.some(m => m.user.id === u.id));
                     return (
                         <button key={u.id}
-                            onClick={() => { startDirectMessage(u.id); setSidebarMode('messages'); }}
-                            className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.03] border border-transparent transition-all group">
+                            onClick={async (e) => { 
+                                const btn = e.currentTarget;
+                                btn.disabled = true;
+                                btn.classList.add('opacity-50');
+                                const room = await startDirectMessage(u.id); 
+                                if (room) setSidebarMode('messages'); 
+                                btn.disabled = false;
+                                btn.classList.remove('opacity-50');
+                            }}
+                            className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.03] border border-transparent transition-all group disabled:cursor-not-allowed">
                             <div className="relative flex-shrink-0">
                                 <div className="w-[44px] h-[44px] rounded-full overflow-hidden bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center ring-2 ring-white/5">
                                     {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover" /> :
