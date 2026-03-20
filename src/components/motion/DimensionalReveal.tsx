@@ -66,7 +66,7 @@ export default function DimensionalReveal({
                     ease: [0.25, 0.1, 0.25, 1],
                     delay,
                 }}
-                className="py-10 sm:py-20"
+                className="py-2 sm:py-4"
             >
                 {children}
             </motion.div>
