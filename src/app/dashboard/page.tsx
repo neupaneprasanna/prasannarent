@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Package, Calendar, Bell, Settings, LayoutDashboard, Loader2, TrendingUp, ArrowUpRight } from 'lucide-react';
+import { Package, Calendar, Bell, Settings, LayoutDashboard, Loader2, TrendingUp, ArrowUpRight, List } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNotificationStore } from '@/store/notification-store';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,6 +18,7 @@ import DashboardOverviewSkeleton from '@/components/ui/DashboardOverviewSkeleton
 
 const sidebarItems = [
     { icon: <LayoutDashboard size={18} />, label: 'Overview', id: 'overview' },
+    { icon: <List size={18} />, label: 'My Listings', id: 'listings' },
     { icon: <Calendar size={18} />, label: 'Bookings', id: 'bookings' },
     { icon: <Bell size={18} />, label: 'Notifications', id: 'notifications', badge: true },
     { icon: <Settings size={18} />, label: 'Settings', id: 'settings' },
@@ -29,6 +30,7 @@ export default function DashboardPage() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [bookings, setBookings] = useState<Booking[]>([]);
+    const [myListings, setMyListings] = useState<any[]>([]);
     const [stats, setStats] = useState({ activeBookings: 0 });
 
     const setCursorVariant = useAppStore((s) => s.setCursorVariant);
@@ -44,13 +46,15 @@ export default function DashboardPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [bookingsRes, statsRes] = await Promise.all([
+            const [bookingsRes, statsRes, listingsRes] = await Promise.all([
                 apiClient.get<{ bookings: any[] }>('/bookings/me'),
-                apiClient.get<any>('/dashboard/stats')
+                apiClient.get<any>('/dashboard/stats'),
+                apiClient.get<{ listings: any[] }>('/listings/me')
             ]);
 
             setBookings(bookingsRes.bookings || []);
             setStats(statsRes);
+            setMyListings(listingsRes.listings || []);
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
         } finally {
@@ -206,7 +210,63 @@ export default function DashboardPage() {
                                 </div>
                             )}
 
-
+                            {activeSidebar === 'listings' && (
+                                <motion.div
+                                    variants={fadeInUp}
+                                    initial="hidden"
+                                    animate="visible"
+                                    className="glass-card rounded-2xl border border-white/5 overflow-hidden"
+                                >
+                                    <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                                        <div>
+                                            <h3 className="text-xl font-bold text-white">My Listings</h3>
+                                            <p className="text-xs text-white/40">Manage and track your published items</p>
+                                        </div>
+                                        <Link href="/listings/new" className="px-4 py-2 bg-gradient-to-r from-[#00cec9] to-[#00b894] rounded-xl text-[11px] uppercase tracking-widest font-black text-white hover:opacity-90 transition-opacity">
+                                            + Add New Listing
+                                        </Link>
+                                    </div>
+                                    <div className="p-6">
+                                        {myListings.length === 0 ? (
+                                            <div className="py-20 text-center">
+                                                <List size={48} className="mx-auto text-white/5 mb-4" />
+                                                <p className="text-white/40 font-medium mb-2">No listings yet</p>
+                                                <p className="text-white/20 text-sm mb-6 max-w-sm mx-auto">Start sharing your gear and earn money by creating your first rental listing today.</p>
+                                                <Link href="/listings/new" className="px-6 py-3 bg-white/10 hover:bg-white/15 rounded-xl font-medium text-white transition-colors">List an Item</Link>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                {myListings.map(listing => (
+                                                    <div key={listing.id} className="group relative rounded-xl border border-white/10 overflow-hidden bg-white/5 hover:bg-white/10 transition-colors">
+                                                        <div className="aspect-[4/3] relative overflow-hidden bg-black/50">
+                                                            {listing.media?.[0]?.url ? (
+                                                                <img src={listing.media[0].url} alt={listing.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                            ) : (
+                                                                <div className="flex items-center justify-center h-full">
+                                                                    <Package className="text-white/20" size={32} />
+                                                                </div>
+                                                            )}
+                                                            <div className="absolute top-2 right-2 px-2.5 py-1 rounded bg-black/60 backdrop-blur-md text-[9px] uppercase tracking-widest font-bold text-white border border-white/10 shadow-lg">
+                                                                {listing.status || 'ACTIVE'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="p-5">
+                                                            <div className="text-[10px] font-black tracking-widest text-[#00cec9] uppercase mb-1.5">{listing.make}</div>
+                                                            <h4 className="font-bold text-white text-sm line-clamp-1 mb-3">{listing.title}</h4>
+                                                            <div className="flex items-center justify-between mt-auto">
+                                                                <span className="text-sm font-black text-white">${listing.pricing?.dailyRate || 0}<span className="text-[9px] text-white/40 font-medium tracking-wide uppercase"> / Day</span></span>
+                                                                <Link href={`/item/${listing.id}`} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all transform hover:scale-110">
+                                                                    <ArrowUpRight size={16} />
+                                                                </Link>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )}
 
                             {activeSidebar === 'notifications' && (
                                 <motion.div

@@ -9,19 +9,19 @@ import Link from 'next/link';
 
 const spring = { type: 'spring' as const, stiffness: 100, damping: 20 };
 
-const CARD_W = 300;
-const CARD_H = 420;
+const CARD_W = 360;
+const CARD_H = 500;
 
 type SlotStyle = { transform: string; zIndex: number; brightness: number; shadow: string; opacity: number };
 
 const slotStyles: Record<number, SlotStyle> = {
     [-2]: {
-        transform: `translate3d(-420px, -32px, -280px) rotateY(22deg) scale(0.68)`,
+        transform: `translate3d(-500px, -40px, -320px) rotateY(22deg) scale(0.68)`,
         zIndex: 1, brightness: 0.35, opacity: 0.8,
         shadow: '0 20px 50px rgba(0,0,0,0.7)',
     },
     [-1]: {
-        transform: `translate3d(-210px, -14px, -130px) rotateY(9deg) scale(0.84)`,
+        transform: `translate3d(-250px, -18px, -150px) rotateY(9deg) scale(0.84)`,
         zIndex: 2, brightness: 0.6, opacity: 1,
         shadow: '0 24px 56px rgba(0,0,0,0.65)',
     },
@@ -31,12 +31,12 @@ const slotStyles: Record<number, SlotStyle> = {
         shadow: '0 40px 80px rgba(0,0,0,0.75)',
     },
     [1]: {
-        transform: `translate3d(210px, -14px, -130px) rotateY(-9deg) scale(0.84)`,
+        transform: `translate3d(250px, -18px, -150px) rotateY(-9deg) scale(0.84)`,
         zIndex: 2, brightness: 0.6, opacity: 1,
         shadow: '0 24px 56px rgba(0,0,0,0.65)',
     },
     [2]: {
-        transform: `translate3d(420px, -32px, -280px) rotateY(-22deg) scale(0.68)`,
+        transform: `translate3d(500px, -40px, -320px) rotateY(-22deg) scale(0.68)`,
         zIndex: 1, brightness: 0.35, opacity: 0.8,
         shadow: '0 20px 50px rgba(0,0,0,0.7)',
     },
@@ -81,6 +81,7 @@ export default function TrendingCarousel() {
     const [activeIndex, setActiveIndex] = useState(0);
     const [isHovering, setIsHovering] = useState(false);
     const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const selectionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
@@ -115,10 +116,18 @@ export default function TrendingCarousel() {
     const handleCardHover = (i: number) => {
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
         setIsHovering(true);
-        setActiveIndex(i);
+        if (activeIndex === i) return;
+        
+        // Add a slight delay before triggering the display flip 
+        // to prevent erratic snapping if sweeping the mouse quickly
+        if (selectionTimer.current) clearTimeout(selectionTimer.current);
+        selectionTimer.current = setTimeout(() => {
+            setActiveIndex(i);
+        }, 180);
     };
 
     const handleClusterLeave = () => {
+        if (selectionTimer.current) clearTimeout(selectionTimer.current);
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
         hoverTimer.current = setTimeout(() => setIsHovering(false), 350);
     };
@@ -151,14 +160,14 @@ export default function TrendingCarousel() {
 
                 {/* Header */}
                 <motion.div
-                    className="flex flex-col items-center text-center mb-8 sm:mb-10"
+                    className="flex flex-col items-center text-center mb-10 sm:mb-12"
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={spring}
                 >
-                    <span className="text-xs text-[#00FFB3] mb-4 block tracking-[0.35em] uppercase font-bold">trending showcase</span>
-                    <h2 className="text-5xl sm:text-6xl md:text-7xl font-display font-medium tracking-tighter">
+                    <span className="text-sm sm:text-base text-[#00FFB3] mb-4 block tracking-[0.35em] uppercase font-bold">trending showcase</span>
+                    <h2 className="text-6xl sm:text-7xl md:text-8xl font-display font-medium tracking-tighter">
                         elite <span className="text-white/25 italic font-light">selection</span>
                     </h2>
                 </motion.div>
@@ -232,10 +241,11 @@ export default function TrendingCarousel() {
                                                     : '1px solid rgba(255,255,255,0.07)',
                                                 backgroundColor: 'rgba(4,4,10,0.92)',
                                                 backdropFilter: 'blur(20px)',
-                                                transition: 'transform 0.6s cubic-bezier(0.34,1.4,0.64,1), filter 0.6s ease, opacity 0.5s ease, box-shadow 0.6s ease, border-color 0.6s ease',
+                                                transition: 'transform 0.9s cubic-bezier(0.25,1.1,0.4,1), filter 0.9s ease, opacity 0.75s ease, box-shadow 0.9s ease, border-color 0.9s ease',
                                                 willChange: 'transform',
                                             }}
                                             onMouseEnter={() => handleCardHover(i)}
+                                            onMouseLeave={() => { if (selectionTimer.current) clearTimeout(selectionTimer.current); }}
                                         >
                                             {/* ── Photo / Gradient area ── */}
                                             <div className="relative flex-none overflow-hidden" style={{ height: '60%' }}>
@@ -256,7 +266,7 @@ export default function TrendingCarousel() {
                                                 {isCenter && (
                                                     <>
                                                         <div
-                                                            className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest backdrop-blur-md border"
+                                                            className="absolute top-3 left-3 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest backdrop-blur-md border shadow-lg"
                                                             style={{ backgroundColor: `${cfg.accent}22`, borderColor: `${cfg.accent}55`, color: cfg.accent }}
                                                         >
                                                             {item.category}
@@ -283,7 +293,7 @@ export default function TrendingCarousel() {
                                                     className="absolute top-0 left-6 right-6 h-[1px]"
                                                     style={{ background: `linear-gradient(90deg, transparent, ${isCenter ? cfg.accent + '40' : 'rgba(255,255,255,0.08)'}, transparent)` }}
                                                 />
-                                                <h3 className={`font-semibold leading-tight truncate transition-all duration-500 ${isCenter ? 'text-white text-[1.05rem]' : 'text-white/50 text-sm'}`}>
+                                                <h3 className={`font-semibold leading-tight truncate transition-all duration-500 ${isCenter ? 'text-white text-xl sm:text-2xl' : 'text-white/50 text-sm'}`}>
                                                     {item.title}
                                                 </h3>
                                                 <div className="flex items-center justify-between mt-3">
