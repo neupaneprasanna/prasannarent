@@ -1260,6 +1260,18 @@ nextApp.prepare().then(() => {
             socket.to(data.roomId).emit('message_removed', data);
         });
 
+        socket.on('message_edited', (data: { roomId: string, message: any }) => {
+            socket.to(data.roomId).emit('message_updated', { ...data.message, chatRoomId: data.roomId });
+        });
+
+        socket.on('reaction_updated', (data: { roomId: string, messageId: string, reactions: any[] }) => {
+            socket.to(data.roomId).emit('reaction_changed', data);
+        });
+
+        socket.on('message_forwarded', (data: { roomId: string, message: any }) => {
+            socket.to(data.roomId).emit('new_message', { ...data.message, chatRoomId: data.roomId });
+        });
+
         socket.on('booking-update', (data: { bookingId: string; status: string }) => {
             io.emit('booking-status-change', data);
         });

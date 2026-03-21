@@ -2,6 +2,21 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticate } from '@/lib/auth';
 
+const messageInclude = {
+    attachments: true,
+    sender: { select: { id: true, firstName: true, lastName: true, avatar: true } },
+    replyTo: {
+        select: {
+            id: true, content: true, isDeleted: true,
+            sender: { select: { id: true, firstName: true } },
+            attachments: { select: { type: true }, take: 1 }
+        }
+    },
+    reactions: {
+        include: { user: { select: { id: true, firstName: true } } }
+    }
+};
+
 export async function GET(req: Request, { params }: { params: Promise<{ roomId: string }> }) {
     try {
         const user = await authenticate(req);
@@ -17,17 +32,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ roomId: 
 
         // Verify user is a member
         const member = await prisma.chatMember.findUnique({
-            where: {
-                userId_chatRoomId: {
-                    userId: currentUserId,
-                    chatRoomId: roomId
-                }
-            }
+            where: { userId_chatRoomId: { userId: currentUserId, chatRoomId: roomId } }
         });
 
-        if (!member) {
-            return NextResponse.json({ error: 'Not a member of this chat room' }, { status: 403 });
-        }
+        if (!member) return NextResponse.json({ error: 'Not a member of this chat room' }, { status: 403 });
 
         const messages = await prisma.message.findMany({
             where: {
@@ -36,10 +44,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ roomId: 
             },
             orderBy: { createdAt: 'desc' },
             take: take,
-            include: {
-                attachments: true,
-                sender: { select: { id: true, firstName: true, lastName: true, avatar: true } }
-            }
+            include: messageInclude
         });
 
         // Reverse to get chronological order
@@ -69,7 +74,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ roomId:
         if (!currentUserId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         const { roomId } = await params;
-        const { content, attachments } = await req.json();
+        const { content, attachments, replyToId, isForwarded, forwardedFromId } = await req.json();
 
         if (!content && (!attachments || attachments.length === 0)) {
             return NextResponse.json({ error: 'Message content or attachment is required' }, { status: 400 });
@@ -82,37 +87,38 @@ export async function POST(req: Request, { params }: { params: Promise<{ roomId:
 
         if (!member) return NextResponse.json({ error: 'Not a member of this chat' }, { status: 403 });
 
-        // Create message
+        // Build message data
+        const messageData: any = {
+            content: content?.trim() || null,
+            senderId: currentUserId,
+            chatRoomId: roomId,
+        };
+
+        if (replyToId) messageData.replyToId = replyToId;
+        if (isForwarded) {
+            messageData.isForwarded = true;
+            messageData.forwardedFromId = forwardedFromId || null;
+        }
+        if (attachments && attachments.length > 0) {
+            messageData.attachments = {
+                create: attachments.map((a: any) => ({
+                    url: a.url,
+                    type: a.type || 'IMAGE',
+                    name: a.name,
+                    size: a.size
+                }))
+            };
+        }
+
         const message = await prisma.message.create({
-            data: {
-                content: content?.trim() || null,
-                senderId: currentUserId,
-                chatRoomId: roomId,
-                attachments: attachments && attachments.length > 0 ? {
-                    create: attachments.map((a: any) => ({
-                        url: a.url,
-                        type: a.type || 'IMAGE',
-                        name: a.name,
-                        size: a.size
-                    }))
-                } : undefined
-            },
-            include: {
-                attachments: true,
-                sender: { select: { id: true, firstName: true, lastName: true, avatar: true } }
-            }
+            data: messageData,
+            include: messageInclude
         });
 
-        // Update room's updatedAt for sorting & update sender's lastReadAt
+        // Update room's updatedAt + sender's lastReadAt
         await Promise.all([
-            prisma.chatRoom.update({
-                where: { id: roomId },
-                data: { updatedAt: new Date() }
-            }),
-            prisma.chatMember.update({
-                where: { id: member.id },
-                data: { lastReadAt: new Date() }
-            })
+            prisma.chatRoom.update({ where: { id: roomId }, data: { updatedAt: new Date() } }),
+            prisma.chatMember.update({ where: { id: member.id }, data: { lastReadAt: new Date() } })
         ]);
 
         return NextResponse.json({ ...message, chatRoomId: roomId }, { status: 201 });
