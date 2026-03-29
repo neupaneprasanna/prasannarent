@@ -8,6 +8,7 @@ import SmoothScroll from '@/components/providers/SmoothScroll';
 import CustomCursor from '@/components/cursor/CustomCursor';
 import CinematicLoader from '@/components/loading/CinematicLoader';
 import CommandMenu from '@/components/ui/CommandMenu';
+import NexisAI from '@/components/ai/NexisAI';
 import Toaster from '@/components/ui/Toaster';
 import { SocketProvider } from './SocketProvider';
 import { ScrollEngineProvider } from '@/lib/motion/scroll-engine';
@@ -29,6 +30,7 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
                         <ThunderEffect />
                         {!isMessagesPage && <CustomCursor />}
                         <CommandMenu />
+                        <NexisAI />
                         <Toaster />
                         <motion.div
                             animate={{

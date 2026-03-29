@@ -123,19 +123,90 @@ export default function SideNav() {
                         </motion.button>
 
                         {/* Logo */}
-                        <Link
-                            href="/"
+                        <div
                             className="flex items-center gap-3 p-3 mx-1.5 my-1 rounded-xl hover:bg-white/[0.04] transition-all duration-300 group"
                             onMouseEnter={() => setCursorVariant('hover')}
                             onMouseLeave={() => setCursorVariant('default')}
                         >
                             <Logo size="sm" showText={isExpanded} />
-                        </Link>
+                        </div>
 
                         <div className="h-px mx-3 bg-white/[0.04]" />
 
                         {/* Navigation Items */}
                         <div className="py-2 px-1.5 space-y-0.5">
+                            <div className="relative mb-2">
+                                <button
+                                    onClick={() => useAppStore.getState().setCommandMenuOpen(true)}
+                                    className="w-full relative flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.06] transition-all duration-300 group"
+                                    onMouseEnter={() => {
+                                        setCursorVariant('hover');
+                                        setHoveredItem('Search');
+                                        if (!isExpanded) setActiveTooltip('Search (⌘K)');
+                                    }}
+                                    onMouseLeave={() => {
+                                        setCursorVariant('default');
+                                        setHoveredItem(null);
+                                        setActiveTooltip(null);
+                                    }}
+                                >
+                                    <motion.div
+                                        className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300"
+                                        style={{
+                                            background: hoveredItem === 'Search' ? `rgba(255,255,255,0.1)` : 'transparent',
+                                        }}
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        <Search size={18} className="transition-colors duration-300 text-white/50 group-hover:text-white/90" />
+                                    </motion.div>
+                                    
+                                    <AnimatePresence>
+                                        {isExpanded && (
+                                            <motion.div
+                                                initial={{ opacity: 0, x: -8 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: -8 }}
+                                                transition={{ duration: 0.15 }}
+                                                className="flex flex-1 items-center justify-between"
+                                            >
+                                                <span className="text-sm font-medium whitespace-nowrap tracking-wide text-white/70 group-hover:text-white/90 transition-colors duration-300">
+                                                    Search
+                                                </span>
+                                                <span className="text-[10px] text-white/30 border border-white/10 rounded px-1.5 py-0.5 shadow-sm bg-black/20">⌘K</span>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </button>
+
+                                {/* Tooltip for Search */}
+                                <AnimatePresence>
+                                    {!isExpanded && activeTooltip === 'Search (⌘K)' && (
+                                        <motion.div
+                                            initial={{ opacity: 0, x: -8, scale: 0.95 }}
+                                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                                            exit={{ opacity: 0, x: -8, scale: 0.95 }}
+                                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                                            className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 rounded-lg text-xs font-medium text-white/90 whitespace-nowrap pointer-events-none z-[60]"
+                                            style={{
+                                                background: 'rgba(10, 11, 16, 0.95)',
+                                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)',
+                                            }}
+                                        >
+                                            Search <span className="text-white/50 ml-1">⌘K</span>
+                                            <div
+                                                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 rotate-45"
+                                                style={{
+                                                    background: 'rgba(10, 11, 16, 0.95)',
+                                                    borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+                                                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                                                }}
+                                            />
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
                             {navItems.map((item, index) => (
                                 <div key={item.name} className="relative">
                                     <Link

@@ -57,6 +57,26 @@ export default function CreateListingPage() {
     const [categoryAttributes, setCategoryAttributes] = useState<any[]>([]);
 
     useEffect(() => {
+        const storedDraft = localStorage.getItem('ai_draft_listing');
+        if (storedDraft) {
+            try {
+                const draft = JSON.parse(storedDraft);
+                setFormData(prev => ({
+                    ...prev,
+                    title: draft.title || prev.title,
+                    description: draft.description || prev.description,
+                    category: draft.category || prev.category,
+                    price: draft.price ? String(draft.price) : prev.price
+                }));
+            } catch (err) {
+                console.error('Failed to parse AI draft', err);
+            } finally {
+                localStorage.removeItem('ai_draft_listing');
+            }
+        }
+    }, []);
+
+    useEffect(() => {
         if (formData.category) {
             fetchCategoryAttributes(formData.category);
         }

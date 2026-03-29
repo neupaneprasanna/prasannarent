@@ -18,6 +18,7 @@ import {
     Package, DollarSign, Calendar, MapPin, Star, ShoppingBag, Tag
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
+import { useAppStore } from '@/store/app-store';
 import Link from 'next/link';
 import { io, Socket } from 'socket.io-client';
 import { apiClient } from '@/lib/api-client';
@@ -163,6 +164,7 @@ interface ChatRoom {
 
 export default function MessagesPage() {
     const { user, isAuthenticated } = useAuthStore();
+    const { setActiveChatContext, aiDraftedReply, setAiDraftedReply } = useAppStore();
     const [rooms, setRooms] = useState<ChatRoom[]>([]);
     const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
     const [themeMode, setThemeMode] = useState<'dark' | 'dim'>('dim');
@@ -248,6 +250,37 @@ export default function MessagesPage() {
     const contextMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => { activeRoomIdRef.current = activeRoomId; }, [activeRoomId]);
+
+    // ─── AI CONTEXT SYNC ───
+    useEffect(() => {
+        if (activeRoomId) {
+            const room = rooms.find(r => r.id === activeRoomId);
+            setActiveChatContext({
+                roomId: activeRoomId,
+                roomName: room?.name,
+                members: room?.members?.map(m => ({ id: m.user.id, name: m.user.firstName })),
+                messages: messages.slice(-20).map(m => ({
+                    sender: m.senderId === user?.id ? 'Me' : m.sender.firstName,
+                    content: m.content,
+                    time: new Date(m.createdAt).toLocaleTimeString()
+                }))
+            });
+        } else {
+            setActiveChatContext(null);
+        }
+        return () => setActiveChatContext(null);
+    }, [activeRoomId, messages, rooms, setActiveChatContext, user?.id]);
+
+    useEffect(() => {
+        if (aiDraftedReply) {
+            setMessageInput(aiDraftedReply);
+            setAiDraftedReply(null);
+            setTimeout(() => {
+                const el = document.getElementById('chat-message-input');
+                if (el) el.focus();
+            }, 100);
+        }
+    }, [aiDraftedReply, setAiDraftedReply]);
     useEffect(() => { setIsMounted(true); }, []);
 
     useEffect(() => {

@@ -6,7 +6,7 @@ import { Search, Bell, User as UserIcon, LogOut, Trophy, LayoutDashboard, Settin
 import Logo from '@/components/ui/Logo';
 import { useAppStore } from '@/store/app-store';
 import { useAuthStore } from '@/store/auth-store';
-import SearchBar from '@/components/hero/SearchBar';
+
 import { useNotificationStore } from '@/store/notification-store';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
@@ -29,7 +29,6 @@ export default function Navbar() {
     const isMobileMenuOpen = useAppStore((s) => s.isMobileMenuOpen);
     const setMobileMenuOpen = useAppStore((s) => s.setMobileMenuOpen);
     const setCursorVariant = useAppStore((s) => s.setCursorVariant);
-    const isSearchActive = useAppStore((s) => s.isSearchActive);
     const { user, isAuthenticated, logout } = useAuthStore();
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore();
 
@@ -45,9 +44,7 @@ export default function Navbar() {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    useEffect(() => {
-        if (!isSearchActive && showSearch) setShowSearch(false);
-    }, [isSearchActive, showSearch]);
+
 
     // Orbital rotation loop
     useEffect(() => {
@@ -145,18 +142,17 @@ export default function Navbar() {
                         {/* Search */}
                         <motion.button
                             onClick={() => {
-                                const nextState = !showSearch;
-                                setShowSearch(nextState);
-                                useAppStore.getState().setSearchActive(nextState);
+                                useAppStore.getState().setCommandMenuOpen(true);
                             }}
-                            className="p-2 text-white/40 hover:text-white transition-all duration-300 rounded-xl hover:bg-white/[0.04]"
+                            className="p-2 text-white/40 hover:text-white transition-all duration-300 rounded-xl hover:bg-white/[0.04] flex items-center gap-2"
                             onMouseEnter={() => setCursorVariant('hover')}
                             onMouseLeave={() => setCursorVariant('default')}
                             whileTap={{ scale: 0.9 }}
-                            aria-label="Toggle search"
+                            aria-label="Open global search"
                             suppressHydrationWarning
                         >
                             <Search size={18} />
+                            <span className="hidden sm:flex text-[10px] font-medium text-white/30 border border-white/10 rounded px-1.5 py-0.5 mt-0.5">⌘K</span>
                         </motion.button>
 
                         {isAuthenticated && (
@@ -336,22 +332,7 @@ export default function Navbar() {
                 )}
             </AnimatePresence>
 
-            {/* Float Search Overlay */}
-            <AnimatePresence>
-                {showSearch && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                        className="absolute top-full left-0 right-0 px-6 py-4 pointer-events-none z-[501]"
-                    >
-                        <div className="max-w-2xl mx-auto pointer-events-auto">
-                            <SearchBar autoFocus={showSearch} />
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+
         </nav>
     );
 }

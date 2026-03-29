@@ -14,6 +14,7 @@ import { createAdminRouter } from './admin/routes';
 import { setupAdminWebSocket } from './admin/websocket';
 import { createEngagementRouter } from './engagement/routes';
 import { chatRoutes } from './chat/routes';
+import { agentRoutes } from './ai-agent/routes';
 import { detectSearchIntent, rankResults } from './lib/groq';
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
@@ -177,6 +178,9 @@ nextApp.prepare().then(() => {
     
     // Chat & Messaging API
     app.use('/api/chat', authenticateToken, chatRoutes);
+
+    // AI Agent API
+    app.use('/api/ai-agent', authenticateToken, agentRoutes);
 
     // ─── Admin WebSocket ───
     const adminWS = setupAdminWebSocket(io);

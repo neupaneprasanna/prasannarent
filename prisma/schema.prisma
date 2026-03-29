@@ -1,6 +1,3 @@
-// This is your Prisma schema file
-// Learn more at: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,96 +8,69 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ═══════════════════════════════════════════
-//  CORE MODELS
-// ═══════════════════════════════════════════
-
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  firstName String
-  lastName  String
-  phone     String?
-  avatar    String?
-  bio       String?
-  verified  Boolean  @default(false)
-  role      Role     @default(USER)
-  level     Int      @default(1)
-  points    Int      @default(0)
-  interests String[]
-
-  // Reputation & Trust
-  fairnessScore    Float   @default(75)
-  responseTime     Int     @default(0) // average response time in minutes
-  subscriptionTier SubscriptionTier @default(FREE)
-
-  // Extended Profile / Security
-  address            String?
-  city               String?
-  dateOfBirth        DateTime?
-  governmentIdType   String?
-  governmentIdNumber String?
-
-  // Security and Auth
-  banned              Boolean   @default(false)
+  id                  String                 @id @default(cuid())
+  email               String                 @unique
+  password            String
+  firstName           String
+  lastName            String
+  phone               String?
+  avatar              String?
+  bio                 String?
+  verified            Boolean                @default(false)
+  role                Role                   @default(USER)
+  level               Int                    @default(1)
+  points              Int                    @default(0)
+  interests           String[]
+  fairnessScore       Float                  @default(75)
+  responseTime        Int                    @default(0)
+  subscriptionTier    SubscriptionTier       @default(FREE)
+  address             String?
+  city                String?
+  dateOfBirth         DateTime?
+  governmentIdType    String?
+  governmentIdNumber  String?
+  banned              Boolean                @default(false)
   bannedAt            DateTime?
   bannedReason        String?
   lastLoginAt         DateTime?
-  loginCount          Int       @default(0)
-  failedLoginAttempts Int       @default(0)
+  loginCount          Int                    @default(0)
+  failedLoginAttempts Int                    @default(0)
   lastPasswordChange  DateTime?
-  twoFactorEnabled    Boolean   @default(false)
-  lastSeenAt          DateTime? @default(now())
-
-  // Referral
-  referralCode String? @unique
-
-  // Relations
-  listings         Listing[]
-  bookings         Booking[]
-  reviews          Review[]
-  // Engagement Relations
-  wishlistCollections WishlistCollection[]
-  recentlyViewed      RecentlyViewed[]
-  following           HostFollow[]         @relation("Following")
-  followers           HostFollow[]         @relation("Followers")
+  twoFactorEnabled    Boolean                @default(false)
+  lastSeenAt          DateTime?              @default(now())
+  referralCode        String?                @unique
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  achievements        Achievement[]
   activityEvents      ActivityEvent[]
+  auditLogs           AuditLog[]             @relation("AdminAuditLogs")
+  bookings            Booking[]
+  chatMembers         ChatMember[]
+  connectionsFrom     Connection[]           @relation("ConnectionFrom")
+  connectionsTo       Connection[]           @relation("ConnectionTo")
+  following           HostFollow[]           @relation("Following")
+  followers           HostFollow[]           @relation("Followers")
   hostProfile         HostProfile?
-
-  // Reputation & Social Relations
-  subscription      Subscription?
-  reputation        UserReputation?
-  achievements      Achievement[]
-  connectionsFrom   Connection[]     @relation("ConnectionFrom")
-  connectionsTo     Connection[]     @relation("ConnectionTo")
-  pointLedger       PointLedger[]
-
-  // Growth Relations
-  referralsMade    Referral[]        @relation("Referrals")
-  referredBy       Referral[]        @relation("ReferredBy")
-  promoRedemptions PromoRedemption[]
-
-  // Admin Relations
-  auditLogs     AuditLog[]             @relation("AdminAuditLogs")
-  moderations   ModerationItem[]       @relation("ModeratorReviews")
-  campaigns     NotificationCampaign[] @relation("CampaignCreator")
-
-  notifications Notification[]
-  badges        Badge[]
-
-  // Analytics & Enhanced Reviews
-  listingViews    ListingView[]    @relation("ListingViews")
-  reviewResponses ReviewResponse[] @relation("ReviewResponses")
-  reviewVotes     ReviewVote[]     @relation("ReviewVotes")
-
-  // Chat Relations
-  chatMembers      ChatMember[]
-  messagesSent     Message[]
-  messageReactions MessageReaction[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  listings            Listing[]
+  listingViews        ListingView[]          @relation("ListingViews")
+  messagesSent        Message[]
+  messageReactions    MessageReaction[]
+  moderations         ModerationItem[]       @relation("ModeratorReviews")
+  notifications       Notification[]
+  campaigns           NotificationCampaign[] @relation("CampaignCreator")
+  pointLedger         PointLedger[]
+  promoRedemptions    PromoRedemption[]
+  recentlyViewed      RecentlyViewed[]
+  referredBy          Referral[]             @relation("ReferredBy")
+  referralsMade       Referral[]             @relation("Referrals")
+  reviews             Review[]
+  reviewResponses     ReviewResponse[]       @relation("ReviewResponses")
+  reviewVotes         ReviewVote[]           @relation("ReviewVotes")
+  subscription        Subscription?
+  reputation          UserReputation?
+  wishlistCollections WishlistCollection[]
+  badges              Badge[]                @relation("BadgeToUser")
 
   @@index([email])
   @@index([role])
@@ -110,51 +80,45 @@ model User {
 }
 
 model Listing {
-  id          String        @id @default(cuid())
-  title       String
-  description String
-  price       Float
-  priceUnit   PriceUnit     @default(DAY)
-  category    String
-  tags        String[]
-  images      String[]
-  location    String
-  latitude    Float?
-  longitude   Float?
-  available   Boolean       @default(true)
-  featured    Boolean       @default(false)
-  views       Int           @default(0)
-  rating      Float         @default(0)
-  reviewCount Int           @default(0)
-  status      ListingStatus @default(ACTIVE)
-
-  // New listing fields
-  condition            ItemCondition @default(GOOD)
-  minRentalDays        Int           @default(1)
+  id                   String              @id @default(cuid())
+  title                String
+  description          String
+  price                Float
+  priceUnit            PriceUnit           @default(DAY)
+  category             String
+  tags                 String[]
+  images               String[]
+  location             String
+  latitude             Float?
+  longitude            Float?
+  available            Boolean             @default(true)
+  featured             Boolean             @default(false)
+  views                Int                 @default(0)
+  rating               Float               @default(0)
+  reviewCount          Int                 @default(0)
+  status               ListingStatus       @default(ACTIVE)
+  condition            ItemCondition       @default(GOOD)
+  minRentalDays        Int                 @default(1)
   maxRentalDays        Int?
   scheduledUnpublishAt DateTime?
   duplicatedFrom       String?
-  trendScore           Float         @default(0)
-  bookingCount         Int           @default(0)
-
-  owner   User   @relation(fields: [ownerId], references: [id])
-  ownerId String
-
-  bookings      Booking[]
-  reviews       Review[]
-  // New relations
-  media          ListingMedia[]
-  pricing        ListingPricing?
-  dateOverrides  DatePriceOverride[]
-  attributes     ListingAttribute[]
-  calendarBlocks CalendarBlock[]
-  wishlistItems  WishlistItem[]
-  recentlyViewed RecentlyViewed[]
-  boosts         ListingBoost[]
-  listingViews   ListingView[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  trendScore           Float               @default(0)
+  bookingCount         Int                 @default(0)
+  ownerId              String
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  bookings             Booking[]
+  calendarBlocks       CalendarBlock[]
+  dateOverrides        DatePriceOverride[]
+  owner                User                @relation(fields: [ownerId], references: [id])
+  attributes           ListingAttribute[]
+  boosts               ListingBoost[]
+  media                ListingMedia[]
+  pricing              ListingPricing?
+  listingViews         ListingView[]
+  recentlyViewed       RecentlyViewed[]
+  reviews              Review[]
+  wishlistItems        WishlistItem[]
 
   @@index([category])
   @@index([ownerId])
@@ -165,32 +129,26 @@ model Listing {
 }
 
 model Booking {
-  id         String        @id @default(cuid())
-  startDate  DateTime
-  endDate    DateTime
-  totalPrice Float
-  status     BookingStatus @default(PENDING)
-  paymentId  String?
-  ownerNote  String?
-
-  // New booking fields
+  id               String            @id @default(cuid())
+  startDate        DateTime
+  endDate          DateTime
+  totalPrice       Float
+  status           BookingStatus     @default(PENDING)
+  paymentId        String?
+  ownerNote        String?
   renterNote       String?
   expiresAt        DateTime?
   counterPrice     Float?
   counterMessage   String?
   extensionEndDate DateTime?
   returnDate       DateTime?
-
-  listing   Listing @relation(fields: [listingId], references: [id])
-  listingId String
-  renter    User    @relation(fields: [renterId], references: [id])
-  renterId  String
-
-  // New relations
-  timeline BookingTimeline[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  listingId        String
+  renterId         String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  listing          Listing           @relation(fields: [listingId], references: [id])
+  renter           User              @relation(fields: [renterId], references: [id])
+  timeline         BookingTimeline[]
 
   @@index([listingId])
   @@index([renterId])
@@ -199,60 +157,46 @@ model Booking {
 }
 
 model Review {
-  id     String   @id @default(cuid())
-  rating Int
-  text   String
-  images String[]
-
-  listing   Listing @relation(fields: [listingId], references: [id])
+  id        String          @id @default(cuid())
+  rating    Int
+  text      String
+  images    String[]
   listingId String
-  user      User    @relation(fields: [userId], references: [id])
   userId    String
-
-  // Enhanced Reviews
-  response ReviewResponse?
-  votes    ReviewVote[]
-
-  createdAt DateTime @default(now())
+  createdAt DateTime        @default(now())
+  listing   Listing         @relation(fields: [listingId], references: [id])
+  user      User            @relation(fields: [userId], references: [id])
+  response  ReviewResponse?
+  votes     ReviewVote[]
 
   @@index([listingId])
   @@index([userId])
 }
 
 model Notification {
-  id      String  @id @default(cuid())
-  type    String
-  title   String
-  message String
-  read    Boolean @default(false)
-
-  user   User   @relation(fields: [userId], references: [id])
-  userId String
-
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  userId    String
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
 
 model Badge {
   id          String @id @default(cuid())
-  name        String
+  name        String @unique
   description String
   icon        String
-
-  users User[]
-
-  @@unique([name])
+  users       User[] @relation("BadgeToUser")
 }
-
-// ═══════════════════════════════════════════
-//  LISTING ENHANCEMENTS
-// ═══════════════════════════════════════════
 
 model ListingMedia {
   id        String    @id @default(cuid())
   listingId String
-  listing   Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
   url       String
   type      MediaType @default(IMAGE)
   order     Int       @default(0)
@@ -262,30 +206,30 @@ model ListingMedia {
   duration  Float?
   thumbnail String?
   createdAt DateTime  @default(now())
+  listing   Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@index([listingId])
   @@index([listingId, order])
 }
 
 model ListingPricing {
-  id        String  @id @default(cuid())
-  listingId String  @unique
-  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-
+  id                String  @id @default(cuid())
+  listingId         String  @unique
   hourlyPrice       Float?
   dailyPrice        Float
   weeklyPrice       Float?
   monthlyPrice      Float?
-  weekendMultiplier Float  @default(1.0)
+  weekendMultiplier Float   @default(1.0)
+  listing           Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 }
 
 model DatePriceOverride {
   id        String   @id @default(cuid())
   listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
   date      DateTime
   price     Float
   reason    String?
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@unique([listingId, date])
   @@index([listingId])
@@ -296,7 +240,7 @@ model CategoryAttribute {
   category    String
   name        String
   label       String
-  type        String // text, number, select, boolean, date
+  type        String
   options     String[]
   required    Boolean  @default(false)
   order       Int      @default(0)
@@ -310,26 +254,22 @@ model CategoryAttribute {
 model ListingAttribute {
   id        String  @id @default(cuid())
   listingId String
-  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
   key       String
   value     String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@unique([listingId, key])
   @@index([listingId])
 }
 
-// ═══════════════════════════════════════════
-//  BOOKING WORKFLOW
-// ═══════════════════════════════════════════
-
 model BookingTimeline {
   id        String   @id @default(cuid())
   bookingId String
-  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   status    String
   note      String?
-  actor     String // "renter", "host", "system"
+  actor     String
   createdAt DateTime @default(now())
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
 }
@@ -337,32 +277,26 @@ model BookingTimeline {
 model CalendarBlock {
   id        String   @id @default(cuid())
   listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
   startDate DateTime
   endDate   DateTime
   reason    String?
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@index([listingId])
   @@index([listingId, startDate, endDate])
 }
 
-// ═══════════════════════════════════════════
-//  ENGAGEMENT & DISCOVERY
-// ═══════════════════════════════════════════
-
 model WishlistCollection {
-  id        String  @id @default(cuid())
+  id        String         @id @default(cuid())
   userId    String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String  @default("Saved Items")
-  emoji     String  @default("heart")
-  isDefault Boolean @default(false)
-  isPublic  Boolean @default(false)
-
-  items WishlistItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  name      String         @default("Saved Items")
+  emoji     String         @default("heart")
+  isDefault Boolean        @default(false)
+  isPublic  Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     WishlistItem[]
 
   @@index([userId])
 }
@@ -370,11 +304,11 @@ model WishlistCollection {
 model WishlistItem {
   id           String             @id @default(cuid())
   collectionId String
-  collection   WishlistCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   listingId    String
-  listing      Listing            @relation(fields: [listingId], references: [id], onDelete: Cascade)
   note         String?
   addedAt      DateTime           @default(now())
+  collection   WishlistCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  listing      Listing            @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@unique([collectionId, listingId])
   @@index([collectionId])
@@ -383,10 +317,10 @@ model WishlistItem {
 model RecentlyViewed {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
   viewedAt  DateTime @default(now())
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, listingId])
   @@index([userId, viewedAt(sort: Desc)])
@@ -395,10 +329,10 @@ model RecentlyViewed {
 model HostFollow {
   id         String   @id @default(cuid())
   followerId String
-  follower   User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
   hostId     String
-  host       User     @relation("Followers", fields: [hostId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
+  follower   User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  host       User     @relation("Followers", fields: [hostId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, hostId])
   @@index([hostId])
@@ -408,22 +342,17 @@ model HostFollow {
 model ActivityEvent {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      String
   metadata  Json?
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt(sort: Desc)])
 }
 
-// ═══════════════════════════════════════════
-//  REPUTATION & HOST PROFILES
-// ═══════════════════════════════════════════
-
 model HostProfile {
   id               String    @id @default(cuid())
   userId           String    @unique
-  user             User      @relation(fields: [userId], references: [id])
   level            HostLevel @default(BRONZE)
   responseRate     Float     @default(100)
   avgResponseTime  Int       @default(0)
@@ -432,45 +361,41 @@ model HostProfile {
   totalRentals     Int       @default(0)
   memberSince      DateTime  @default(now())
   lastCalculated   DateTime  @default(now())
+  user             User      @relation(fields: [userId], references: [id])
 
   @@index([level])
   @@index([userId])
 }
 
-// ═══════════════════════════════════════════
-//  MARKETPLACE GROWTH
-// ═══════════════════════════════════════════
-
 model Referral {
   id           String         @id @default(cuid())
   referrerId   String
-  referrer     User           @relation("Referrals", fields: [referrerId], references: [id])
   refereeId    String?
-  referee      User?          @relation("ReferredBy", fields: [refereeId], references: [id])
   code         String         @unique
   status       ReferralStatus @default(PENDING)
   rewardAmount Float          @default(10)
   redeemedAt   DateTime?
   createdAt    DateTime       @default(now())
+  referee      User?          @relation("ReferredBy", fields: [refereeId], references: [id])
+  referrer     User           @relation("Referrals", fields: [referrerId], references: [id])
 
   @@index([referrerId])
   @@index([code])
 }
 
 model PromoCode {
-  id             String    @id @default(cuid())
-  code           String    @unique
+  id             String            @id @default(cuid())
+  code           String            @unique
   discountType   String
   discountValue  Float
   maxUses        Int?
-  currentUses    Int       @default(0)
+  currentUses    Int               @default(0)
   minOrderAmount Float?
-  validFrom      DateTime  @default(now())
+  validFrom      DateTime          @default(now())
   validUntil     DateTime?
-  active         Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-
-  redemptions PromoRedemption[]
+  active         Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  redemptions    PromoRedemption[]
 
   @@index([code])
 }
@@ -478,12 +403,12 @@ model PromoCode {
 model PromoRedemption {
   id        String    @id @default(cuid())
   promoId   String
-  promo     PromoCode @relation(fields: [promoId], references: [id])
   userId    String
-  user      User      @relation(fields: [userId], references: [id])
   bookingId String?
   discount  Float
   createdAt DateTime  @default(now())
+  promo     PromoCode @relation(fields: [promoId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
 
   @@unique([promoId, userId])
   @@index([userId])
@@ -492,11 +417,11 @@ model PromoRedemption {
 model ListingBoost {
   id        String   @id @default(cuid())
   listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id])
   type      String
   startDate DateTime @default(now())
   endDate   DateTime
   active    Boolean  @default(true)
+  listing   Listing  @relation(fields: [listingId], references: [id])
 
   @@index([listingId])
   @@index([type, active])
@@ -518,12 +443,8 @@ model Campaign {
   @@index([position, active])
 }
 
-// ═══════════════════════════════════════════
-//  ADMIN MODELS
-// ═══════════════════════════════════════════
-
 model AuditLog {
-  id         String  @id @default(cuid())
+  id         String   @id @default(cuid())
   action     String
   module     String
   targetType String?
@@ -531,11 +452,9 @@ model AuditLog {
   details    Json?
   ipAddress  String?
   userAgent  String?
-
-  admin   User   @relation("AdminAuditLogs", fields: [adminId], references: [id])
-  adminId String
-
-  createdAt DateTime @default(now())
+  adminId    String
+  createdAt  DateTime @default(now())
+  admin      User     @relation("AdminAuditLogs", fields: [adminId], references: [id])
 
   @@index([adminId])
   @@index([module])
@@ -544,27 +463,25 @@ model AuditLog {
 }
 
 model FeatureFlag {
-  id          String  @id @default(cuid())
-  key         String  @unique
+  id          String   @id @default(cuid())
+  key         String   @unique
   name        String
   description String?
-  enabled     Boolean @default(false)
-  rollout     Int     @default(0)
+  enabled     Boolean  @default(false)
+  rollout     Int      @default(0)
   metadata    Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model ContentBlock {
-  id      String  @id @default(cuid())
-  section String
-  key     String
-  value   String
-  type    String  @default("text")
-  order   Int     @default(0)
-  active  Boolean @default(true)
-
+  id        String   @id @default(cuid())
+  section   String
+  key       String
+  value     String
+  type      String   @default("text")
+  order     Int      @default(0)
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -573,14 +490,13 @@ model ContentBlock {
 }
 
 model PlatformSetting {
-  id          String  @id @default(cuid())
-  key         String  @unique
+  id          String   @id @default(cuid())
+  key         String   @unique
   value       String
-  type        String  @default("string")
-  group       String  @default("general")
+  type        String   @default("string")
+  group       String   @default("general")
   description String?
-
-  updatedAt DateTime @updatedAt
+  updatedAt   DateTime @updatedAt
 }
 
 model ModerationItem {
@@ -591,14 +507,12 @@ model ModerationItem {
   reason     String?
   status     ModerationStatus @default(PENDING)
   priority   Int              @default(0)
-
-  reviewer   User?     @relation("ModeratorReviews", fields: [reviewerId], references: [id])
   reviewerId String?
   reviewNote String?
   reviewedAt DateTime?
-  deletedAt DateTime?
-
-  createdAt DateTime @default(now())
+  deletedAt  DateTime?
+  createdAt  DateTime         @default(now())
+  reviewer   User?            @relation("ModeratorReviews", fields: [reviewerId], references: [id])
 
   @@index([status])
   @@index([type])
@@ -606,13 +520,12 @@ model ModerationItem {
 }
 
 model AIConfig {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   system      String
   parameter   String
   value       String
   description String?
-
-  updatedAt DateTime @updatedAt
+  updatedAt   DateTime @updatedAt
 
   @@unique([system, parameter])
 }
@@ -628,73 +541,59 @@ model NotificationCampaign {
   scheduledAt DateTime?
   sentAt      DateTime?
   sentCount   Int       @default(0)
-
-  admin   User   @relation("CampaignCreator", fields: [adminId], references: [id])
-  adminId String
-
-  createdAt DateTime @default(now())
+  adminId     String
+  createdAt   DateTime  @default(now())
+  admin       User      @relation("CampaignCreator", fields: [adminId], references: [id])
 }
 
-// ═══════════════════════════════════════════
-//  REPUTATION & SUBSCRIPTION SYSTEM
-// ═══════════════════════════════════════════
-
 model Subscription {
-  id              String           @id @default(cuid())
-  userId          String           @unique
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tier            SubscriptionTier @default(FREE)
-  monthlyPrice    Float            @default(0)
-  startDate       DateTime         @default(now())
-  renewalDate     DateTime?
-  cancelledAt     DateTime?
-  isActive        Boolean          @default(true)
-  paymentMethod   String?
-  features        String[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String           @id @default(cuid())
+  userId        String           @unique
+  tier          SubscriptionTier @default(FREE)
+  monthlyPrice  Float            @default(0)
+  startDate     DateTime         @default(now())
+  renewalDate   DateTime?
+  cancelledAt   DateTime?
+  isActive      Boolean          @default(true)
+  paymentMethod String?
+  features      String[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([tier])
 }
 
 model UserReputation {
-  id                String  @id @default(cuid())
-  userId            String  @unique
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Trust Score Components (0-100 each)
-  transactionScore  Float   @default(50)
-  reviewScore       Float   @default(50)
-  verificationScore Float   @default(0)
-  activityScore     Float   @default(30)
-  responseScore     Float   @default(50)
-  
-  // Negative Factors
-  reportCount       Int     @default(0)
-  disputeCount      Int     @default(0)
-  cancelCount       Int     @default(0)
-  spamCount         Int     @default(0)
-  
-  // Computed
-  overallScore      Float   @default(50)
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  transactionScore  Float    @default(50)
+  reviewScore       Float    @default(50)
+  verificationScore Float    @default(0)
+  activityScore     Float    @default(30)
+  responseScore     Float    @default(50)
+  reportCount       Int      @default(0)
+  disputeCount      Int      @default(0)
+  cancelCount       Int      @default(0)
+  spamCount         Int      @default(0)
+  overallScore      Float    @default(50)
   lastCalculated    DateTime @default(now())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([overallScore(sort: Desc)])
 }
 
 model Connection {
-  id          String         @id @default(cuid())
-  fromUserId  String
-  fromUser    User           @relation("ConnectionFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
-  toUserId    String
-  toUser      User           @relation("ConnectionTo", fields: [toUserId], references: [id], onDelete: Cascade)
-  type        ConnectionType @default(FOLLOWER)
-  note        String?
-  
-  createdAt DateTime @default(now())
+  id         String         @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  type       ConnectionType @default(FOLLOWER)
+  note       String?
+  createdAt  DateTime       @default(now())
+  fromUser   User           @relation("ConnectionFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User           @relation("ConnectionTo", fields: [toUserId], references: [id], onDelete: Cascade)
 
   @@unique([fromUserId, toUserId])
   @@index([fromUserId])
@@ -703,16 +602,16 @@ model Connection {
 }
 
 model Achievement {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   userId      String
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  key         String  // e.g., "first_listing", "10_transactions", "verified_identity"
+  key         String
   title       String
   description String
   icon        String
-  category    String  @default("general") // "engagement", "trust", "commerce", "social"
-  rarity      String  @default("common")  // "common", "rare", "epic", "legendary"
+  category    String   @default("general")
+  rarity      String   @default("common")
   unlockedAt  DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, key])
   @@index([userId])
@@ -722,20 +621,133 @@ model Achievement {
 model PointLedger {
   id          String   @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  activity    String   // e.g., "listing_created", "transaction_completed", "review_received"
+  activity    String
   points      Int
   description String
   metadata    Json?
   createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([activity])
 }
 
-// ═══════════════════════════════════════════
-//  ENUMS
-// ═══════════════════════════════════════════
+model ChatRoom {
+  id        String       @id @default(cuid())
+  isGroup   Boolean      @default(false)
+  name      String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  members   ChatMember[]
+  messages  Message[]
+}
+
+model ChatMember {
+  id         String    @id @default(cuid())
+  userId     String
+  chatRoomId String
+  nickname   String?
+  isMuted    Boolean   @default(false)
+  isPinned   Boolean   @default(false)
+  lastReadAt DateTime? @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  chatRoom   ChatRoom  @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chatRoomId])
+  @@index([userId])
+  @@index([chatRoomId])
+}
+
+model Message {
+  id              String            @id @default(cuid())
+  content         String?
+  senderId        String
+  chatRoomId      String
+  replyToId       String?
+  isForwarded     Boolean           @default(false)
+  forwardedFromId String?
+  isRead          Boolean           @default(false)
+  isEdited        Boolean           @default(false)
+  isDeleted       Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  attachments     Attachment[]
+  chatRoom        ChatRoom          @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  replyTo         Message?          @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies         Message[]         @relation("MessageReplies")
+  sender          User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  reactions       MessageReaction[]
+
+  @@index([chatRoomId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([chatRoomId, createdAt])
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+model Attachment {
+  id        String         @id @default(cuid())
+  messageId String
+  url       String
+  type      AttachmentType
+  name      String?
+  size      Int?
+  createdAt DateTime       @default(now())
+  message   Message        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([type])
+}
+
+model ListingView {
+  id        String   @id @default(cuid())
+  listingId String
+  viewerId  String?
+  source    String?
+  createdAt DateTime @default(now())
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  viewer    User?    @relation("ListingViews", fields: [viewerId], references: [id])
+
+  @@index([listingId, createdAt])
+  @@index([viewerId])
+}
+
+model ReviewResponse {
+  id        String   @id @default(cuid())
+  reviewId  String   @unique
+  userId    String
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User     @relation("ReviewResponses", fields: [userId], references: [id])
+}
+
+model ReviewVote {
+  id       String  @id @default(cuid())
+  reviewId String
+  userId   String
+  helpful  Boolean
+  review   Review  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user     User    @relation("ReviewVotes", fields: [userId], references: [id])
+
+  @@unique([reviewId, userId])
+  @@index([reviewId])
+}
 
 enum Role {
   USER
@@ -828,163 +840,10 @@ enum ModerationStatus {
   ESCALATED
 }
 
-// ==========================================
-// CHAT & MESSAGING SYSTEM
-// ==========================================
-
-model ChatRoom {
-  id          String   @id @default(cuid())
-  isGroup     Boolean  @default(false)
-  name        String?  // Optional name for group chats
-  
-  members     ChatMember[]
-  messages    Message[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model ChatMember {
-  id          String   @id @default(cuid())
-  
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  chatRoomId  String
-  chatRoom    ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
-
-  // Personalization & Settings
-  nickname    String?
-  isMuted     Boolean  @default(false)
-  isPinned    Boolean  @default(false)
-  
-  // Tracking
-  lastReadAt  DateTime? @default(now())
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([userId, chatRoomId])
-  @@index([userId])
-  @@index([chatRoomId])
-}
-
-model Message {
-  id          String   @id @default(cuid())
-  
-  content     String?  // Optional if sending only attachments
-  
-  senderId    String
-  sender      User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  
-  chatRoomId  String
-  chatRoom    ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
-
-  // Reply-to (self-relation for quoting)
-  replyToId   String?
-  replyTo     Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies     Message[] @relation("MessageReplies")
-
-  // Forwarding
-  isForwarded     Boolean @default(false)
-  forwardedFromId String? // original message id for reference
-
-  // Status
-  isRead      Boolean  @default(false)
-  isEdited    Boolean  @default(false)
-  isDeleted   Boolean  @default(false)
-
-  // Rich Media
-  attachments Attachment[]
-  reactions   MessageReaction[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([chatRoomId])
-  @@index([senderId])
-  @@index([createdAt])
-  @@index([chatRoomId, createdAt])
-}
-
-model MessageReaction {
-  id          String   @id @default(cuid())
-  
-  messageId   String
-  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  emoji       String   // The emoji character or shortcode
-
-  createdAt   DateTime @default(now())
-
-  @@unique([messageId, userId, emoji])
-  @@index([messageId])
-}
-
-model Attachment {
-  id          String   @id @default(cuid())
-  
-  messageId   String
-  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  
-  url         String
-  type        AttachmentType
-  name        String?  // Original file name
-  size        Int?     // Size in bytes
-
-  createdAt   DateTime @default(now())
-
-  @@index([messageId])
-  @@index([type])
-}
-
 enum AttachmentType {
   IMAGE
   VIDEO
   DOCUMENT
   AUDIO
   LISTING_SHARE
-}
-
-// ═══════════════════════════════════════════
-//  ANALYTICS & ENHANCED REVIEWS
-// ═══════════════════════════════════════════
-
-model ListingView {
-  id        String   @id @default(cuid())
-  listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  viewerId  String?
-  viewer    User?    @relation("ListingViews", fields: [viewerId], references: [id])
-  source    String?  // 'explore', 'search', 'direct', 'share'
-  createdAt DateTime @default(now())
-
-  @@index([listingId, createdAt])
-  @@index([viewerId])
-}
-
-model ReviewResponse {
-  id        String   @id @default(cuid())
-  reviewId  String   @unique
-  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation("ReviewResponses", fields: [userId], references: [id])
-  text      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model ReviewVote {
-  id       String  @id @default(cuid())
-  reviewId String
-  review   Review  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  userId   String
-  user     User    @relation("ReviewVotes", fields: [userId], references: [id])
-  helpful  Boolean
-
-  @@unique([reviewId, userId])
-  @@index([reviewId])
 }
