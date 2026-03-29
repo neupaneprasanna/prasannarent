@@ -80,7 +80,7 @@ export default function LiveMarketplace() {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#F59E0B] to-orange-600 flex items-center justify-center">
             <span className="font-bold text-white text-lg">R</span>
           </div>
-          <span className="text-xl font-bold tracking-tight">RentVerse</span>
+          <span className="text-xl font-bold tracking-tight">Nexis</span>
         </div>
         
         <div className="hidden md:flex items-center gap-6 text-sm font-medium text-[#FEF9EF]/80">

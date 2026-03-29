@@ -37,16 +37,16 @@ const features = [
     {
         icon: <TrendingUp size={40} strokeWidth={1.5} />,
         title: 'earn as owner',
-        description: 'list your items and earn passive income. average owners make $1,200/month on RentVerse.',
+        description: 'list your items and earn passive income. average owners make $1,200/month on Nexis.',
         color: '#00FFE1',
     },
 ];
 
 const spring = { type: 'spring' as const, stiffness: 100, damping: 20 };
 
-export default function WhyRentVerse() {
+export default function WhyNexis() {
     return (
-        <section className="section-padding relative overflow-hidden" id="why-rentverse">
+        <section className="section-padding relative overflow-hidden" id="why-nexis">
             {/* Background gradient */}
             <div className="absolute inset-0 pointer-events-none"
                 style={{
@@ -66,7 +66,7 @@ export default function WhyRentVerse() {
                             transition={spring}
                         >
                             <span className="text-label mb-4 block" style={{ color: '#7A5CFF', textShadow: '0 0 20px rgba(122,92,255,0.3)' }}>
-                                why rentverse
+                                why nexis
                             </span>
                             <h2 className="text-section mb-6">
                                 built for<br/><span className="gradient-text">modern</span> life

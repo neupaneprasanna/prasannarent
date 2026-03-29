@@ -8,7 +8,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         const listing = await prisma.listing.findUnique({
             where: { id },
             include: {
-                owner: { select: { firstName: true, verified: true, avatar: true, bio: true } },
+                owner: { select: { id: true, firstName: true, verified: true, avatar: true, bio: true } },
                 media: { orderBy: { order: 'asc' } },
                 pricing: true,
                 attributes: true
@@ -16,6 +16,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         });
 
         if (!listing) return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
+
+        // Track view for analytics (fire and forget)
+        const user = await authenticate(req).catch(() => null);
+        (prisma as any).listingView.create({
+            data: {
+                listingId: id,
+                viewerId: user?.userId || null,
+                source: 'direct',
+            }
+        }).catch(() => {}); // Don't block response for view tracking
+
+        // Increment legacy view counter
+        prisma.listing.update({
+            where: { id },
+            data: { views: { increment: 1 } }
+        }).catch(() => {});
 
         return NextResponse.json({ listing });
     } catch (error) {

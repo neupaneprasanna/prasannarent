@@ -7,6 +7,7 @@ import MagneticButton from '@/components/cursor/MagneticButton';
 import { fadeInUp } from '@/lib/animations/motion-config';
 import { useAuthStore, type User } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
+import Logo from '@/components/ui/Logo';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -48,16 +49,10 @@ export default function LoginPage() {
                 transition={{ duration: 0.8 }}
             >
                 {/* Logo */}
-                <motion.div className="text-center mb-8" variants={fadeInUp} initial="hidden" animate="visible">
-                    <a href="/" className="inline-flex items-center gap-2 mb-6">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6c5ce7] to-[#a29bfe] flex items-center justify-center">
-                            <span className="text-white font-bold text-lg">R</span>
-                        </div>
-                        <span className="text-2xl font-bold">
-                            <span className="gradient-text">Rent</span>
-                            <span className="text-white/90">Verse</span>
-                        </span>
-                    </a>
+                <motion.div className="text-center mb-8 flex flex-col items-center" variants={fadeInUp} initial="hidden" animate="visible">
+                    <div className="mb-6 block inline-flex">
+                        <Logo size="lg" />
+                    </div>
                     <h1 className="text-2xl md:text-3xl font-bold text-white/90 mb-2">Welcome Back</h1>
                     <p className="text-sm text-white/40">Sign in to access your rentals</p>
                 </motion.div>

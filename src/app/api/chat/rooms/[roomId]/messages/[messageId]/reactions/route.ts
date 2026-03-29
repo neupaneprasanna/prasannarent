@@ -10,8 +10,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ roomId:
         if (!currentUserId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         const { roomId, messageId } = await params;
-        const { emoji } = await req.json();
-
+        
+        let body;
+        try {
+            body = await req.json();
+        } catch (e) {
+            return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+        }
+        
+        const { emoji } = body;
         if (!emoji) return NextResponse.json({ error: 'Emoji is required' }, { status: 400 });
 
         // Verify membership
@@ -27,24 +34,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ roomId:
 
         if (existing) {
             await prisma.messageReaction.delete({ where: { id: existing.id } });
-            // Return all reactions for the message
-            const reactions = await prisma.messageReaction.findMany({
-                where: { messageId },
-                include: { user: { select: { id: true, firstName: true } } }
-            });
-            return NextResponse.json({ action: 'removed', reactions, messageId, chatRoomId: roomId });
         } else {
             await prisma.messageReaction.create({
                 data: { messageId, userId: currentUserId, emoji }
             });
-            const reactions = await prisma.messageReaction.findMany({
-                where: { messageId },
-                include: { user: { select: { id: true, firstName: true } } }
-            });
-            return NextResponse.json({ action: 'added', reactions, messageId, chatRoomId: roomId });
         }
-    } catch (error) {
-        console.error('Error toggling reaction:', error);
-        return NextResponse.json({ error: 'Failed to toggle reaction' }, { status: 500 });
+
+        // Return all reactions for the message
+        const reactions = await prisma.messageReaction.findMany({
+            where: { messageId },
+            include: { user: { select: { id: true, firstName: true } } }
+        });
+        
+        return NextResponse.json({ 
+            action: existing ? 'removed' : 'added', 
+            reactions, 
+            messageId, 
+            chatRoomId: roomId 
+        });
+    } catch (error: any) {
+        console.error('Error toggling reaction:', error?.message || error);
+        return NextResponse.json({ error: 'Failed to toggle reaction', details: error?.message }, { status: 500 });
     }
 }

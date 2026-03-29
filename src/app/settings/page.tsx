@@ -317,7 +317,7 @@ export default function SettingsPage() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'my-rentverse-data.json';
+            a.download = 'my-nexis-data.json';
             a.click();
             URL.revokeObjectURL(url);
             setSuccess('Data exported successfully!');

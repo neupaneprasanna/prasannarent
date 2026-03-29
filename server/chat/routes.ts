@@ -97,6 +97,7 @@ chatRoutes.get('/rooms/:roomId/messages', async (req: AuthRequest, res: Response
             take: take,
             include: {
                 attachments: true,
+                reactions: true,
                 sender: { select: { id: true, firstName: true, lastName: true, avatar: true } }
             }
         });
@@ -346,6 +347,39 @@ chatRoutes.delete('/rooms/:roomId/messages/:messageId', async (req: AuthRequest,
     }
 });
 
+// 7b. Edit a message
+chatRoutes.patch('/rooms/:roomId/messages/:messageId', async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId || req.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        const { roomId, messageId } = req.params;
+        const { content } = req.body;
+
+        if (!content || !content.trim()) return res.status(400).json({ error: 'Content is required' });
+
+        const message = await prisma.message.findUnique({ where: { id: messageId } });
+        if (!message) return res.status(404).json({ error: 'Message not found' });
+        if (message.senderId !== userId) return res.status(403).json({ error: 'Can only edit your own messages' });
+        if (message.chatRoomId !== roomId) return res.status(400).json({ error: 'Message does not belong to this room' });
+
+        const updated = await prisma.message.update({
+            where: { id: messageId },
+            data: { content: content.trim(), isEdited: true },
+            include: {
+                attachments: true,
+                reactions: true,
+                sender: { select: { id: true, firstName: true, lastName: true, avatar: true } }
+            }
+        });
+
+        res.json({ ...updated, chatRoomId: roomId });
+    } catch (error) {
+        console.error('Error editing message:', error);
+        res.status(500).json({ error: 'Failed to edit message' });
+    }
+});
+
 // 8. Update Chat Member Settings (Mute/Pin)
 chatRoutes.patch('/rooms/:roomId/settings', async (req: AuthRequest, res: Response) => {
     try {
@@ -370,6 +404,96 @@ chatRoutes.patch('/rooms/:roomId/settings', async (req: AuthRequest, res: Respon
     } catch (error) {
         console.error('Error updating chat settings:', error);
         res.status(500).json({ error: 'Failed to update settings' });
+    }
+});
+
+// 9. Toggle reaction on a message
+chatRoutes.post('/rooms/:roomId/messages/:messageId/reactions', async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId || req.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        const { roomId, messageId } = req.params;
+        const { emoji } = req.body;
+
+        if (!emoji) return res.status(400).json({ error: 'Emoji is required' });
+
+        // Verify membership
+        const member = await prisma.chatMember.findUnique({
+            where: { userId_chatRoomId: { userId, chatRoomId: roomId } }
+        });
+        if (!member) return res.status(403).json({ error: 'Not a member of this chat' });
+
+        // Verify message exists in this room
+        const message = await prisma.message.findFirst({
+            where: { id: messageId, chatRoomId: roomId }
+        });
+        if (!message) return res.status(404).json({ error: 'Message not found' });
+
+        // Check if user already reacted with this emoji (toggle behavior)
+        const existing = await prisma.messageReaction.findUnique({
+            where: {
+                messageId_userId_emoji: { messageId, userId, emoji }
+            }
+        });
+
+        if (existing) {
+            // Remove the reaction (toggle off)
+            await prisma.messageReaction.delete({ where: { id: existing.id } });
+        } else {
+            // Add the reaction
+            await prisma.messageReaction.create({
+                data: { messageId, userId, emoji }
+            });
+        }
+
+        // Return all reactions for this message
+        const reactions = await prisma.messageReaction.findMany({
+            where: { messageId },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        res.json({ messageId, reactions });
+    } catch (error) {
+        console.error('Error toggling reaction:', error);
+        res.status(500).json({ error: 'Failed to toggle reaction' });
+    }
+});
+
+// 10. Search messages in a room
+chatRoutes.get('/rooms/:roomId/messages/search', async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId || req.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        const { roomId } = req.params;
+        const q = req.query.q as string;
+
+        if (!q || q.trim().length < 2) return res.json({ results: [] });
+
+        // Verify membership
+        const member = await prisma.chatMember.findUnique({
+            where: { userId_chatRoomId: { userId, chatRoomId: roomId } }
+        });
+        if (!member) return res.status(403).json({ error: 'Not a member of this chat' });
+
+        const results = await prisma.message.findMany({
+            where: {
+                chatRoomId: roomId,
+                isDeleted: false,
+                content: { contains: q, mode: 'insensitive' }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            include: {
+                sender: { select: { id: true, firstName: true, avatar: true } }
+            }
+        });
+
+        res.json({ results });
+    } catch (error) {
+        console.error('Error searching messages:', error);
+        res.status(500).json({ error: 'Failed to search messages' });
     }
 });
 

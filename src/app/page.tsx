@@ -9,7 +9,7 @@ import Categories from '@/components/sections/Categories';
 import TrendingCarousel from '@/components/sections/TrendingCarousel';
 import LiveStats from '@/components/sections/LiveStats';
 import HowItWorks from '@/components/sections/HowItWorks';
-import WhyRentVerse from '@/components/sections/WhyRentVerse';
+import WhyNexis from '@/components/sections/WhyNexis';
 import TrustSafety from '@/components/sections/TrustSafety';
 import Testimonials from '@/components/sections/Testimonials';
 import WorldMap from '@/components/sections/WorldMap';
@@ -52,15 +52,15 @@ export default function HomePage() {
                 <RecentlyViewedSection />
             </DimensionalReveal>
 
-            {/* ∿ seam: Recently Viewed → Why RentVerse */}
-            <WorldDivider color="#7A5CFF" label="why rentverse" />
+            {/* ∿ seam: Recently Viewed → Why Nexis */}
+            <WorldDivider color="#7A5CFF" label="why nexis" />
 
-            {/* ─── World 3: Why RentVerse — 3-D page-turn from the left ─── */}
+            {/* ─── World 3: Why Nexis — 3-D page-turn from the left ─── */}
             <DimensionalReveal variant="warp">
-                <WhyRentVerse />
+                <WhyNexis />
             </DimensionalReveal>
 
-            {/* ∿ seam: Why RentVerse → Live Stats */}
+            {/* ∿ seam: Why Nexis → Live Stats */}
             <WorldDivider color="#00F0FF" label="live stats" />
 
             {/* ─── World 4: Live Stats — erupts upward with perspective tilt ─── */}

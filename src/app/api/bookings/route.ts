@@ -38,6 +38,31 @@ export async function POST(req: Request) {
         if (!listing) return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
         if (!listing.available) return NextResponse.json({ error: 'Listing not available' }, { status: 400 });
 
+        // Check for conflicting bookings
+        const conflictingBooking = await prisma.booking.findFirst({
+            where: {
+                listingId,
+                status: { in: ['CONFIRMED', 'ACTIVE'] },
+                startDate: { lte: new Date(endDate) },
+                endDate: { gte: new Date(startDate) },
+            }
+        });
+        if (conflictingBooking) {
+            return NextResponse.json({ error: 'These dates conflict with an existing booking' }, { status: 400 });
+        }
+
+        // Check for blocked dates
+        const blockedDate = await prisma.calendarBlock.findFirst({
+            where: {
+                listingId,
+                startDate: { lte: new Date(endDate) },
+                endDate: { gte: new Date(startDate) },
+            }
+        });
+        if (blockedDate) {
+            return NextResponse.json({ error: 'Some of the selected dates are blocked by the owner' }, { status: 400 });
+        }
+
         const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
         if (!dbUser) return NextResponse.json({ error: 'User session invalid' }, { status: 401 });
 

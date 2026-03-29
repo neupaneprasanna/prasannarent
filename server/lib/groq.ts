@@ -33,7 +33,7 @@ export async function detectSearchIntent(query: string, categories: string[]): P
             messages: [
                 {
                     role: "system",
-                    content: `You are an AI search assistant for RentVerse, a peer-to-peer rental platform. 
+                    content: `You are an AI search assistant for Nexis, a peer-to-peer rental platform. 
                     Your goal is to parse user natural language queries into structured search parameters.
                     
                     Available categories: ${categories.join(', ')}

@@ -142,7 +142,7 @@ export default function SpatialImmersion() {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
             <Compass className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight">RentVerse</span>
+          <span className="text-xl font-bold tracking-tight">Nexis</span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-300">
           <a href="#" className="hover:text-white transition-colors">Explore</a>

@@ -9,6 +9,7 @@ import { useAuthStore, type User } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
 
 import { supabase } from '@/lib/supabase';
+import Logo from '@/components/ui/Logo';
 
 const steps = ['Account', 'Profile', 'Security', 'Preferences'];
 
@@ -142,16 +143,10 @@ export default function RegisterPage() {
                 transition={{ duration: 0.8 }}
             >
                 {/* Logo */}
-                <div className="text-center mb-8">
-                    <a href="/" className="inline-flex items-center gap-2 mb-6">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6c5ce7] to-[#a29bfe] flex items-center justify-center">
-                            <span className="text-white font-bold text-lg">R</span>
-                        </div>
-                        <span className="text-2xl font-bold">
-                            <span className="gradient-text">Rent</span>
-                            <span className="text-white/90">Verse</span>
-                        </span>
-                    </a>
+                <div className="text-center mb-8 flex flex-col items-center">
+                    <div className="mb-6 block inline-flex">
+                        <Logo size="lg" />
+                    </div>
                     <h1 className="text-2xl md:text-3xl font-bold text-white/90 mb-2">Create Account</h1>
                     <p className="text-sm text-white/40">Join the future of renting</p>
                 </div>

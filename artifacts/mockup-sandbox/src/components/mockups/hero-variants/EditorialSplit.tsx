@@ -16,7 +16,7 @@ export default function EditorialSplit() {
       {/* Navigation Bar (Minimal for hero) */}
       <nav className="w-full flex justify-between items-center py-6 px-8 md:px-16 border-b border-gray-200/50">
         <div className="font-['Playfair_Display'] text-2xl font-bold tracking-tight">
-          RentVerse.
+          Nexis.
         </div>
         <div className="hidden md:flex gap-8 text-sm font-medium">
           <a href="#" className="hover:text-[#3730A3] transition-colors">How it works</a>
@@ -56,7 +56,7 @@ export default function EditorialSplit() {
 
             <div className="flex items-center gap-2 text-sm text-gray-500 font-medium">
               <CheckCircle2 className="w-5 h-5 text-[#3730A3]" />
-              <span>Verified by RentVerse Guarantee</span>
+              <span>Verified by Nexis Guarantee</span>
             </div>
           </div>
         </div>

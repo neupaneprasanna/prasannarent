@@ -1,5 +1,5 @@
 /**
- * MOTION TOKENS — RentVerse Design System
+ * MOTION TOKENS — Nexis Design System
  * 
  * All motion must be spring-based.
  * No linear transitions.

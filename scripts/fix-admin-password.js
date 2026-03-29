@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 async function fixPassword() {
     const hashedPassword = await bcrypt.hash('password123', 10);
     const user = await prisma.user.update({
-        where: { email: 'james@rentverse.com' },
+        where: { email: 'james@nexis.com' },
         data: { password: hashedPassword },
     });
     console.log(`✅ Password hashed for ${user.email}`);

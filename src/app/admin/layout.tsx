@@ -112,7 +112,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     className="overflow-hidden whitespace-nowrap"
                                 >
                                     <h1 className="text-sm font-semibold bg-gradient-to-r from-[var(--admin-accent)] to-[var(--admin-accent-2)] bg-clip-text text-transparent font-display">
-                                        RentVerse
+                                        Nexis
                                     </h1>
                                     <p className="text-[10px] text-[var(--admin-text-tertiary)] -mt-0.5 font-bold tracking-widest uppercase">Control Center</p>
                                 </motion.div>

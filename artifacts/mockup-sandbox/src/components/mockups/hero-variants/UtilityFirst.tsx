@@ -35,7 +35,7 @@ export default function UtilityFirst() {
     <div className="min-h-screen w-full bg-white text-[#111827] flex flex-col items-center justify-center font-sans px-4 relative overflow-hidden">
       {/* Header/Wordmark */}
       <div className="absolute top-0 left-0 w-full p-8 flex justify-center md:justify-start">
-        <span className="text-xl font-bold tracking-tight">RentVerse</span>
+        <span className="text-xl font-bold tracking-tight">Nexis</span>
       </div>
 
       <div className="w-full max-w-[900px] flex flex-col items-center mt-16">

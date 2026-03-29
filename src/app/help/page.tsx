@@ -214,7 +214,7 @@ export default function HelpPage() {
                                 <Mail size={20} className="text-[#00cec9]" />
                             </div>
                             <h3 className="text-sm font-bold text-white mb-1">Email Us</h3>
-                            <p className="text-[10px] text-white/30">support@rentverse.com</p>
+                            <p className="text-[10px] text-white/30">support@nexis.com</p>
                         </div>
                         <div className="glass-card rounded-2xl p-6 text-center group hover:border-[#6c5ce7]/20 transition-all cursor-pointer">
                             <div className="w-12 h-12 rounded-xl bg-[#fdcb6e]/10 flex items-center justify-center mx-auto mb-3 group-hover:bg-[#fdcb6e]/20 transition-colors">

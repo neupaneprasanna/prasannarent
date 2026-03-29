@@ -121,7 +121,7 @@ export const useAdminAuthStore = create<AdminAuthState>()(
             clearError: () => set({ error: null }),
         }),
         {
-            name: 'rentverse-admin-auth',
+            name: 'nexis-admin-auth',
             partialize: (state) => ({
                 token: state.token,
                 user: state.user,

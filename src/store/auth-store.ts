@@ -28,7 +28,7 @@ export const useAuthStore = create<AuthState>()(
             logout: () => set({ user: null, token: null, isAuthenticated: false }),
         }),
         {
-            name: 'rentverse-auth',
+            name: 'nexis-auth',
         }
     )
 );

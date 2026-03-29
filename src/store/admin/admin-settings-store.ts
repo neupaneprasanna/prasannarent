@@ -33,9 +33,9 @@ export const useAdminSettingsStore = create<AdminSettingsState>()(
     persist(
         (set) => ({
             general: {
-                siteName: 'RentVerse',
+                siteName: 'Nexis',
                 maintenanceMode: false,
-                supportEmail: 'support@rentverse.com',
+                supportEmail: 'support@nexis.com',
             },
             registration: {
                 allowNewUsers: true,

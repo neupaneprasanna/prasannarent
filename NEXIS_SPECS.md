@@ -1,6 +1,6 @@
-# 🌌 RENTVERSE — Project Specifications
+# 🌌 NEXIS — Project Specifications
 
-Welcome to the comprehensive documentation for **RentVerse**, the ultra-premium marketplace for renting anything. This document outlines the core features, UI/UX design tokens, and the "physical" requirements needed to bring the project to a 100% completion.
+Welcome to the comprehensive documentation for **Nexis**, the ultra-premium marketplace for renting anything. This document outlines the core features, UI/UX design tokens, and the "physical" requirements needed to bring the project to a 100% completion.
 
 ---
 

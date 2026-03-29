@@ -13,6 +13,7 @@ import { useAppStore } from '@/store/app-store';
 import { useAuthStore } from '@/store/auth-store';
 import { useNotificationStore } from '@/store/notification-store';
 import Link from 'next/link';
+import Logo from '@/components/ui/Logo';
 
 const navItems = [
     { name: 'Home', href: '/', icon: Home, color: '#8B5CF6' },
@@ -128,26 +129,7 @@ export default function SideNav() {
                             onMouseEnter={() => setCursorVariant('hover')}
                             onMouseLeave={() => setCursorVariant('default')}
                         >
-                            <div className="relative shrink-0">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8B5CF6] to-[#A5B4FC] flex items-center justify-center group-hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-shadow duration-500">
-                                    <span className="text-[#020305] font-bold text-xs">R</span>
-                                </div>
-                                <div className="absolute inset-0 rounded-lg bg-[#8B5CF6] blur-lg opacity-0 group-hover:opacity-30 transition-opacity duration-500" />
-                            </div>
-                            <AnimatePresence>
-                                {isExpanded && (
-                                    <motion.span
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -10 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="text-sm font-medium whitespace-nowrap"
-                                    >
-                                        <span className="gradient-text">rent</span>
-                                        <span className="text-white/70">verse</span>
-                                    </motion.span>
-                                )}
-                            </AnimatePresence>
+                            <Logo size="sm" showText={isExpanded} />
                         </Link>
 
                         <div className="h-px mx-3 bg-white/[0.04]" />

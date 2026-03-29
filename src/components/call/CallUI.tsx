@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X } from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, RotateCcw, X, AlertTriangle, PhoneMissed } from 'lucide-react';
 import { useCall } from './CallProvider';
 
 // ─── Call Duration Timer ───
@@ -70,6 +70,58 @@ export default function CallUI() {
     if (call.status === 'idle') return null;
 
     const isVideo = call.callType === 'video';
+
+    // ─── FAILED / NO ANSWER ───
+    if (call.status === 'failed' || call.status === 'no-answer') {
+        const isNoAnswer = call.status === 'no-answer';
+        return (
+            <div className="fixed inset-0 z-[100002] flex items-center justify-center call-overlay" style={{ background: 'rgba(5, 5, 20, 0.95)', backdropFilter: 'blur(30px)' }}>
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[400px] h-[400px] rounded-full bg-red-500/5 blur-[120px]" />
+                </div>
+
+                <div className="relative flex flex-col items-center gap-6 p-8 max-w-[340px] text-center">
+                    {/* Icon */}
+                    <div className="w-24 h-24 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20">
+                        {isNoAnswer ? (
+                            <PhoneMissed size={36} className="text-red-400" />
+                        ) : (
+                            <AlertTriangle size={36} className="text-red-400" />
+                        )}
+                    </div>
+
+                    {/* Info */}
+                    <div>
+                        <h2 className="text-xl font-bold text-white mb-2">
+                            {isNoAnswer ? 'No Answer' : 'Call Failed'}
+                        </h2>
+                        <p className="text-white/40 text-sm leading-relaxed">
+                            {isNoAnswer
+                                ? `${call.remoteUserName} didn't answer the call.`
+                                : (call.failReason || 'The call could not be connected.')}
+                        </p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-5 mt-4">
+                        <button onClick={call.dismissCall} className="group flex flex-col items-center gap-2">
+                            <div className="w-14 h-14 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 border border-white/10">
+                                <X size={22} className="text-white/60" />
+                            </div>
+                            <span className="text-[10px] text-white/40">Close</span>
+                        </button>
+
+                        <button onClick={call.retryCall} className="group flex flex-col items-center gap-2">
+                            <div className="w-14 h-14 rounded-full bg-[#22c55e]/15 hover:bg-[#22c55e]/30 flex items-center justify-center transition-all duration-300 group-hover:scale-110 border border-[#22c55e]/30 shadow-[0_0_30px_rgba(34,197,94,0.15)]">
+                                <RotateCcw size={20} className="text-[#22c55e]" />
+                            </div>
+                            <span className="text-[10px] text-white/40">Retry</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     // ─── INCOMING CALL ───
     if (call.status === 'incoming') {

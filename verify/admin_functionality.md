@@ -1,6 +1,6 @@
 # Admin Functionality Checklist
 
-This document provides a comprehensive list of features and functionalities available to an administrator of RentVerse. Use this to verify the platform's stability and administrative control.
+This document provides a comprehensive list of features and functionalities available to an administrator of Nexis. Use this to verify the platform's stability and administrative control.
 
 ## 1. Admin Authentication
 - [ ] **Secure Login**

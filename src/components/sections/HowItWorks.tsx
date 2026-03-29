@@ -59,7 +59,7 @@ export default function HowItWorks() {
                 >
                     <span className="text-label mb-4 block" style={{ color: '#FF4D9D', textShadow: '0 0 20px rgba(255,77,157,0.3)' }}>simple process</span>
                     <h2 className="text-section mb-4">
-                        how <span className="gradient-text">rentverse</span> works
+                        how <span className="gradient-text">nexis</span> works
                     </h2>
                     <p className="text-body text-white/35 max-w-md mx-auto">
                         three simple steps to rent anything you need, anywhere in the world.

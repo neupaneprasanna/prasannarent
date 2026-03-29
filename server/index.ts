@@ -157,7 +157,7 @@ nextApp.prepare().then(() => {
                 // Actually, block everything except the explicit skips above for public users
                 return res.status(503).json({
                     error: 'System Maintenance',
-                    message: 'RentVerse is currently undergoing scheduled maintenance. Please try again later.'
+                    message: 'Nexis is currently undergoing scheduled maintenance. Please try again later.'
                 });
             }
         } catch (error) {
@@ -1279,9 +1279,17 @@ nextApp.prepare().then(() => {
         // ─── WebRTC Call Signaling ───
         socket.on('call:initiate', (data: { targetUserId: string; callerName: string; callerAvatar: string | null; callType: 'audio' | 'video'; roomId: string }) => {
             const callerId = (socket as any).userId;
-            if (!callerId) return;
+            if (!callerId) {
+                console.log('[Call] call:initiate failed — socket not authenticated');
+                socket.emit('call:unavailable', { targetUserId: data.targetUserId });
+                return;
+            }
+            console.log(`[Call] ${callerId} (${data.callerName}) calling ${data.targetUserId} [${data.callType}]`);
+            console.log(`[Call] Online users: ${onlineUsers.size}, target online: ${onlineUsers.has(data.targetUserId)}`);
+            
             const targetSockets = onlineUsers.get(data.targetUserId);
             if (targetSockets && targetSockets.size > 0) {
+                console.log(`[Call] Forwarding incoming call to ${targetSockets.size} socket(s)`);
                 targetSockets.forEach(sid => {
                     io.to(sid).emit('call:incoming', {
                         callerId,
@@ -1292,6 +1300,7 @@ nextApp.prepare().then(() => {
                     });
                 });
             } else {
+                console.log(`[Call] Target ${data.targetUserId} NOT online — sending unavailable`);
                 socket.emit('call:unavailable', { targetUserId: data.targetUserId });
             }
         });
@@ -1377,7 +1386,7 @@ nextApp.prepare().then(() => {
 
     // ─── Start Server ───
     server.listen(PORT, () => {
-        console.log(`🚀 RentVerse Unified Server running on port ${PORT} `);
+        console.log(`🚀 Nexis Unified Server running on port ${PORT} `);
         console.log(`📡 WebSocket server ready`);
     });
 }).catch((err) => {

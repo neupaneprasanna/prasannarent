@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
-import { Search, Bell, User as UserIcon, LogOut, Settings, LayoutDashboard, Heart, ShoppingBag, BarChart3, Menu, X, Trophy, MessageSquare } from 'lucide-react';
+import { Search, Bell, User as UserIcon, LogOut, Trophy, LayoutDashboard, Settings, ShoppingBag, BarChart3, Home, Heart, ChevronDown, List as ListIcon, Loader2, Sparkles, MessageCircle, Map, Zap, Menu, X, MessageSquare } from 'lucide-react';
+import Logo from '@/components/ui/Logo';
 import { useAppStore } from '@/store/app-store';
 import { useAuthStore } from '@/store/auth-store';
 import SearchBar from '@/components/hero/SearchBar';
@@ -10,6 +11,7 @@ import { useNotificationStore } from '@/store/notification-store';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import LiquidButton from '@/components/motion/LiquidButton';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 
 const categories = [
     { name: 'Explore', href: '/explore', icon: '◈' },
@@ -88,27 +90,10 @@ export default function Navbar() {
                     style={scrolled ? { boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 30px rgba(139,92,246,0.06), inset 0 1px 0 rgba(255,255,255,0.05)' } : { boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)' }}
                 >
 
-                    {/* Core Logo — The "RentVerse Core" */}
-                    <motion.a
-                        href="/"
-                        className="flex items-center gap-3 group"
-                        onMouseEnter={() => setCursorVariant('hover')}
-                        onMouseLeave={() => setCursorVariant('default')}
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.97 }}
-                    >
-                        {/* Glowing Core Orb */}
-                        <div className="relative">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#A5B4FC] flex items-center justify-center relative z-10 group-hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-shadow duration-500">
-                                <span className="text-[#020305] font-bold text-sm tracking-tight">R</span>
-                            </div>
-                            <div className="absolute inset-0 rounded-xl bg-[#8B5CF6] blur-lg opacity-0 group-hover:opacity-30 transition-opacity duration-500" />
-                        </div>
-                        <span className="text-lg font-medium hidden sm:block tracking-tight">
-                            <span className="gradient-text">rent</span>
-                            <span className="text-white/70">verse</span>
-                        </span>
-                    </motion.a>
+                    {/* Core Logo — The "Nexis Core" */}
+                    <div onMouseEnter={() => setCursorVariant('hover')} onMouseLeave={() => setCursorVariant('default')}>
+                        <Logo size="md" />
+                    </div>
 
                     {/* Desktop: Orbital Navigation */}
                     <div className="hidden md:flex items-center gap-1 relative">
@@ -202,93 +187,7 @@ export default function Navbar() {
                         )}
 
                         {/* Notifications */}
-                        <div className="relative">
-                            <motion.button
-                                onClick={() => setShowNotifications(!showNotifications)}
-                                className="p-2 text-white/40 hover:text-white transition-all duration-300 rounded-xl hover:bg-white/[0.04] relative"
-                                onMouseEnter={() => setCursorVariant('hover')}
-                                onMouseLeave={() => setCursorVariant('default')}
-                                whileTap={{ scale: 0.9 }}
-                                aria-label="Toggle notifications"
-                                suppressHydrationWarning
-                            >
-                                <Bell size={18} />
-                                {unreadCount > 0 && (
-                                    <motion.span
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        className="absolute top-1 right-1 w-4 h-4 bg-[#F472B6] rounded-full border-2 border-[#020305] text-[8px] font-bold text-white flex items-center justify-center"
-                                        style={{ boxShadow: '0 0 8px rgba(244,114,182,0.5)' }}
-                                    >
-                                        {unreadCount}
-                                    </motion.span>
-                                )}
-                            </motion.button>
-
-                            <AnimatePresence>
-                                {showNotifications && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                                        className="absolute top-full right-0 mt-3 w-80 rounded-2xl border border-white/[0.06] overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.6)] z-50 bg-[#0a0b10]/95 backdrop-blur-2xl"
-                                    >
-                                        <div className="p-4 border-b border-white/[0.06] flex items-center justify-between bg-white/[0.02]">
-                                            <h3 className="text-sm font-medium text-white/90 tracking-tight">notifications</h3>
-                                            <button
-                                                onClick={() => markAllAsRead()}
-                                                className="text-label text-[#8B5CF6] hover:text-[#A5B4FC] transition-colors"
-                                                suppressHydrationWarning
-                                            >
-                                                Clear All
-                                            </button>
-                                        </div>
-                                        <div className="max-h-[400px] overflow-y-auto">
-                                            {notifications.length === 0 ? (
-                                                <div className="p-10 text-center">
-                                                    <Bell size={28} className="mx-auto text-white/[0.06] mb-3" />
-                                                    <p className="text-xs text-white/20">no new alerts</p>
-                                                </div>
-                                            ) : (
-                                                notifications.map((n) => (
-                                                    <div
-                                                        key={n.id}
-                                                        className={`p-4 border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors cursor-pointer ${!n.read ? 'bg-[#7A5CFF]/[0.04]' : ''}`}
-                                                        onClick={() => { if (!n.read) markAsRead(n.id); }}
-                                                    >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${n.read ? 'bg-white/10' : 'bg-[#8B5CF6]'}`}
-                                                                style={!n.read ? { boxShadow: '0 0 8px rgba(139,92,246,0.5)' } : {}}
-                                                            />
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-xs font-medium text-white/90 mb-0.5">{n.title}</p>
-                                                                <p className="text-[11px] text-white/35 leading-relaxed truncate">{n.message}</p>
-                                                                <p className="text-[9px] text-white/15 mt-2 font-medium tracking-wide">
-                                                                    {(() => {
-                                                                        try {
-                                                                            const date = new Date(n.createdAt);
-                                                                            return isNaN(date.getTime()) ? 'Recently' : formatDistanceToNow(date, { addSuffix: true });
-                                                                        } catch { return 'Recently'; }
-                                                                    })()}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                        <Link
-                                            href="/dashboard"
-                                            className="block p-3 text-center text-label text-white/25 hover:text-white/50 bg-white/[0.01] hover:bg-white/[0.03] transition-all border-t border-white/[0.04]"
-                                            onClick={() => setShowNotifications(false)}
-                                        >
-                                            View Dashboard
-                                        </Link>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </div>
+                        <NotificationCenter />
 
                         <div className="h-5 w-px bg-white/[0.06] hidden sm:block" />
 
@@ -333,7 +232,6 @@ export default function Navbar() {
                                                 {[
                                                     { href: `/profile/${user?.id}`, icon: Trophy, label: 'My Profile' },
                                                     { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-                                                    { href: '/rentals', icon: ShoppingBag, label: 'My Rentals' },
                                                     { href: '/wishlist', icon: Heart, label: 'Wishlist' },
                                                     { href: '/settings', icon: Settings, label: 'Settings' },
                                                 ].map(item => (
@@ -413,8 +311,10 @@ export default function Navbar() {
                                 {[
                                     { href: `/profile/${user?.id}`, label: 'my profile' },
                                     { href: '/dashboard', label: 'dashboard' },
+                                    { href: '/host', label: 'host dashboard' },
                                     { href: '/rentals', label: 'my rentals' },
                                     { href: '/wishlist', label: 'wishlist' },
+                                    { href: '/messages', label: 'messages' },
                                     { href: '/settings', label: 'settings' },
                                 ].map(item => (
                                     <a key={item.href} href={item.href} className="block text-xl font-light text-white/60 hover:text-white transition-colors" onClick={() => setMobileMenuOpen(false)}>

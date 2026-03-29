@@ -13,7 +13,7 @@ import { useAppStore } from '@/store/app-store';
 import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
 import { useRecentlyViewedStore } from '@/store/engagement-store';
-import { Loader2, MapPin, Star, ShieldCheck, ChevronLeft, Calendar, Info, Sparkles } from 'lucide-react';
+import { Loader2, MapPin, Star, ShieldCheck, ChevronLeft, Calendar, Info, Sparkles, ThumbsUp, ThumbsDown, MessageCircle, Send } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Listing, Booking } from '@/types/rental';
 import CompareButton from '@/components/listing/CompareButton';
@@ -22,6 +22,7 @@ import { createPortal } from 'react-dom';
 import FollowButton from '@/components/engagement/FollowButton';
 import MediaGallery from '@/components/listing/MediaGallery';
 import WishlistButton from '@/components/engagement/WishlistButton';
+import AvailabilityCalendar from '@/components/calendar/AvailabilityCalendar';
 
 export default function ProductPage() {
     const { id } = useParams();
@@ -49,6 +50,11 @@ export default function ProductPage() {
     const [reviews, setReviews] = useState<any[]>([]);
     const [newReview, setNewReview] = useState({ rating: 5, text: '' });
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [calendarBookings, setCalendarBookings] = useState<any[]>([]);
+    const [calendarBlocked, setCalendarBlocked] = useState<any[]>([]);
+    const [respondingTo, setRespondingTo] = useState<string | null>(null);
+    const [responseText, setResponseText] = useState('');
+    const [votingReview, setVotingReview] = useState<string | null>(null);
 
     const { isAuthenticated } = useAuthStore();
     const setCursorVariant = useAppStore((s) => s.setCursorVariant);
@@ -61,9 +67,20 @@ export default function ProductPage() {
         if (id) {
             fetchItem();
             fetchReviews();
+            fetchAvailability();
             trackView(id as string);
         }
     }, [id]);
+
+    const fetchAvailability = async () => {
+        try {
+            const data = await apiClient.get<{ bookings: any[]; blockedDates: any[] }>(`/listings/${id}/availability`);
+            setCalendarBookings(data.bookings || []);
+            setCalendarBlocked(data.blockedDates || []);
+        } catch (err) {
+            console.error('Failed to fetch availability:', err);
+        }
+    };
 
     const fetchReviews = async () => {
         try {
@@ -83,8 +100,7 @@ export default function ProductPage() {
 
         setReviewSubmitting(true);
         try {
-            await apiClient.post('/reviews', {
-                listingId: id,
+            await apiClient.post(`/reviews/${id}`, {
                 rating: newReview.rating,
                 text: newReview.text
             });
@@ -549,7 +565,37 @@ export default function ProductPage() {
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
-                                            {reviews.map((rev) => (
+                                            {/* Rating Distribution */}
+                                            <div className="glass-card rounded-2xl p-5 border border-white/5 mb-4">
+                                                <div className="flex items-center gap-6">
+                                                    <div className="text-center">
+                                                        <p className="text-3xl font-extrabold text-white">{item?.rating?.toFixed(1) || '0.0'}</p>
+                                                        <div className="flex gap-0.5 justify-center my-1">
+                                                            {[1,2,3,4,5].map(s => (
+                                                                <Star key={s} size={10} fill={(item?.rating || 0) >= s ? '#fdcb6e' : 'none'} className={(item?.rating || 0) >= s ? 'text-[#fdcb6e]' : 'text-white/10'} />
+                                                            ))}
+                                                        </div>
+                                                        <p className="text-[9px] text-white/25">{reviews.length} reviews</p>
+                                                    </div>
+                                                    <div className="flex-1 space-y-1">
+                                                        {[5,4,3,2,1].map(star => {
+                                                            const count = reviews.filter((r: any) => r.rating === star).length;
+                                                            const pct = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+                                                            return (
+                                                                <div key={star} className="flex items-center gap-2">
+                                                                    <span className="text-[9px] text-white/30 w-3">{star}</span>
+                                                                    <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                                                        <div className="h-full bg-[#fdcb6e] rounded-full transition-all" style={{width: `${pct}%`}} />
+                                                                    </div>
+                                                                    <span className="text-[8px] text-white/15 w-6 text-right">{count}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {reviews.map((rev: any) => (
                                                 <div key={rev.id} className="glass-card rounded-2xl p-5 border border-white/5">
                                                     <div className="flex justify-between items-start mb-3">
                                                         <div className="flex items-center gap-3">
@@ -557,7 +603,7 @@ export default function ProductPage() {
                                                                 {rev.user?.firstName?.[0] || 'U'}
                                                             </div>
                                                             <div>
-                                                                <p className="text-xs font-bold">{rev.user?.firstName}</p>
+                                                                <p className="text-xs font-bold">{rev.user?.firstName} {rev.user?.lastName?.[0] ? rev.user.lastName[0] + '.' : ''}</p>
                                                                 <p className="text-[10px] text-white/20">{new Date(rev.createdAt).toLocaleDateString()}</p>
                                                             </div>
                                                         </div>
@@ -567,7 +613,101 @@ export default function ProductPage() {
                                                             ))}
                                                         </div>
                                                     </div>
-                                                    <p className="text-xs text-white/60 leading-relaxed italic">&quot;{rev.text}&quot;</p>
+                                                    <p className="text-xs text-white/60 leading-relaxed mb-3">&quot;{rev.text}&quot;</p>
+
+                                                    {/* Review Images */}
+                                                    {rev.images && rev.images.length > 0 && (
+                                                        <div className="flex gap-2 mb-3 overflow-x-auto">
+                                                            {rev.images.map((img: string, i: number) => (
+                                                                <img key={i} src={img} alt="Review" className="w-16 h-16 rounded-lg object-cover border border-white/5" />
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Helpful Votes */}
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (!isAuthenticated) return;
+                                                                setVotingReview(rev.id);
+                                                                try {
+                                                                    await apiClient.post(`/reviews/${rev.id}/vote`, { helpful: true });
+                                                                    fetchReviews();
+                                                                } catch (e) {} finally { setVotingReview(null); }
+                                                            }}
+                                                            disabled={votingReview === rev.id}
+                                                            className="flex items-center gap-1 text-[10px] text-white/25 hover:text-emerald-400 transition-colors"
+                                                        >
+                                                            <ThumbsUp size={10} /> Helpful{rev.helpfulCount > 0 ? ` (${rev.helpfulCount})` : ''}
+                                                        </button>
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (!isAuthenticated) return;
+                                                                setVotingReview(rev.id);
+                                                                try {
+                                                                    await apiClient.post(`/reviews/${rev.id}/vote`, { helpful: false });
+                                                                    fetchReviews();
+                                                                } catch (e) {} finally { setVotingReview(null); }
+                                                            }}
+                                                            disabled={votingReview === rev.id}
+                                                            className="flex items-center gap-1 text-[10px] text-white/25 hover:text-red-400 transition-colors"
+                                                        >
+                                                            <ThumbsDown size={10} />{rev.unhelpfulCount > 0 ? ` (${rev.unhelpfulCount})` : ''}
+                                                        </button>
+                                                        {/* Owner can respond */}
+                                                        {isAuthenticated && item?.ownerId === useAuthStore.getState().user?.id && !rev.response && (
+                                                            <button
+                                                                onClick={() => setRespondingTo(respondingTo === rev.id ? null : rev.id)}
+                                                                className="flex items-center gap-1 text-[10px] text-[#a29bfe] hover:text-white transition-colors ml-auto"
+                                                            >
+                                                                <MessageCircle size={10} /> Reply
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Owner Response Form */}
+                                                    {respondingTo === rev.id && (
+                                                        <div className="mt-2 ml-8 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                                                            <textarea
+                                                                value={responseText}
+                                                                onChange={e => setResponseText(e.target.value)}
+                                                                placeholder="Write your response..."
+                                                                className="w-full bg-transparent border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-[#6c5ce7]/50 resize-none"
+                                                                rows={2}
+                                                            />
+                                                            <div className="flex justify-end gap-2 mt-2">
+                                                                <button onClick={() => { setRespondingTo(null); setResponseText(''); }} className="text-[10px] text-white/30 hover:text-white">Cancel</button>
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            await apiClient.post(`/reviews/${rev.id}/response`, { text: responseText });
+                                                                            setRespondingTo(null);
+                                                                            setResponseText('');
+                                                                            fetchReviews();
+                                                                        } catch (e) { console.error(e); }
+                                                                    }}
+                                                                    disabled={!responseText.trim()}
+                                                                    className="flex items-center gap-1 px-3 py-1.5 bg-[#6c5ce7]/20 text-[10px] text-[#a29bfe] rounded-lg hover:bg-[#6c5ce7]/30 disabled:opacity-30"
+                                                                >
+                                                                    <Send size={9} /> Send
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Owner Response Display */}
+                                                    {rev.response && (
+                                                        <div className="mt-3 ml-8 p-3 rounded-xl bg-[#6c5ce7]/5 border border-[#6c5ce7]/10">
+                                                            <div className="flex items-center gap-2 mb-1.5">
+                                                                <div className="w-5 h-5 rounded-full bg-[#6c5ce7]/20 flex items-center justify-center text-[8px] font-bold text-[#a29bfe]">
+                                                                    {rev.response.user?.firstName?.[0] || 'O'}
+                                                                </div>
+                                                                <span className="text-[9px] text-[#a29bfe] font-bold">Owner Response</span>
+                                                                <span className="text-[8px] text-white/15">{new Date(rev.response.createdAt).toLocaleDateString()}</span>
+                                                            </div>
+                                                            <p className="text-[10px] text-white/50 leading-relaxed">{rev.response.text}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -581,14 +721,20 @@ export default function ProductPage() {
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -10 }}
-                                    className="text-center py-12 glass rounded-3xl border border-white/5"
+                                    className="glass-card rounded-3xl border border-white/5 p-6"
                                 >
-                                    <Calendar size={32} className="mx-auto mb-4 text-white/10" />
-                                    <p className="text-sm text-white/40">Listing is available starting today.</p>
-                                    <div className="mt-4 flex justify-center gap-4 text-[10px] text-white/20 font-bold uppercase tracking-widest">
-                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#00cec9]" /> Available</span>
-                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-white/10" /> Reserved</span>
-                                    </div>
+                                    <AvailabilityCalendar
+                                        listingId={id as string}
+                                        bookings={calendarBookings}
+                                        blockedDates={calendarBlocked}
+                                        pricePerDay={item?.price || 0}
+                                        priceUnit={item?.priceUnit || 'DAY'}
+                                        isOwner={item?.ownerId === useAuthStore.getState().user?.id}
+                                        onDateRangeSelect={(start, end) => {
+                                            setBookingStartDate(start.toISOString().split('T')[0]);
+                                            setBookingEndDate(end.toISOString().split('T')[0]);
+                                        }}
+                                    />
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -678,7 +824,7 @@ export default function ProductPage() {
                                         </div>
                                         <div className="text-right">
                                             <p className="text-[10px] text-[#00cec9] font-bold uppercase tracking-widest">Instant Booking</p>
-                                            <p className="text-[10px] text-white/20">Secure with RentVerse</p>
+                                            <p className="text-[10px] text-white/20">Secure with Nexis</p>
                                         </div>
                                     </div>
 

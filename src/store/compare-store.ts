@@ -30,7 +30,7 @@ export const useCompareStore = create<CompareState>()(
             isInCompare: (id) => !!get().items.find((i) => i.id === id),
         }),
         {
-            name: 'rentverse-compare',
+            name: 'nexis-compare',
         }
     )
 );

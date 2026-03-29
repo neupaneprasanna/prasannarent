@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 
 async function demoteJames() {
     try {
-        const email = 'james@rentverse.com';
+        const email = 'james@nexis.com';
         const user = await prisma.user.update({
             where: { email },
             data: { role: 'USER' },

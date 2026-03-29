@@ -1,5 +1,5 @@
 /**
- * RentVerse Motion System — Barrel Export
+ * Nexis Motion System — Barrel Export
  * 
  * The complete cinematic interaction system:
  * - Scroll Engine: velocity, direction, progress tracking

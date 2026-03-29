@@ -5,7 +5,7 @@ import type { Socket } from 'socket.io-client';
 
 // ─── Types ───
 export type CallType = 'audio' | 'video';
-export type CallStatus = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'active';
+export type CallStatus = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'active' | 'failed' | 'no-answer';
 
 export interface CallState {
     status: CallStatus;
@@ -16,6 +16,7 @@ export interface CallState {
     isMuted: boolean;
     isVideoOff: boolean;
     callStartTime: number | null;
+    failReason?: string;
 }
 
 interface CallContextType extends CallState {
@@ -27,6 +28,8 @@ interface CallContextType extends CallState {
     endCall: () => void;
     toggleMute: () => void;
     toggleVideo: () => void;
+    retryCall: () => void;
+    dismissCall: () => void;
 }
 
 const CallContext = createContext<CallContextType | null>(null);
@@ -37,26 +40,32 @@ export function useCall() {
     return ctx;
 }
 
-// ─── ICE Servers ───
+// ─── ICE Servers (Free alternatives) ───
 const ICE_SERVERS: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
     {
-        urls: 'turn:a.relay.metered.ca:80',
-        username: 'e8dd65b92f6de1ed0c8d4bd5',
-        credential: 'uWdKOb8/0JI2+PUi',
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
     },
     {
-        urls: 'turn:a.relay.metered.ca:443',
-        username: 'e8dd65b92f6de1ed0c8d4bd5',
-        credential: 'uWdKOb8/0JI2+PUi',
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
     },
     {
-        urls: 'turn:a.relay.metered.ca:443?transport=tcp',
-        username: 'e8dd65b92f6de1ed0c8d4bd5',
-        credential: 'uWdKOb8/0JI2+PUi',
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
     },
 ];
+
+const RING_TIMEOUT_MS = 30000;  // 30 seconds to answer
+const ICE_TIMEOUT_MS = 15000;   // 15 seconds for ICE to connect
 
 interface CallProviderProps {
     children: React.ReactNode;
@@ -85,17 +94,29 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
     const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
     const callStateRef = useRef(callState);
     const localStreamRef = useRef<MediaStream | null>(null);
+    const ringTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const iceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastCallParamsRef = useRef<{ targetUserId: string; targetName: string; targetAvatar: string | null; type: CallType; roomId: string } | null>(null);
 
     useEffect(() => { callStateRef.current = callState; }, [callState]);
     useEffect(() => { localStreamRef.current = localStream; }, [localStream]);
 
+    // ─── Clear all timers ───
+    const clearTimers = useCallback(() => {
+        if (ringTimeoutRef.current) { clearTimeout(ringTimeoutRef.current); ringTimeoutRef.current = null; }
+        if (iceTimeoutRef.current) { clearTimeout(iceTimeoutRef.current); iceTimeoutRef.current = null; }
+    }, []);
+
     // ─── Cleanup helpers ───
-    const cleanupCall = useCallback(() => {
+    const cleanupCall = useCallback((newStatus: CallStatus = 'idle', failReason?: string) => {
+        clearTimers();
+
         // Close peer connection
         if (peerConnectionRef.current) {
             peerConnectionRef.current.ontrack = null;
             peerConnectionRef.current.onicecandidate = null;
             peerConnectionRef.current.oniceconnectionstatechange = null;
+            peerConnectionRef.current.onconnectionstatechange = null;
             peerConnectionRef.current.close();
             peerConnectionRef.current = null;
         }
@@ -109,17 +130,28 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
 
         setLocalStream(null);
         setRemoteStream(null);
-        setCallState({
-            status: 'idle',
-            callType: 'audio',
-            remoteUserId: null,
-            remoteUserName: '',
-            remoteUserAvatar: null,
-            isMuted: false,
-            isVideoOff: false,
-            callStartTime: null,
-        });
-    }, []);
+
+        if (newStatus === 'idle') {
+            setCallState({
+                status: 'idle',
+                callType: 'audio',
+                remoteUserId: null,
+                remoteUserName: '',
+                remoteUserAvatar: null,
+                isMuted: false,
+                isVideoOff: false,
+                callStartTime: null,
+            });
+        } else {
+            // Keep remote user info for error/no-answer screens
+            setCallState(prev => ({
+                ...prev,
+                status: newStatus,
+                callStartTime: null,
+                failReason,
+            }));
+        }
+    }, [clearTimers]);
 
     // ─── Create Peer Connection ───
     const createPeerConnection = useCallback((targetUserId: string) => {
@@ -150,13 +182,34 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
 
         pc.oniceconnectionstatechange = () => {
             console.log('[WebRTC] ICE state:', pc.iceConnectionState);
-            if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+            if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+                // Clear ICE timeout on successful connection
+                if (iceTimeoutRef.current) { clearTimeout(iceTimeoutRef.current); iceTimeoutRef.current = null; }
+                console.log('[WebRTC] Connected!');
+            }
+            if (pc.iceConnectionState === 'disconnected') {
+                console.log('[WebRTC] Disconnected - waiting for reconnect...');
+            }
+            if (pc.iceConnectionState === 'failed') {
+                console.log('[WebRTC] ICE connection failed');
                 if (callStateRef.current.status === 'active' || callStateRef.current.status === 'connecting') {
-                    cleanupCall();
+                    cleanupCall('failed', 'Connection lost. Check your internet connection.');
                 }
             }
-            if (pc.iceConnectionState === 'connected') {
-                console.log('[WebRTC] Connected!');
+        };
+
+        pc.onconnectionstatechange = () => {
+            console.log('[WebRTC] Connection state:', pc.connectionState);
+            if (pc.connectionState === 'failed') {
+                cleanupCall('failed', 'Peer connection failed.');
+            }
+            if (pc.connectionState === 'disconnected') {
+                // Give 5s grace period before declaring failure
+                setTimeout(() => {
+                    if (peerConnectionRef.current?.connectionState === 'disconnected') {
+                        cleanupCall('failed', 'Connection lost.');
+                    }
+                }, 5000);
             }
         };
 
@@ -174,14 +227,24 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
             audio: true,
             video: type === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false,
         };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        console.log('[WebRTC] Got media stream, tracks:', stream.getTracks().map(t => `${t.kind}:${t.readyState}`));
-        return stream;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            console.log('[WebRTC] Got media stream, tracks:', stream.getTracks().map(t => `${t.kind}:${t.readyState}`));
+            return stream;
+        } catch (err: any) {
+            console.error('[WebRTC] Media access failed:', err);
+            throw new Error(err.name === 'NotAllowedError'
+                ? 'Camera/microphone permission denied. Please allow access and try again.'
+                : 'Could not access camera/microphone.');
+        }
     }, []);
 
     // ─── Start Call (Caller) ───
     const startCall = useCallback(async (targetUserId: string, targetName: string, targetAvatar: string | null, type: CallType, roomId: string) => {
         if (callStateRef.current.status !== 'idle') return;
+
+        // Save params for retry
+        lastCallParamsRef.current = { targetUserId, targetName, targetAvatar, type, roomId };
 
         try {
             setCallState({
@@ -216,10 +279,19 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
                 roomId,
             });
 
+            // Set ring timeout — if no answer in 30s, show no-answer
+            ringTimeoutRef.current = setTimeout(() => {
+                if (callStateRef.current.status === 'outgoing') {
+                    console.log('[WebRTC] Ring timeout — no answer');
+                    socketRef.current?.emit('call:end', { targetUserId });
+                    cleanupCall('no-answer');
+                }
+            }, RING_TIMEOUT_MS);
+
             console.log('[WebRTC] Call initiated to', targetUserId);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to start call:', err);
-            cleanupCall();
+            cleanupCall('failed', err.message || 'Failed to start call');
         }
     }, [socketRef, userName, userAvatar, getMedia, createPeerConnection, cleanupCall]);
 
@@ -245,10 +317,19 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
 
             // Tell caller we accepted
             socketRef.current?.emit('call:accept', { callerId: state.remoteUserId });
+
+            // Start ICE connection timeout
+            iceTimeoutRef.current = setTimeout(() => {
+                if (callStateRef.current.status === 'connecting') {
+                    console.log('[WebRTC] ICE connection timeout');
+                    cleanupCall('failed', 'Connection timed out. Try again.');
+                }
+            }, ICE_TIMEOUT_MS);
+
             console.log('[WebRTC] Call accepted, waiting for offer from', state.remoteUserId);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to accept call:', err);
-            cleanupCall();
+            cleanupCall('failed', err.message || 'Failed to accept call');
         }
     }, [socketRef, getMedia, createPeerConnection, cleanupCall]);
 
@@ -269,6 +350,23 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
         }
         cleanupCall();
     }, [socketRef, cleanupCall]);
+
+    // ─── Retry Call ───
+    const retryCall = useCallback(() => {
+        cleanupCall();
+        const params = lastCallParamsRef.current;
+        if (params) {
+            // Small delay to let cleanup finish
+            setTimeout(() => {
+                startCall(params.targetUserId, params.targetName, params.targetAvatar, params.type, params.roomId);
+            }, 500);
+        }
+    }, [cleanupCall, startCall]);
+
+    // ─── Dismiss (back to idle from error screens) ───
+    const dismissCall = useCallback(() => {
+        cleanupCall();
+    }, [cleanupCall]);
 
     // ─── Toggle Mute ───
     const toggleMute = useCallback(() => {
@@ -315,6 +413,14 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
                 isVideoOff: false,
                 callStartTime: null,
             });
+            // Save for potential retry
+            lastCallParamsRef.current = {
+                targetUserId: data.callerId,
+                targetName: data.callerName,
+                targetAvatar: data.callerAvatar,
+                type: data.callType,
+                roomId: data.roomId,
+            };
         };
 
         const onCallAccepted = async () => {
@@ -326,6 +432,9 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
             }
 
             try {
+                // Clear ring timeout
+                if (ringTimeoutRef.current) { clearTimeout(ringTimeoutRef.current); ringTimeoutRef.current = null; }
+
                 console.log('[WebRTC] Call accepted by remote, creating offer...');
                 setCallState(prev => ({ ...prev, status: 'connecting' }));
                 const offer = await pc.createOffer();
@@ -335,15 +444,23 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
                     targetUserId: state.remoteUserId,
                     offer,
                 });
+
+                // Start ICE connection timeout
+                iceTimeoutRef.current = setTimeout(() => {
+                    if (callStateRef.current.status === 'connecting') {
+                        console.log('[WebRTC] ICE connection timeout after offer');
+                        cleanupCall('failed', 'Connection timed out. Try again.');
+                    }
+                }, ICE_TIMEOUT_MS);
             } catch (err) {
                 console.error('Error creating offer:', err);
-                cleanupCall();
+                cleanupCall('failed', 'Failed to establish connection.');
             }
         };
 
         const onCallRejected = () => {
             console.log('[WebRTC] Call rejected');
-            cleanupCall();
+            cleanupCall('failed', 'Call was declined.');
         };
 
         const onCallEnded = () => {
@@ -352,8 +469,8 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
         };
 
         const onCallUnavailable = () => {
-            console.log('[WebRTC] User unavailable');
-            cleanupCall();
+            console.log('[WebRTC] User unavailable (not online)');
+            cleanupCall('failed', 'User is not available right now.');
         };
 
         const onOffer = async (data: { senderId: string; offer: RTCSessionDescriptionInit }) => {
@@ -384,7 +501,7 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
                 setCallState(prev => ({ ...prev, status: 'active', callStartTime: Date.now() }));
             } catch (err) {
                 console.error('Error handling offer:', err);
-                cleanupCall();
+                cleanupCall('failed', 'Failed to establish connection.');
             }
         };
 
@@ -408,7 +525,7 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
                 console.log('[WebRTC] Call is now active!');
             } catch (err) {
                 console.error('Error handling answer:', err);
-                cleanupCall();
+                cleanupCall('failed', 'Failed to establish connection.');
             }
         };
 
@@ -451,6 +568,7 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
     // ─── Cleanup on unmount ───
     useEffect(() => {
         return () => {
+            clearTimers();
             cleanupCall();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -466,6 +584,8 @@ export function CallProvider({ children, socketRef, userId, userName, userAvatar
         endCall,
         toggleMute,
         toggleVideo,
+        retryCall,
+        dismissCall,
     };
 
     return (

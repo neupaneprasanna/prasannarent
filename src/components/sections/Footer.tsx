@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Logo from '@/components/ui/Logo';
 
 const footerLinks = {
     Product: ['Explore', 'Categories', 'Pricing', 'Enterprise', 'Mobile App'],
@@ -32,15 +33,7 @@ export default function Footer() {
                         viewport={{ once: true }}
                         transition={spring}
                     >
-                        <div className="flex items-center gap-2.5 mb-4">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#7A5CFF] to-[#A18CFF] flex items-center justify-center">
-                                <span className="text-white font-semibold text-sm">R</span>
-                            </div>
-                            <span className="text-lg font-medium tracking-tight">
-                                <span className="gradient-text">rent</span>
-                                <span className="text-white/70">verse</span>
-                            </span>
-                        </div>
+                        <Logo size="md" className="mb-4" />
                         <p className="text-sm text-white/25 leading-relaxed mb-6">
                             the future of renting. anything, anywhere, anytime.
                         </p>
@@ -88,7 +81,7 @@ export default function Footer() {
                 {/* Bottom bar */}
                 <div className="border-t border-white/[0.04] pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
                     <p className="text-[11px] text-white/15 tracking-wide">
-                        © 2026 rentverse. all rights reserved.
+                        © 2026 nexis. all rights reserved.
                     </p>
                     <div className="flex items-center gap-5">
                         <span className="text-[11px] text-white/10 tracking-wide">made with precision</span>

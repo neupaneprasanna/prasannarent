@@ -62,7 +62,7 @@ export default function FAQ() {
                         got <span className="gradient-text">questions</span>?
                     </h2>
                     <p className="text-body text-white/35 max-w-md mx-auto">
-                        everything you need to know about RentVerse.
+                        everything you need to know about Nexis.
                     </p>
                 </motion.div>
 

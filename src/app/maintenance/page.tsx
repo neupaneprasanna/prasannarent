@@ -40,7 +40,7 @@ export default function MaintenancePage() {
                             System <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Refining</span>
                         </h1>
                         <p className="text-lg text-white/50 max-w-lg mx-auto font-medium">
-                            RentVerse is currently evolving. We're performing scheduled maintenance to upgrade your rental experience. We'll be back shortly.
+                            Nexis is currently evolving. We're performing scheduled maintenance to upgrade your rental experience. We'll be back shortly.
                         </p>
                     </motion.div>
 

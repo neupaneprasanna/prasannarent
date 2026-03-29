@@ -12,7 +12,7 @@ export default function CinematicLoader() {
 
     useEffect(() => {
         // Check if this is the first time the user has visited the website in this session
-        const hasVisited = sessionStorage.getItem('rentverse_visited');
+        const hasVisited = sessionStorage.getItem('nexis_visited');
         
         if (hasVisited) {
             setLoading(false);
@@ -29,7 +29,7 @@ export default function CinematicLoader() {
                     setTimeout(() => {
                         setLoading(false);
                         setIntroComplete(true);
-                        sessionStorage.setItem('rentverse_visited', 'true');
+                        sessionStorage.setItem('nexis_visited', 'true');
                     }, 1000); 
                     return 100;
                 }
@@ -41,7 +41,7 @@ export default function CinematicLoader() {
         return () => clearInterval(interval);
     }, [isLoading, setLoading, setIntroComplete]);
 
-    const titleStr = "RentVerse";
+    const titleStr = "Nexis";
     const letters = Array.from(titleStr);
 
     const letterVariants: Variants = {

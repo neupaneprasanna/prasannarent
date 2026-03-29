@@ -1,6 +1,6 @@
-# RentVerse Verification Guide
+# Nexis Verification Guide
 
-This guide provides a step-by-step walkthrough to verify all essential platform features. Follow these steps sequentially to ensure RentVerse is operational.
+This guide provides a step-by-step walkthrough to verify all essential platform features. Follow these steps sequentially to ensure Nexis is operational.
 
 ---
 

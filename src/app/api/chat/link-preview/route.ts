@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'RentVerse-Bot/1.0',
+                'User-Agent': 'Nexis-Bot/1.0',
                 'Accept': 'text/html'
             },
             signal: controller.signal,

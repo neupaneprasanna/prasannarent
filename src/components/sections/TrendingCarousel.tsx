@@ -255,7 +255,7 @@ export default function TrendingCarousel() {
                                             onMouseLeave={() => { if (selectionTimer.current) clearTimeout(selectionTimer.current); }}
                                         >
                                             {/* ── Photo / Gradient area ── */}
-                                            <div className="relative flex-none overflow-hidden" style={{ height: '60%' }}>
+                                            <div className="absolute inset-0 overflow-hidden">
                                                 {imgSrc ? (
                                                     <img
                                                         src={imgSrc}
@@ -267,43 +267,40 @@ export default function TrendingCarousel() {
                                                     <div className={`absolute inset-0 bg-gradient-to-br ${cfg.gradient}`} />
                                                 )}
                                                 {/* Overlay gradient at bottom */}
-                                                <div className="absolute inset-0 bg-gradient-to-t from-[#04040a] via-transparent to-transparent" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-[rgba(0,0,0,0.95)] via-[rgba(0,0,0,0.5)] to-transparent" />
 
                                                 {/* Top badges — only on center */}
                                                 {isCenter && (
                                                     <>
                                                         <div
-                                                            className="absolute top-3 left-3 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest backdrop-blur-md border shadow-lg"
+                                                            className="absolute top-4 left-4 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest backdrop-blur-md border shadow-lg z-10"
                                                             style={{ backgroundColor: `${cfg.accent}22`, borderColor: `${cfg.accent}55`, color: cfg.accent }}
                                                         >
                                                             {item.category}
                                                         </div>
                                                         {item.rating != null && (
-                                                            <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10">
+                                                            <div className="absolute top-4 right-4 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 z-10">
                                                                 <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
                                                                 <span className="text-[10px] font-bold text-white">{item.rating}</span>
                                                             </div>
                                                         )}
-                                                        {/* Accent scan line */}
-                                                        <div
-                                                            className="absolute bottom-0 left-0 right-0 h-[2px]"
-                                                            style={{ background: `linear-gradient(90deg, transparent, ${cfg.accent}, transparent)`, opacity: 0.9 }}
-                                                        />
                                                     </>
                                                 )}
                                             </div>
 
                                             {/* ── Content area ── */}
-                                            <div className="flex flex-col justify-between p-4 flex-1 relative">
-                                                {/* Top accent line */}
-                                                <div
-                                                    className="absolute top-0 left-6 right-6 h-[1px]"
-                                                    style={{ background: `linear-gradient(90deg, transparent, ${isCenter ? cfg.accent + '40' : 'rgba(255,255,255,0.08)'}, transparent)` }}
-                                                />
-                                                <h3 className={`font-semibold leading-tight truncate transition-all duration-500 ${isCenter ? 'text-white text-xl sm:text-2xl' : 'text-white/50 text-sm'}`}>
+                                            <div className="relative z-10 flex flex-col justify-end p-6 h-full pointer-events-none">
+                                                {/* Accent line above the title */}
+                                                {isCenter && (
+                                                    <div
+                                                        className="w-12 h-[3px] rounded-full mb-4"
+                                                        style={{ backgroundColor: cfg.accent }}
+                                                    />
+                                                )}
+                                                <h3 className={`font-bold leading-tight truncate transition-all duration-500 drop-shadow-md ${isCenter ? 'text-white text-3xl' : 'text-white/70 text-lg'}`}>
                                                     {item.title}
                                                 </h3>
-                                                <div className="flex items-center justify-between mt-3">
+                                                <div className="flex items-center justify-between mt-4 pointer-events-auto">
                                                     <span
                                                         className="px-3 py-1.5 rounded-lg text-xs font-black tracking-wide transition-all duration-500"
                                                         style={{

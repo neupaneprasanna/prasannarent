@@ -1,6 +1,6 @@
 # User Functionality Checklist
 
-This document provides a comprehensive list of features and functionalities available to a standard user of RentVerse. Use this to verify the website's behavior.
+This document provides a comprehensive list of features and functionalities available to a standard user of Nexis. Use this to verify the website's behavior.
 
 ## 1. Public Experience (Unauthenticated)
 - [ ] **Home Page**

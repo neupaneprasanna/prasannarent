@@ -25,36 +25,36 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://rentverse.app'),
+  metadataBase: new URL('https://nexis.app'),
   title: {
-    default: 'RentVerse — Rent Anything, Anywhere',
-    template: '%s | RentVerse'
+    default: 'Nexis — Rent Anything, Anywhere',
+    template: '%s | Nexis'
   },
   description: "The world's most advanced peer-to-peer rental marketplace. Rent cameras, drones, studios, luxury cars, and more from verified owners.",
   keywords: ["rent", "marketplace", "camera rental", "drone rental", "studio rental", "peer-to-peer", "sharing economy"],
-  authors: [{ name: 'RentVerse Team' }],
+  authors: [{ name: 'Nexis Team' }],
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://rentverse.app',
-    title: 'RentVerse — Rent Anything, Anywhere',
+    url: 'https://nexis.app',
+    title: 'Nexis — Rent Anything, Anywhere',
     description: "The world's most advanced peer-to-peer rental marketplace. Rent cameras, drones, studios, luxury cars, and more from verified owners.",
-    siteName: 'RentVerse',
+    siteName: 'Nexis',
     images: [
       {
-        url: 'https://rentverse.app/og-image.jpg',
+        url: 'https://nexis.app/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'RentVerse Marketplace',
+        alt: 'Nexis Marketplace',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'RentVerse — Rent Anything, Anywhere',
+    title: 'Nexis — Rent Anything, Anywhere',
     description: "The world's most advanced peer-to-peer rental marketplace.",
-    images: ['https://rentverse.app/og-image.jpg'],
-    creator: '@rentverse',
+    images: ['https://nexis.app/og-image.jpg'],
+    creator: '@nexis',
   },
   robots: {
     index: true,

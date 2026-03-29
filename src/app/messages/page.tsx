@@ -4,7 +4,7 @@ import { Bricolage_Grotesque } from 'next/font/google';
 const avantGardeFont = Bricolage_Grotesque({ subsets: ['latin'], weight: ['200', '300', '400', '500', '600', '700', '800'] });
 
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, TouchEvent as ReactTouchEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Home, Send, Plus, CheckCheck, Check, ArrowDown,
@@ -14,7 +14,8 @@ import {
     MoreVertical, ArrowLeft, Paperclip, FileText, Music, Video,
     File, Loader2, Download, Phone, Smile, Reply, Forward,
     Pencil, SearchIcon, ExternalLink, ZoomIn, ChevronRight, ChevronLeft,
-    CornerUpRight, Volume2, VolumeX, PinOff, BellOff, Bell
+    CornerUpRight, Volume2, VolumeX, PinOff, BellOff, Bell, Copy,
+    Package, DollarSign, Calendar, MapPin, Star, ShoppingBag, Tag
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import Link from 'next/link';
@@ -120,6 +121,19 @@ interface LinkPreviewData {
     siteName: string | null;
 }
 
+interface ListingShareData {
+    id: string;
+    title: string;
+    price: number;
+    priceUnit?: string;
+    category?: string;
+    location?: string;
+    rating?: number;
+    images: string[];
+    owner?: { firstName: string; avatar?: string | null };
+    media?: { url: string; type: string }[];
+}
+
 interface Message {
     id: string;
     content: string | null;
@@ -207,6 +221,18 @@ export default function MessagesPage() {
     const [messageCursor, setMessageCursor] = useState<string | null>(null);
     // Context menu
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; msgId: string } | null>(null);
+    // Highlighted message (for search scroll-to)
+    const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+    // Long press for mobile reactions
+    const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+    // ─── RENTAL FEATURES STATE ───
+    const [showListingSearch, setShowListingSearch] = useState(false);
+    const [listingSearchQuery, setListingSearchQuery] = useState('');
+    const [listingSearchResults, setListingSearchResults] = useState<ListingShareData[]>([]);
+    const [listingSearchLoading, setListingSearchLoading] = useState(false);
+    const [showBookingModal, setShowBookingModal] = useState<{ listingId: string; title: string; price: number; priceUnit?: string } | null>(null);
+    const [bookingDates, setBookingDates] = useState<{ start: string; end: string }>({ start: '', end: '' });
+    const [bookingLoading, setBookingLoading] = useState(false);
 
     const isDark = theme === 'dark';
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -215,6 +241,11 @@ export default function MessagesPage() {
     const socketRef = useRef<Socket | null>(null);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const editInputRef = useRef<HTMLInputElement>(null);
+    // Refs for click-outside-to-close
+    const emojiPickerRef = useRef<HTMLDivElement>(null);
+    const reactionPickerRef = useRef<HTMLDivElement>(null);
+    const attachMenuRef = useRef<HTMLDivElement>(null);
+    const contextMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => { activeRoomIdRef.current = activeRoomId; }, [activeRoomId]);
     useEffect(() => { setIsMounted(true); }, []);
@@ -224,6 +255,71 @@ export default function MessagesPage() {
         check();
         window.addEventListener('resize', check);
         return () => window.removeEventListener('resize', check);
+    }, []);
+
+    // ─── SORT ROOMS HELPER (pinned first, then by updatedAt) ───
+    const sortRooms = useCallback((roomsList: ChatRoom[]) => {
+        return [...roomsList].sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1;
+            if (!a.isPinned && b.isPinned) return 1;
+            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        });
+    }, []);
+
+    // ─── CLICK-OUTSIDE-TO-CLOSE ALL POPOVERS ───
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (showEmojiPicker && emojiPickerRef.current && !emojiPickerRef.current.contains(target)) {
+                setShowEmojiPicker(false);
+            }
+            if (showReactionPicker && reactionPickerRef.current && !reactionPickerRef.current.contains(target)) {
+                setShowReactionPicker(null);
+            }
+            if (showAttachMenu && attachMenuRef.current && !attachMenuRef.current.contains(target)) {
+                setShowAttachMenu(false);
+            }
+            if (contextMenu && contextMenuRef.current && !contextMenuRef.current.contains(target)) {
+                setContextMenu(null);
+            }
+        };
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setShowEmojiPicker(false);
+                setShowReactionPicker(null);
+                setShowAttachMenu(false);
+                setContextMenu(null);
+                setForwardingMessage(null);
+                setShowLightbox(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEsc);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEsc);
+        };
+    }, [showEmojiPicker, showReactionPicker, showAttachMenu, contextMenu]);
+
+    // ─── LONG PRESS HANDLER FOR MOBILE REACTIONS ───
+    const handleMessageTouchStart = useCallback((msgId: string, e: React.TouchEvent) => {
+        longPressTimerRef.current = setTimeout(() => {
+            const touch = e.touches[0];
+            setContextMenu({ x: touch.clientX, y: touch.clientY, msgId });
+        }, 500);
+    }, []);
+
+    const handleMessageTouchEnd = useCallback(() => {
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+    }, []);
+
+    // ─── RIGHT-CLICK CONTEXT MENU ───
+    const handleMessageContextMenu = useCallback((e: React.MouseEvent, msgId: string) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, msgId });
     }, []);
 
     const scrollToBottom = useCallback((smooth = true) => {
@@ -302,13 +398,13 @@ export default function MessagesPage() {
             if (curRoom && msg.chatRoomId === curRoom) {
                 setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
             }
-            setRooms(prev => prev.map(r => {
+            setRooms(prev => sortRooms(prev.map(r => {
                 if (r.id === msg.chatRoomId) {
                     return { ...r, updatedAt: msg.createdAt, messages: [msg],
                         unreadCount: msg.chatRoomId === curRoom ? r.unreadCount : r.unreadCount + 1 };
                 }
                 return r;
-            }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+            })));
         });
 
         socket.on('user_typing', ({ roomId, name }: { roomId: string; userId: string; name: string }) => {
@@ -509,8 +605,7 @@ export default function MessagesPage() {
             const msg = await apiClient.post<Message & { chatRoomId: string }>(`/chat/rooms/${activeRoomId}/messages`, payload);
             setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
             socketRef.current?.emit('send_message', { roomId: activeRoomId, message: msg });
-            setRooms(prev => prev.map(r => r.id === activeRoomId ? { ...r, updatedAt: msg.createdAt, messages: [msg] } : r)
-                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+            setRooms(prev => sortRooms(prev.map(r => r.id === activeRoomId ? { ...r, updatedAt: msg.createdAt, messages: [msg] } : r)));
 
             pendingFiles.forEach(pf => { if (pf.preview) URL.revokeObjectURL(pf.preview); });
             setPendingFiles([]);
@@ -574,8 +669,25 @@ export default function MessagesPage() {
             const res = await apiClient.get<{ results: Message[] }>(`/chat/rooms/${activeRoomId}/messages/search?q=${encodeURIComponent(query)}`);
             setChatSearchResults(res.results);
             setChatSearchIdx(0);
+            // Scroll to first result
+            if (res.results.length > 0) {
+                scrollToMessage(res.results[0].id);
+            }
         } catch (err) { console.error('Search failed:', err); }
     }, [activeRoomId]);
+
+    // Scroll to and highlight a specific message
+    const scrollToMessage = useCallback((msgId: string) => {
+        setHighlightedMsgId(msgId);
+        setTimeout(() => {
+            const el = document.getElementById(`msg-${msgId}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
+        // Remove highlight after 2s
+        setTimeout(() => setHighlightedMsgId(null), 2500);
+    }, []);
 
     const handlePinToggle = useCallback(async () => {
         if (!activeRoomId) return;
@@ -583,7 +695,7 @@ export default function MessagesPage() {
         const newVal = !(room?.isPinned || false);
         try {
             await apiClient.patch(`/chat/rooms/${activeRoomId}/settings`, { isPinned: newVal });
-            setRooms(prev => prev.map(r => r.id === activeRoomId ? { ...r, isPinned: newVal } : r));
+            setRooms(prev => sortRooms(prev.map(r => r.id === activeRoomId ? { ...r, isPinned: newVal } : r)));
         } catch (err) { console.error('Pin toggle failed:', err); }
     }, [activeRoomId, rooms]);
 
@@ -596,6 +708,86 @@ export default function MessagesPage() {
             setRooms(prev => prev.map(r => r.id === activeRoomId ? { ...r, isMuted: newVal } : r));
         } catch (err) { console.error('Mute toggle failed:', err); }
     }, [activeRoomId, rooms]);
+
+    // ─── RENTAL FEATURE HANDLERS ───
+
+    const searchListings = useCallback(async (query: string) => {
+        setListingSearchLoading(true);
+        try {
+            const res = await apiClient.get<{ listings: ListingShareData[] }>(`/listings${query ? `?search=${encodeURIComponent(query)}` : ''}`);
+            setListingSearchResults(res.listings || []);
+        } catch (err) { 
+            console.error('Listing search failed:', err);
+            setListingSearchResults([]);
+        }
+        finally { setListingSearchLoading(false); }
+    }, []);
+
+    const handleShareListing = useCallback(async (listing: ListingShareData) => {
+        if (!activeRoomId || !user) return;
+        try {
+            const imageUrl = listing.media?.[0]?.url || listing.images?.[0] || '';
+            const listingMeta = JSON.stringify({
+                listingId: listing.id,
+                title: listing.title,
+                price: listing.price,
+                priceUnit: listing.priceUnit || 'DAY',
+                category: listing.category || '',
+                location: listing.location || '',
+                rating: listing.rating || 0,
+                image: imageUrl,
+                ownerName: listing.owner?.firstName || '',
+            });
+            
+            const payload: any = {
+                content: `📦 Shared a listing: ${listing.title}`,
+                attachments: [{
+                    url: imageUrl,
+                    type: 'LISTING_SHARE',
+                    name: listingMeta,
+                    size: listing.price,
+                }]
+            };
+
+            const msg = await apiClient.post<Message & { chatRoomId: string }>(`/chat/rooms/${activeRoomId}/messages`, payload);
+            setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+            socketRef.current?.emit('send_message', { roomId: activeRoomId, message: msg });
+            setRooms(prev => sortRooms(prev.map(r => r.id === activeRoomId ? { ...r, updatedAt: msg.createdAt, messages: [msg] } : r)));
+            setShowListingSearch(false);
+            setListingSearchQuery('');
+        } catch (err) { console.error('Share listing failed:', err); }
+    }, [activeRoomId, user, sortRooms]);
+
+    const handleRequestBooking = useCallback(async () => {
+        if (!showBookingModal || !bookingDates.start || !bookingDates.end || !activeRoomId || !user) return;
+        setBookingLoading(true);
+        try {
+            const start = new Date(bookingDates.start);
+            const end = new Date(bookingDates.end);
+            const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000));
+            const totalPrice = days * showBookingModal.price;
+
+            await apiClient.post('/bookings', {
+                listingId: showBookingModal.listingId,
+                startDate: bookingDates.start,
+                endDate: bookingDates.end,
+                totalPrice,
+            });
+
+            // Send a system-like message about the booking request
+            const payload = {
+                content: `📋 Booking requested for "${showBookingModal.title}"\n📅 ${start.toLocaleDateString()} → ${end.toLocaleDateString()}\n💰 $${totalPrice.toFixed(2)} (${days} day${days > 1 ? 's' : ''})`,
+            };
+            const msg = await apiClient.post<Message & { chatRoomId: string }>(`/chat/rooms/${activeRoomId}/messages`, payload);
+            setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+            socketRef.current?.emit('send_message', { roomId: activeRoomId, message: msg });
+            setRooms(prev => sortRooms(prev.map(r => r.id === activeRoomId ? { ...r, updatedAt: msg.createdAt, messages: [msg] } : r)));
+
+            setShowBookingModal(null);
+            setBookingDates({ start: '', end: '' });
+        } catch (err) { console.error('Booking request failed:', err); }
+        finally { setBookingLoading(false); }
+    }, [showBookingModal, bookingDates, activeRoomId, user, sortRooms]);
 
     const loadOlderMessages = useCallback(async () => {
         if (!activeRoomId || !hasMoreMessages || loadingOlder || !messageCursor) return;
@@ -803,7 +995,7 @@ export default function MessagesPage() {
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
+            <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5" data-lenis-prevent="true">
                 {isLoading ? (
                     <div className="p-6 text-center text-[13px] text-white/30">Loading chats...</div>
                 ) : filteredRooms.length === 0 ? (
@@ -890,7 +1082,7 @@ export default function MessagesPage() {
                 </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
+            <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5 min-h-0" data-lenis-prevent="true">
                 {allUsersFiltered.length === 0 ? (
                     <div className="p-8 text-center">
                         <Search size={36} className="mx-auto mb-3 text-white/10" />
@@ -939,7 +1131,7 @@ export default function MessagesPage() {
 
     // ─── CHAT AREA ───
     const chatContent = activeRoomId && targetUser ? (
-        <div className="flex-1 flex flex-col h-full overflow-hidden relative" style={{ background: 'var(--bg-chat)' }}>
+        <div className="flex-1 flex flex-col h-full overflow-hidden relative min-h-0" style={{ background: 'var(--bg-chat)' }}>
             <div className="absolute inset-0 bg-grid-pattern pointer-events-none opacity-40" />
             {/* Header */}
             <div className="h-[72px] flex-shrink-0 flex items-center justify-between px-5 border-b border-white/[0.04]" style={{ background: 'var(--bg-header)', backdropFilter: 'blur(20px)' }}>
@@ -1003,8 +1195,8 @@ export default function MessagesPage() {
                     {chatSearchResults.length > 0 && (
                         <div className="flex items-center gap-1.5">
                             <span className="text-[10px] text-white/30">{chatSearchIdx + 1}/{chatSearchResults.length}</span>
-                            <button onClick={() => setChatSearchIdx(prev => Math.max(0, prev - 1))} className="p-1 rounded hover:bg-white/5 text-white/40"><ChevronUp size={14} /></button>
-                            <button onClick={() => setChatSearchIdx(prev => Math.min(chatSearchResults.length - 1, prev + 1))} className="p-1 rounded hover:bg-white/5 text-white/40"><ChevronDown size={14} /></button>
+                            <button onClick={() => { const newIdx = Math.max(0, chatSearchIdx - 1); setChatSearchIdx(newIdx); scrollToMessage(chatSearchResults[newIdx].id); }} className="p-1 rounded hover:bg-white/5 text-white/40"><ChevronUp size={14} /></button>
+                            <button onClick={() => { const newIdx = Math.min(chatSearchResults.length - 1, chatSearchIdx + 1); setChatSearchIdx(newIdx); scrollToMessage(chatSearchResults[newIdx].id); }} className="p-1 rounded hover:bg-white/5 text-white/40"><ChevronDown size={14} /></button>
                         </div>
                     )}
                     <button onClick={() => { setChatSearchOpen(false); setChatSearchQuery(''); setChatSearchResults([]); }} className="p-1 rounded hover:bg-white/5 text-white/40"><X size={14} /></button>
@@ -1012,7 +1204,7 @@ export default function MessagesPage() {
             )}
 
             {/* Messages */}
-            <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-1.5 relative">
+            <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-1.5 relative min-h-0 touch-pan-y" style={{ overscrollBehavior: 'contain' }} data-lenis-prevent="true">
                 {messagesLoading ? (
                     <div className="flex-1 flex items-center justify-center"><span className="text-[13px] text-white/25">Loading messages...</span></div>
                 ) : messages.length === 0 ? (
@@ -1033,28 +1225,19 @@ export default function MessagesPage() {
                             </button>
                         </div>
                     )}
-                    <AnimatePresence initial={false}>
                     {messagesWithDates.map(({ msg, dateLabel, showDate }, idx) => {
                     const isMe = msg.sender.id === user.id;
                     const timeStr = getTimeLabel(msg.createdAt);
                     // Show time label if first msg or gap > 5 min from previous
                     const prevMsg = idx > 0 ? messagesWithDates[idx - 1].msg : null;
                     const showTime = !prevMsg || (new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() > 300000);
+                    const isHighlighted = highlightedMsgId === msg.id;
 
-                    const stackIndex = messagesWithDates.length - 1 - idx;
                     return (
-                        <motion.div key={msg.id || idx}
-                            layout
-                            initial={{ opacity: 0, scale: 0.8, y: 60, rotateX: -30 }}
-                            animate={{ opacity: 1 - stackIndex * 0.05, scale: 1 - Math.min(stackIndex * 0.03, 0.3), y: 0, rotateX: 0 }}
-                            exit={{ opacity: 0, scale: 0.8, y: -20, transition: { duration: 0.2 } }}
-                            transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                            style={{ 
-                                perspective: 1000,
-                                zIndex: messagesWithDates.length - stackIndex,
-                                transformOrigin: 'bottom center'
-                             }}
-                            className="relative"
+                        <div key={msg.id || idx}
+                            id={`msg-${msg.id}`}
+                            className={`relative mb-2 ${isHighlighted ? 'ring-2 ring-[#8B5CF6]/50 rounded-2xl bg-[#8B5CF6]/5 transition-all duration-500' : ''}`}
+                            onContextMenu={(e) => handleMessageContextMenu(e, msg.id)}
                         >
                             {showDate && (
                                 <div className="flex justify-center my-4">
@@ -1104,7 +1287,56 @@ export default function MessagesPage() {
                                                 <div className={`flex flex-col gap-1.5 mb-1 ${msg.attachments.length > 1 ? 'w-full' : ''}`}>
                                                     {msg.attachments.map((att, ai) => (
                                                         <div key={ai}>
-                                                            {att.type === 'IMAGE' ? (
+                                                            {att.type === 'LISTING_SHARE' ? (() => {
+                                                                let meta: any = {};
+                                                                try { meta = JSON.parse(att.name || '{}'); } catch {}
+                                                                return (
+                                                                    <div className={`rounded-[16px] ${isMe ? 'rounded-br-md' : 'rounded-bl-md'} overflow-hidden max-w-[300px] min-w-[260px]`}
+                                                                        style={{ background: isMe ? 'rgba(52, 211, 153, 0.08)' : 'rgba(30, 41, 59, 0.9)', border: `1px solid ${isMe ? 'rgba(52, 211, 153, 0.2)' : 'rgba(139, 92, 246, 0.2)'}` }}>
+                                                                        {meta.image && (
+                                                                            <div className="relative h-[140px] overflow-hidden">
+                                                                                <img src={meta.image} alt={meta.title} className="w-full h-full object-cover" loading="lazy" />
+                                                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                                                                {meta.category && (
+                                                                                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#8B5CF6]/80 text-white">
+                                                                                        {meta.category}
+                                                                                    </span>
+                                                                                )}
+                                                                                {meta.rating > 0 && (
+                                                                                    <span className="absolute top-2 right-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-black/50 text-yellow-400">
+                                                                                        <Star size={10} className="fill-yellow-400" /> {meta.rating.toFixed(1)}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="p-3">
+                                                                            <h4 className="text-[13px] font-bold text-white truncate">{meta.title || 'Listing'}</h4>
+                                                                            <div className="flex items-center gap-3 mt-1.5">
+                                                                                <span className="text-[14px] font-bold text-[#34D399]">
+                                                                                    ${meta.price?.toFixed(0) || '0'}<span className="text-[10px] text-white/30 font-normal">/{(meta.priceUnit || 'DAY').toLowerCase()}</span>
+                                                                                </span>
+                                                                                {meta.location && (
+                                                                                    <span className="flex items-center gap-0.5 text-[10px] text-white/30">
+                                                                                        <MapPin size={9} /> {meta.location}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 mt-2.5">
+                                                                                <Link href={`/listings/${meta.listingId}`} 
+                                                                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold bg-[#8B5CF6]/15 text-[#A855F7] hover:bg-[#8B5CF6]/25 transition-colors">
+                                                                                    <ExternalLink size={11} /> View Listing
+                                                                                </Link>
+                                                                                {!isMe && (
+                                                                                    <button onClick={() => setShowBookingModal({ listingId: meta.listingId, title: meta.title, price: meta.price, priceUnit: meta.priceUnit })}
+                                                                                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold bg-[#34D399]/15 text-[#34D399] hover:bg-[#34D399]/25 transition-colors">
+                                                                                        <ShoppingBag size={11} /> Request to Rent
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })() : att.type === 'IMAGE' ? (
                                                                 <div className={`rounded-[16px] ${isMe ? 'rounded-br-md' : 'rounded-bl-md'} overflow-hidden max-w-[280px] cursor-pointer relative group/img`}
                                                                     onClick={() => openLightbox(msg.attachments.filter(a => a.type === 'IMAGE').map(a => ({ url: a.url, name: a.name })), msg.attachments.filter(a => a.type === 'IMAGE').indexOf(att))}>
                                                                     <img src={att.url} alt={att.name || 'Image'} className="w-full h-auto max-h-[240px] object-cover" loading="lazy" />
@@ -1153,7 +1385,7 @@ export default function MessagesPage() {
                                                     <button onClick={() => handleEditMessage(msg.id, editContent)} className="p-2 rounded-lg bg-[#8B5CF6] text-white"><Check size={14} /></button>
                                                     <button onClick={() => { setEditingMessageId(null); setEditContent(''); }} className="p-2 rounded-lg bg-white/5 text-white/40"><X size={14} /></button>
                                                 </div>
-                                            ) : msg.content ? (
+                                            ) : msg.content && !(msg.attachments?.some(a => a.type === 'LISTING_SHARE')) ? (
                                                 <div className={`px-5 py-3 text-[13.5px] leading-relaxed rounded-[20px] ${isMe ? 'rounded-br-md text-[#0B0F19] font-bold tracking-tight' : 'rounded-bl-md text-white/95'}`}
                                                     style={isMe ? { 
                                                         background: 'linear-gradient(135deg, #34D399 0%, #38BDF8 100%)', 
@@ -1171,11 +1403,12 @@ export default function MessagesPage() {
 
                                             {/* Reactions */}
                                             {msg.reactions && msg.reactions.length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                <div className="relative z-10 flex flex-wrap gap-1.5 mt-1.5">
                                                     {Object.entries(msg.reactions.reduce((acc, r) => { acc[r.emoji] = (acc[r.emoji] || 0) + 1; return acc; }, {} as Record<string, number>)).map(([emoji, count]) => (
                                                         <button key={emoji} onClick={() => handleReaction(msg.id, emoji)}
-                                                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] transition-all ${msg.reactions!.some(r => r.emoji === emoji && r.userId === user.id) ? 'bg-[#8B5CF6]/20 border border-[#8B5CF6]/30' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}>
-                                                            <span>{emoji}</span><span className="text-white/40">{count as number}</span>
+                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] leading-none transition-all whitespace-nowrap ${msg.reactions!.some(r => r.emoji === emoji && r.userId === user.id) ? 'bg-[#8B5CF6]/20 border border-[#8B5CF6]/40 shadow-sm shadow-[#8B5CF6]/10' : 'bg-white/[0.06] border border-white/10 hover:bg-white/10'}`}>
+                                                            <span className="text-[14px] leading-none">{emoji}</span>
+                                                            <span className="text-white/50 font-medium text-[11px]">{count as number}</span>
                                                         </button>
                                                     ))}
                                                 </div>
@@ -1183,9 +1416,9 @@ export default function MessagesPage() {
 
                                             {/* Quick reaction picker */}
                                             {showReactionPicker === msg.id && (
-                                                <div className="flex gap-1 mt-1 px-2 py-1.5 rounded-full" style={{ background: 'rgba(51, 65, 85, 0.9)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                <div ref={reactionPickerRef} className="relative z-20 flex flex-wrap gap-1.5 mt-1.5 px-3 py-2 rounded-full shadow-lg" style={{ background: 'rgba(30, 41, 59, 0.95)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)' }}>
                                                     {QUICK_EMOJIS.map(e => (
-                                                        <button key={e} onClick={() => handleReaction(msg.id, e)} className="hover:scale-125 transition-transform text-[16px] px-0.5">{e}</button>
+                                                        <button key={e} onClick={() => handleReaction(msg.id, e)} className="hover:scale-125 active:scale-95 transition-transform text-[18px] leading-none px-0.5">{e}</button>
                                                     ))}
                                                 </div>
                                             )}
@@ -1208,10 +1441,9 @@ export default function MessagesPage() {
                                     </>
                                 )}
                             </div>
-                        </motion.div>
+                        </div>
                     );
                     })}
-                    </AnimatePresence>
 
                     {typingName && (
                         <div className="flex items-center gap-2 mt-2">
@@ -1304,7 +1536,7 @@ export default function MessagesPage() {
                 )}
                 <div className="flex items-center gap-3">
                     {/* Attachment button with menu */}
-                    <div className="relative">
+                    <div className="relative" ref={attachMenuRef}>
                         <button
                             onClick={() => setShowAttachMenu(!showAttachMenu)}
                             className={`w-11 h-11 rounded-full flex items-center justify-center transition-all flex-shrink-0 border border-white/[0.06] ${
@@ -1346,13 +1578,25 @@ export default function MessagesPage() {
                                         <span className="text-[13px] text-white/70 font-medium">{item.label}</span>
                                     </button>
                                 ))}
+                                {/* Divider */}
+                                <div className="h-px bg-white/[0.06] mx-3" />
+                                {/* Share Listing */}
+                                <button
+                                    onClick={() => { setShowAttachMenu(false); setShowListingSearch(true); searchListings(''); }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors text-left"
+                                >
+                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[#34D399] bg-[#34D399]/10">
+                                        <Package size={16} />
+                                    </div>
+                                    <span className="text-[13px] text-white/70 font-medium">Share Listing</span>
+                                </button>
                             </motion.div>
                         )}
                         </AnimatePresence>
                     </div>
 
                     {/* Emoji button */}
-                    <div className="relative">
+                    <div className="relative" ref={emojiPickerRef}>
                         <button onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                             className={`p-2.5 rounded-full transition-all flex-shrink-0 ${showEmojiPicker ? 'bg-[#8B5CF6]/20 text-[#A855F7]' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}>
                             <Smile size={20} />
@@ -1364,12 +1608,12 @@ export default function MessagesPage() {
                                 animate={{ opacity: 1, scale: 1, y: 0, rotate: 0 }}
                                 exit={{ opacity: 0, scale: 0.8, y: 20, rotate: -5 }}
                                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                className="absolute bottom-14 left-0 z-50 rounded-2xl overflow-hidden shadow-2xl"
+                                className="absolute bottom-14 left-0 sm:-left-4 z-50 rounded-2xl overflow-hidden shadow-2xl w-[280px] sm:w-[320px]"
                                 style={{ background: 'rgba(15, 23, 42, 0.98)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }}>
-                                <div className="grid grid-cols-8 gap-1 p-3 max-h-[200px] overflow-y-auto">
+                                <div className="grid grid-cols-7 sm:grid-cols-8 gap-1.5 p-3 max-h-[250px] overflow-y-auto" data-lenis-prevent="true">
                                     {['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','🥰','😘','😗','😙','😚','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕','🙃','🤑','😲','☹️','🙁','😖','😞','😟','😤','😢','😭','😦','😧','😨','😩','🤯','😬','😰','😱','🥵','🥶','😳','🤪','😵','😡','😠','🤬','👍','👎','👏','🙌','🤝','❤️','🔥','⭐','🎉','💯','🙏','💪','👀','💀','🤷'].map(e => (
                                         <button key={e} onClick={() => { setMessageInput(prev => prev + e); setShowEmojiPicker(false); }}
-                                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-[18px]">{e}</button>
+                                            className="w-full aspect-square flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-[20px] active:scale-90">{e}</button>
                                     ))}
                                 </div>
                             </motion.div>
@@ -1412,8 +1656,7 @@ export default function MessagesPage() {
                                     const msg = await apiClient.post<Message & { chatRoomId: string }>(`/chat/rooms/${activeRoomId}/messages`, { attachments: [attachment] });
                                     setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
                                     socketRef.current?.emit('send_message', { roomId: activeRoomId, message: msg });
-                                    setRooms(prev => prev.map(r => r.id === activeRoomId ? { ...r, updatedAt: msg.createdAt, messages: [msg] } : r)
-                                        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+                                    setRooms(prev => sortRooms(prev.map(r => r.id === activeRoomId ? { ...r, updatedAt: msg.createdAt, messages: [msg] } : r)));
                                 } catch (err) { console.error('Voice send failed:', err); }
                             }}
                         />
@@ -1446,7 +1689,7 @@ export default function MessagesPage() {
                 className="w-1.5 h-full cursor-col-resize hover:bg-[#8B5CF6]/30 transition-colors z-30"
                 onMouseDown={(e) => { setIsResizingDetails(true); e.preventDefault(); }}
             />
-            <div className="flex-shrink-0 overflow-y-auto border-l border-white/[0.04]" style={{ width: `${detailsWidth}px`, background: 'rgba(15, 23, 42, 0.6)' }}>
+            <div className="flex-shrink-0 overflow-y-auto border-l border-white/[0.04]" style={{ width: `${detailsWidth}px`, background: 'rgba(15, 23, 42, 0.6)' }} data-lenis-prevent="true">
                 <div className="flex flex-col items-center pt-8 pb-5">
                     <div className="w-[88px] h-[88px] rounded-full overflow-hidden bg-gradient-to-br from-[#A855F7] to-[#D946EF] flex items-center justify-center mb-4 ring-4 ring-[#8B5CF6]/15">
                         {targetUser.avatar ? <img src={targetUser.avatar} alt="" className="w-full h-full object-cover" /> :
@@ -1460,17 +1703,22 @@ export default function MessagesPage() {
 
                 {/* Action buttons */}
                 <div className="flex items-center justify-center gap-2 px-5 pb-5">
-                    {[
-                        { icon: <Flag size={15} />, label: 'Flag' },
-                        { icon: <Lock size={15} />, label: 'Lock' },
-                        { icon: <Info size={15} />, label: 'Info' },
-                        { icon: <Pin size={15} />, label: 'Pin' },
-                    ].map((action, i) => (
-                        <button key={i} title={action.label}
-                            className="w-11 h-11 rounded-full flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-all border border-white/[0.06]">
-                            {action.icon}
-                        </button>
-                    ))}
+                    <button onClick={handlePinToggle} title={activeRoom?.isPinned ? 'Unpin' : 'Pin'}
+                        className={`w-11 h-11 rounded-full flex items-center justify-center transition-all border border-white/[0.06] ${activeRoom?.isPinned ? 'bg-[#34D399]/10 text-[#34D399]' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}>
+                        {activeRoom?.isPinned ? <PinOff size={15} /> : <Pin size={15} />}
+                    </button>
+                    <button onClick={handleMuteToggle} title={activeRoom?.isMuted ? 'Unmute' : 'Mute'}
+                        className={`w-11 h-11 rounded-full flex items-center justify-center transition-all border border-white/[0.06] ${activeRoom?.isMuted ? 'bg-yellow-500/10 text-yellow-400' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}>
+                        {activeRoom?.isMuted ? <BellOff size={15} /> : <Bell size={15} />}
+                    </button>
+                    <button onClick={() => { setChatSearchOpen(true); setChatSearchQuery(''); setChatSearchResults([]); }} title="Search"
+                        className="w-11 h-11 rounded-full flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-all border border-white/[0.06]">
+                        <SearchIcon size={15} />
+                    </button>
+                    <button title="Info"
+                        className="w-11 h-11 rounded-full flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-all border border-white/[0.06]">
+                        <Info size={15} />
+                    </button>
                 </div>
 
                 <div className="mx-5 h-px bg-white/[0.04]" />
@@ -1482,16 +1730,37 @@ export default function MessagesPage() {
                         Shared Media
                         {showMediaSection ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     </button>
-                    {showMediaSection && (
-                        <div className="mt-2 grid grid-cols-3 gap-1.5">
-                            {[...Array(6)].map((_, i) => (
-                                <div key={i} className="aspect-square rounded-xl overflow-hidden flex items-center justify-center"
-                                    style={{ background: 'rgba(51, 65, 85, 0.5)', border: '1px solid rgba(255,255,255,0.03)' }}>
-                                    <ImageIcon size={16} className="text-white/10" />
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    {showMediaSection && (() => {
+                        const sharedMedia = messages.flatMap(m => 
+                            (m.attachments || []).filter(a => a.type === 'IMAGE' || a.type === 'VIDEO')
+                        );
+                        return sharedMedia.length > 0 ? (
+                            <div className="mt-2 grid grid-cols-3 gap-1.5">
+                                {sharedMedia.slice(0, 9).map((att, i) => (
+                                    <div key={i} className="aspect-square rounded-xl overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                                        style={{ background: 'rgba(51, 65, 85, 0.5)', border: '1px solid rgba(255,255,255,0.03)' }}
+                                        onClick={() => {
+                                            if (att.type === 'IMAGE') {
+                                                openLightbox(sharedMedia.filter(a => a.type === 'IMAGE').map(a => ({ url: a.url, name: a.name })), sharedMedia.filter(a => a.type === 'IMAGE').indexOf(att));
+                                            }
+                                        }}>
+                                        {att.type === 'IMAGE' ? (
+                                            <img src={att.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center">
+                                                <Video size={20} className="text-white/30" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="mt-2 flex flex-col items-center py-4">
+                                <ImageIcon size={24} className="text-white/10 mb-2" />
+                                <p className="text-[11px] text-white/20">No shared media yet</p>
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
         </div>
@@ -1530,7 +1799,7 @@ export default function MessagesPage() {
                     <h3 className="text-[15px] font-bold text-white">Forward Message</h3>
                     <button onClick={() => setForwardingMessage(null)} className="p-1.5 rounded-lg hover:bg-white/5 text-white/40"><X size={16} /></button>
                 </div>
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto" data-lenis-prevent="true">
                     {rooms.filter(r => r.id !== activeRoomId).map(room => {
                         const otherMember = room.members.find(m => m.userId !== user.id)?.user;
                         const roomLabel = room.isGroup ? (room.name || 'Group') : (otherMember ? `${otherMember.firstName} ${otherMember.lastName || ''}` : 'Unknown');
@@ -1553,6 +1822,205 @@ export default function MessagesPage() {
         </div>
     ) : null;
 
+    // ─── LISTING SEARCH MODAL ───
+    const listingSearchModal = showListingSearch ? (
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4" onClick={() => setShowListingSearch(false)}>
+            <div className="w-full max-w-[500px] h-[600px] max-h-[90vh] rounded-2xl overflow-hidden flex flex-col"
+                style={{ background: 'rgba(15, 23, 42, 0.98)', border: '1px solid rgba(255,255,255,0.08)' }}
+                onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+                    <h3 className="text-[15px] font-bold text-white flex items-center gap-2">
+                        <Package size={16} className="text-[#34D399]" /> Share a Listing
+                    </h3>
+                    <button onClick={() => setShowListingSearch(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-white/40"><X size={16} /></button>
+                </div>
+                <div className="p-4 border-b border-white/[0.04]">
+                    <div className="relative">
+                        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+                        <input type="text" placeholder="Search your listings..." value={listingSearchQuery}
+                            onChange={e => {
+                                setListingSearchQuery(e.target.value);
+                                searchListings(e.target.value);
+                            }}
+                            className="w-full text-[13px] rounded-xl pl-10 pr-4 py-3 outline-none bg-[#1E293B]/60 text-white border border-white/[0.06] focus:border-[#34D399]/40 placeholder:text-white/25 transition-all"
+                            autoFocus
+                        />
+                        {listingSearchLoading && <Loader2 size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 animate-spin" />}
+                    </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2" data-lenis-prevent="true">
+                    {listingSearchResults.length === 0 && !listingSearchLoading ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center p-6">
+                            <Package size={32} className="text-white/10 mb-3" />
+                            <p className="text-[13px] text-white/40">No listings found matching your search.</p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            {listingSearchResults.map(listing => (
+                                <div key={listing.id} className="flex gap-3 p-3 rounded-xl hover:bg-white/[0.04] transition-colors border border-transparent hover:border-white/[0.04] group">
+                                    <div className="w-[80px] h-[80px] rounded-lg overflow-hidden flex-shrink-0 bg-white/5 relative">
+                                        {(listing.media?.[0]?.url || listing.images?.[0]) ? (
+                                            <img src={listing.media?.[0]?.url || listing.images?.[0]} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center"><ImageIcon size={20} className="text-white/20" /></div>
+                                        )}
+                                        {listing.category && (
+                                            <span className="absolute top-1 left-1 px-1.5 rounded bg-black/60 text-[8px] font-bold text-white uppercase tracking-wider backdrop-blur-md">
+                                                {listing.category}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                                        <div>
+                                            <h4 className="text-[13px] font-bold text-white truncate">{listing.title}</h4>
+                                            <p className="text-[11px] text-[#34D399] font-medium mt-0.5">${listing.price}<span className="text-white/30 font-normal">/{listing.priceUnit || 'DAY'}</span></p>
+                                        </div>
+                                        <button onClick={() => handleShareListing(listing)}
+                                            className="self-start mt-2 px-4 py-1.5 rounded-lg text-[11px] font-bold bg-[#34D399]/15 text-[#34D399] opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all hover:bg-[#34D399]/25">
+                                            Share to Chat
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    ) : null;
+
+    // ─── BOOKING REQUEST MODAL ───
+    const bookingRequestModal = showBookingModal ? (
+        <div className="fixed inset-0 z-[150] bg-black/70 flex items-center justify-center p-4" onClick={() => setShowBookingModal(null)}>
+            <div className="w-full max-w-[400px] rounded-2xl overflow-hidden flex flex-col shadow-2xl"
+                style={{ background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(30px)' }}
+                onClick={e => e.stopPropagation()}>
+                <div className="p-6">
+                    <div className="w-12 h-12 rounded-xl bg-[#34D399]/15 flex items-center justify-center mb-4">
+                        <ShoppingBag size={24} className="text-[#34D399]" />
+                    </div>
+                    <h3 className="text-[20px] font-bold text-white mb-1">Request Booking</h3>
+                    <p className="text-[13px] text-white/50 mb-6 truncate">{showBookingModal.title}</p>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-[11px] font-medium text-white/40 mb-1.5 uppercase tracking-wider">Start Date</label>
+                            <div className="relative">
+                                <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                                <input type="date" min={new Date().toISOString().split('T')[0]} value={bookingDates.start} onChange={e => setBookingDates(prev => ({ ...prev, start: e.target.value }))}
+                                    className="w-full rounded-xl pl-9 pr-3 py-2.5 text-[13px] outline-none bg-black/20 text-white border border-white/[0.06] focus:border-[#34D399]/40 transition-[border-color,background-color] [color-scheme:dark]" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-medium text-white/40 mb-1.5 uppercase tracking-wider">End Date</label>
+                            <div className="relative">
+                                <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                                <input type="date" min={bookingDates.start || new Date().toISOString().split('T')[0]} value={bookingDates.end} onChange={e => setBookingDates(prev => ({ ...prev, end: e.target.value }))}
+                                    className="w-full rounded-xl pl-9 pr-3 py-2.5 text-[13px] outline-none bg-black/20 text-white border border-white/[0.06] focus:border-[#34D399]/40 transition-[border-color,background-color] [color-scheme:dark]" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {bookingDates.start && bookingDates.end && (
+                        <div className="mt-6 p-4 rounded-xl bg-black/20 border border-white/[0.04]">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-[12px] text-white/50">Rate</span>
+                                <span className="text-[13px] text-white font-medium">${showBookingModal.price} / {showBookingModal.priceUnit || 'DAY'}</span>
+                            </div>
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="text-[12px] text-white/50">Duration</span>
+                                <span className="text-[13px] text-white font-medium">
+                                    {Math.max(1, Math.ceil((new Date(bookingDates.end).getTime() - new Date(bookingDates.start).getTime()) / 86400000))} Days
+                                </span>
+                            </div>
+                            <div className="h-px bg-white/[0.06] mb-3" />
+                            <div className="flex justify-between items-center">
+                                <span className="text-[13px] font-bold text-white">Estimated Total</span>
+                                <span className="text-[16px] font-bold text-[#34D399]">
+                                    ${(Math.max(1, Math.ceil((new Date(bookingDates.end).getTime() - new Date(bookingDates.start).getTime()) / 86400000)) * showBookingModal.price).toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={() => setShowBookingModal(null)}
+                            className="flex-1 py-3 rounded-xl text-[13px] font-bold text-white hover:bg-white/5 border border-white/10 transition-colors">
+                            Cancel
+                        </button>
+                        <button onClick={handleRequestBooking} disabled={!bookingDates.start || !bookingDates.end || bookingLoading}
+                            className="flex-1 py-3 rounded-xl text-[13px] font-bold text-black border border-transparent transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{ background: 'linear-gradient(135deg, #34D399 0%, #38BDF8 100%)', boxShadow: '0 4px 15px rgba(52, 211, 153, 0.2)' }}>
+                            {bookingLoading ? <Loader2 size={14} className="animate-spin" /> : <ShoppingBag size={14} />}
+                            {bookingLoading ? 'Sending...' : 'Request'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    ) : null;
+
+    // ─── CONTEXT MENU OVERLAY ───
+    const contextMenuOverlay = contextMenu ? (() => {
+        const contextMsg = messages.find(m => m.id === contextMenu.msgId);
+        if (!contextMsg) return null;
+        const isMyMsg = contextMsg.sender.id === user.id;
+        return (
+            <div className="fixed inset-0 z-[200]" onClick={() => setContextMenu(null)}>
+                <div ref={contextMenuRef}
+                    className="absolute w-52 rounded-2xl overflow-hidden shadow-2xl py-1"
+                    style={{
+                        top: Math.min(contextMenu.y, window.innerHeight - 320),
+                        left: Math.min(contextMenu.x, window.innerWidth - 220),
+                        background: 'rgba(15, 23, 42, 0.98)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        backdropFilter: 'blur(20px)'
+                    }}
+                    onClick={e => e.stopPropagation()}>
+                    {/* Quick reactions row */}
+                    <div className="flex gap-1 px-3 py-2 border-b border-white/[0.06]">
+                        {QUICK_EMOJIS.map(e => (
+                            <button key={e} onClick={() => { handleReaction(contextMenu.msgId, e); setContextMenu(null); }}
+                                className="hover:scale-125 transition-transform text-[18px] px-0.5">{e}</button>
+                        ))}
+                    </div>
+                    {/* Actions */}
+                    <button onClick={() => { setReplyingTo(contextMsg); setContextMenu(null); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] transition-colors text-left">
+                        <Reply size={14} className="text-white/40" />
+                        <span className="text-[13px] text-white/70">Reply</span>
+                    </button>
+                    <button onClick={() => { setForwardingMessage(contextMsg); setContextMenu(null); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] transition-colors text-left">
+                        <Forward size={14} className="text-white/40" />
+                        <span className="text-[13px] text-white/70">Forward</span>
+                    </button>
+                    {contextMsg.content && (
+                        <button onClick={() => { navigator.clipboard.writeText(contextMsg.content || ''); setContextMenu(null); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] transition-colors text-left">
+                            <Copy size={14} className="text-white/40" />
+                            <span className="text-[13px] text-white/70">Copy</span>
+                        </button>
+                    )}
+                    {isMyMsg && (
+                        <>
+                            <button onClick={() => { setEditingMessageId(contextMsg.id); setEditContent(contextMsg.content || ''); setContextMenu(null); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] transition-colors text-left">
+                                <Pencil size={14} className="text-white/40" />
+                                <span className="text-[13px] text-white/70">Edit</span>
+                            </button>
+                            <button onClick={() => { handleDeleteMessage(contextMsg.id); setContextMenu(null); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-500/5 transition-colors text-left">
+                                <Trash2 size={14} className="text-red-400/60" />
+                                <span className="text-[13px] text-red-400/70">Delete</span>
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+        );
+    })() : null;
+
     // ─── MOBILE LAYOUT ───
     if (isMobile) {
         return (
@@ -1561,11 +2029,14 @@ export default function MessagesPage() {
                 <CallUI />
                 {lightboxOverlay}
                 {forwardDialog}
+                {contextMenuOverlay}
+                {listingSearchModal}
+                {bookingRequestModal}
                 <div className={`messaging-page-root theme-${themeMode} flex h-[100dvh] overflow-hidden font-sans ${avantGardeFont.className}`} style={{ background: 'var(--bg-main)' }}>
                     {mobileView === 'list' ? (
-                        <div className="w-full h-full">{sidebarContent}</div>
+                        <div className="w-full h-full min-h-0">{sidebarContent}</div>
                     ) : (
-                        <div className="w-full h-full flex flex-col relative">{chatContent}</div>
+                        <div className="w-full h-full flex flex-col relative min-h-0">{chatContent}</div>
                     )}
                 </div>
             </CallProvider>
@@ -1579,11 +2050,14 @@ export default function MessagesPage() {
             <CallUI />
             {lightboxOverlay}
             {forwardDialog}
-            <div className={`messaging-page-root theme-${themeMode} flex h-screen overflow-hidden font-sans ${avantGardeFont.className}`} style={{ background: 'var(--bg-main)' }}>
+            {contextMenuOverlay}
+            {listingSearchModal}
+            {bookingRequestModal}
+            <div className={`messaging-page-root theme-${themeMode} flex h-[100dvh] overflow-hidden font-sans ${avantGardeFont.className}`} style={{ background: 'var(--bg-main)' }}>
                 {navRail}
 
-                <div className="flex h-full flex-shrink-0">
-                    <div className="flex-shrink-0 overflow-hidden border-r border-white/[0.04]" style={{ width: `${sidebarWidth}px` }}>
+                <div className="flex h-full flex-shrink-0 min-h-0">
+                    <div className="flex-shrink-0 overflow-hidden border-r border-white/[0.04] flex flex-col min-h-0" style={{ width: `${sidebarWidth}px` }}>
                         {sidebarContent}
                     </div>
                     {/* Resizer */}
@@ -1593,7 +2067,7 @@ export default function MessagesPage() {
                     />
                 </div>
 
-                <div className="flex-1 flex flex-col relative overflow-hidden"
+                <div className="flex-1 flex flex-col relative overflow-hidden min-h-0"
 style={{ boxShadow: "inset 0 0 150px rgba(139, 92, 246, 0.03)" }}>
                     {chatContent}
                 </div>

@@ -58,10 +58,10 @@ async function main() {
     // 2. CREATE 4 PREMIUM USERS
     console.log('💎 Creating 4 premium users and listings...');
     const premiumUsers = [
-        { email: 'james@rentverse.com', firstName: 'James', lastName: 'TechMaster', verified: true },
-        { email: 'sarah@rentverse.com', firstName: 'Sarah', lastName: 'StudioPro', verified: true },
-        { email: 'elena@rentverse.com', firstName: 'Elena', lastName: 'LuxuryDrive', verified: true },
-        { email: 'alex@rentverse.com', firstName: 'Alex', lastName: 'DigitalGuru', verified: true },
+        { email: 'james@nexis.com', firstName: 'James', lastName: 'TechMaster', verified: true },
+        { email: 'sarah@nexis.com', firstName: 'Sarah', lastName: 'StudioPro', verified: true },
+        { email: 'elena@nexis.com', firstName: 'Elena', lastName: 'LuxuryDrive', verified: true },
+        { email: 'alex@nexis.com', firstName: 'Alex', lastName: 'DigitalGuru', verified: true },
     ];
 
     const premiumListings = [
